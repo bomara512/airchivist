@@ -217,7 +217,6 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 - YT Views (`yt_view_count`, formatted with M/K suffix)
 - Date Added
 - Date Last Viewed
-- Tags (pill badges)
 
 Both the thumbnail and the title link to `/visit/<video_id>`, which records the view then redirects to YouTube in a new tab.
 
@@ -584,11 +583,9 @@ Single `<tr>`. Both the thumbnail and the title link to `/visit/{{ video.video_i
 <td>{{ video.date_last_viewed | date }}</td>
 ```
 
-Tags rendered as `<span class="tag-pill">{{ tag }}</span>`.
-
 #### `_video_grid.html`
 
-Responsive grid of `<article class="video-card">`. Thumbnail and title both link to `/visit/{{ video.video_id }}`. Shows times watched, YT views, date added, and tag pills.
+Responsive grid of `<article class="video-card">`. Thumbnail and title both link to `/visit/{{ video.video_id }}`. Shows times watched, YT views, and date added.
 
 #### `style.css`
 
@@ -674,7 +671,7 @@ Manual verification checklist:
 - [ ] Create a tag with keywords "guitar, tutorial, lesson"
 - [ ] Group by Keywords shows matching videos under the tag
 - [ ] Videos with no matching tag appear in "Untagged"
-- [ ] Manually tag a video; tag badge appears on the row
+- [ ] Manually tag a video; association is persisted in the database
 - [ ] Delete a tag; it disappears from video associations
 - [ ] Thumbnails load lazily; broken thumbnails hide gracefully
 - [ ] Re-running the crawler does not reset Times Watched or Date Last Viewed
