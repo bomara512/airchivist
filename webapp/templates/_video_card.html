@@ -1,5 +1,5 @@
 <div class="video-card">
-  <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="thumb-link">
+  <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="thumb-link" target="_blank" rel="noopener noreferrer">
     {% if video.thumbnail_url %}
     <img src="{{ video.thumbnail_url }}" alt="{{ video.title }}" loading="lazy">
     {% else %}
@@ -7,7 +7,7 @@
     {% endif %}
   </a>
   <div class="video-info">
-    <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="video-title">
+    <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="video-title" target="_blank" rel="noopener noreferrer">
       {{ video.title or video.video_id }}
     </a>
     <div class="video-meta">

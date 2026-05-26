@@ -111,7 +111,7 @@ When the user clicks a video title or thumbnail in the webapp:
 1. The link targets `/visit/<video_id>` (not the YouTube URL directly).
 2. The Flask route calls `record_visit(g.db, video_id)`, which increments `personal_view_count` and sets `date_last_viewed` to the current UTC time.
 3. The route responds with a `302` redirect to the video's YouTube URL.
-4. The browser follows the redirect, opening YouTube in a new tab.
+4. The browser follows the redirect. Because the link uses `target="_blank"`, YouTube opens in a new tab while the ViewTube page remains open.
 
 This is transparent to the user — the click feels like a direct link — while allowing the app to track every view. The crawler never touches `personal_view_count` or `date_last_viewed`, so re-running the crawler does not reset this data.
 
@@ -204,7 +204,7 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 
 ### Main View (`index.html`)
 
-**Layout**: Responsive card grid. Each card shows thumbnail, title, channel, YT views, duration, date published, date added, and times watched (if > 0). Thumbnail and title both link to `/visit/<video_id>`.
+**Layout**: Responsive card grid. Each card shows thumbnail, title, channel, YT views, duration, date published, date added, and times watched (if > 0). Thumbnail and title both link to `/visit/<video_id>` with `target="_blank" rel="noopener noreferrer"`, opening YouTube in a new tab.
 
 **Filter controls** (above the grid, no Apply button):
 
