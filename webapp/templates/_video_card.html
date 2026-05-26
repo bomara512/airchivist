@@ -14,6 +14,7 @@
       <span>{{ video.channel_name or '—' }}</span>
       <span>{{ video.yt_view_count | view_count }} views</span>
       <span>{{ video.duration_seconds | duration }}</span>
+      <span>Published {{ video.date_published | date }}</span>
       <span>Added {{ video.date_added | date }}</span>
       {% if video.personal_view_count %}
       <span>Watched {{ video.personal_view_count }}×</span>

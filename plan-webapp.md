@@ -204,7 +204,7 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 
 ### Main View (`index.html`)
 
-**Layout**: Responsive card grid. Each card shows thumbnail, title, channel, YT views, duration, date added, and times watched (if > 0). Thumbnail and title both link to `/visit/<video_id>`.
+**Layout**: Responsive card grid. Each card shows thumbnail, title, channel, YT views, duration, date published, date added, and times watched (if > 0). Thumbnail and title both link to `/visit/<video_id>`.
 
 **Filter controls** (above the grid, no Apply button):
 
