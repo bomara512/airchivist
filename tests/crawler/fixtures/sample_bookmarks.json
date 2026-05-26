@@ -1,0 +1,79 @@
+{
+  "guid": "root________",
+  "title": "",
+  "id": 1,
+  "dateAdded": 1600000000000000,
+  "lastModified": 1700000000000000,
+  "type": "text/x-moz-place-container",
+  "root": "placesRoot",
+  "children": [
+    {
+      "guid": "menu________",
+      "title": "Bookmarks Menu",
+      "id": 2,
+      "dateAdded": 1600000000000000,
+      "lastModified": 1700000000000000,
+      "type": "text/x-moz-place-container",
+      "children": [
+        {
+          "guid": "folder1_____",
+          "title": "Videos",
+          "id": 3,
+          "dateAdded": 1610000000000000,
+          "lastModified": 1700000000000000,
+          "type": "text/x-moz-place-container",
+          "children": [
+            {
+              "guid": "bookmark1___",
+              "title": "Rick Astley - Never Gonna Give You Up",
+              "id": 4,
+              "dateAdded": 1620000000000000,
+              "lastModified": 1700000000000000,
+              "type": "text/x-moz-place",
+              "typeCode": 1,
+              "uri": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+            },
+            {
+              "guid": "bookmark2___",
+              "title": "Short Link Video",
+              "id": 5,
+              "dateAdded": 1630000000000000,
+              "lastModified": 1700000000000000,
+              "type": "text/x-moz-place",
+              "typeCode": 1,
+              "uri": "https://youtu.be/9bZkp7q19f0"
+            },
+            {
+              "guid": "bookmark3___",
+              "title": "Python Docs",
+              "id": 6,
+              "dateAdded": 1640000000000000,
+              "lastModified": 1700000000000000,
+              "type": "text/x-moz-place",
+              "typeCode": 1,
+              "uri": "https://docs.python.org/3/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "guid": "toolbar_____",
+      "title": "Bookmarks Toolbar",
+      "id": 7,
+      "dateAdded": 1600000000000000,
+      "lastModified": 1700000000000000,
+      "type": "text/x-moz-place-container",
+      "children": [
+        {
+          "guid": "bookmark4___",
+          "title": "No Date Video",
+          "id": 8,
+          "type": "text/x-moz-place",
+          "typeCode": 1,
+          "uri": "https://www.youtube.com/watch?v=Ks-_Mh1QhMc"
+        }
+      ]
+    }
+  ]
+}

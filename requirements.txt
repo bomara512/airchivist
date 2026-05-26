@@ -1,0 +1,5 @@
+yt-dlp
+beautifulsoup4
+requests
+google-api-python-client
+flask>=3.0

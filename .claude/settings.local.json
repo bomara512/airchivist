@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git -C /Users/bomara/workspace/dev/viewtube log --oneline)"
+      "Bash(git -C /Users/bomara/workspace/dev/viewtube log --oneline)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(.venv/bin/pytest *)"
     ]
   }
 }
