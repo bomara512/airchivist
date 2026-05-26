@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Tag: {{ tag.name }} — ViewTube{% endblock %}
+
+{% block content %}
+<h1>{{ tag.name }}</h1>
+
+<form method="post" action="{{ url_for('main.set_tag_keywords', tag_id=tag.id) }}">
+  <label>Keywords (one per line):</label><br>
+  <textarea name="keywords" rows="6">{{ tag.keywords | join('\n') }}</textarea><br>
+  <button type="submit">Save Keywords</button>
+</form>
+
+<p><a href="{{ url_for('main.tags') }}">Back to tags</a></p>
+{% endblock %}

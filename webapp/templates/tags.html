@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Tags — ViewTube{% endblock %}
+
+{% block content %}
+<h1>Tags</h1>
+
+<form method="post" action="{{ url_for('main.tags') }}">
+  <input name="name" placeholder="New tag name" required>
+  <button type="submit">Add Tag</button>
+</form>
+
+<ul class="tag-list">
+  {% for tag in tags %}
+  <li>
+    <a href="{{ url_for('main.tag_detail', tag_id=tag.id) }}">{{ tag.name }}</a>
+    {% if tag.keywords %}
+    <span class="kw-preview">{{ tag.keywords | join(', ') }}</span>
+    {% endif %}
+    <form method="post" action="{{ url_for('main.delete_tag', tag_id=tag.id) }}" style="display:inline">
+      <button type="submit">Delete</button>
+    </form>
+  </li>
+  {% else %}
+  <li>No tags yet.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

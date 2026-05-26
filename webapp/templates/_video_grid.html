@@ -1,0 +1,36 @@
+<div class="video-grid">
+  {% for video in grp.videos %}
+  <div class="video-card">
+    <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="thumb-link">
+      {% if video.thumbnail_url %}
+      <img src="{{ video.thumbnail_url }}" alt="{{ video.title }}" loading="lazy">
+      {% else %}
+      <div class="no-thumb"></div>
+      {% endif %}
+    </a>
+    <div class="video-info">
+      <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="video-title">
+        {{ video.title or video.video_id }}
+      </a>
+      <div class="video-meta">
+        <span>{{ video.channel_name or '—' }}</span>
+        <span>{{ video.yt_view_count | view_count }} views</span>
+        <span>{{ video.duration_seconds | duration }}</span>
+        <span>Added {{ video.date_added | date }}</span>
+        {% if video.personal_view_count %}
+        <span>Watched {{ video.personal_view_count }}×</span>
+        {% endif %}
+      </div>
+      {% if video.tags %}
+      <div class="video-tags">
+        {% for tag_name in video.tags.split(',') %}
+        <a href="/?tag={{ tag_name }}" class="tag-pill">{{ tag_name }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <p class="empty">No videos found.</p>
+  {% endfor %}
+</div>

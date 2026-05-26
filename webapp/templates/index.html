@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}ViewTube — {{ stats.total_videos }} videos{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <form method="get" action="/">
+    <input name="search" value="{{ current_search or '' }}" placeholder="Search…">
+
+    <select name="channel">
+      <option value="">All channels</option>
+      {% for ch in channels %}
+      <option value="{{ ch }}" {% if ch == current_channel %}selected{% endif %}>{{ ch }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="tag">
+      <option value="">All tags</option>
+      {% for t in tags %}
+      <option value="{{ t.name }}" {% if t.name == current_tag %}selected{% endif %}>{{ t.name }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="sort_by">
+      {% for col in ['date_added','title','yt_view_count','personal_view_count','date_last_viewed','date_published'] %}
+      <option value="{{ col }}" {% if col == sort_by %}selected{% endif %}>{{ col }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="sort_dir">
+      <option value="desc" {% if sort_dir == 'desc' %}selected{% endif %}>Desc</option>
+      <option value="asc"  {% if sort_dir == 'asc'  %}selected{% endif %}>Asc</option>
+    </select>
+
+    <select name="group">
+      <option value="" {% if not group %}selected{% endif %}>No grouping</option>
+      <option value="keywords" {% if group == 'keywords' %}selected{% endif %}>By keywords</option>
+    </select>
+
+    <button type="submit">Apply</button>
+  </form>
+
+  <p>{{ stats.total_videos }} videos &middot; {{ stats.total_channels }} channels
+     {% if stats.fetch_errors %} &middot; {{ stats.fetch_errors }} errors{% endif %}
+  </p>
+</div>
+
+{% if groups %}
+  {% for grp in groups %}
+  <section class="group">
+    <h2>{% if grp.tag %}{{ grp.tag.name }}{% else %}Untagged{% endif %}</h2>
+    {% include "_video_grid.html" with context %}
+  {% endfor %}
+{% else %}
+  {% set grp = {"videos": videos} %}
+  {% include "_video_grid.html" with context %}
+{% endif %}
+{% endblock %}

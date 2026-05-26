@@ -3,7 +3,13 @@
     "allow": [
       "Bash(git -C /Users/bomara/workspace/dev/viewtube log --oneline)",
       "Bash(.venv/bin/pip install *)",
-      "Bash(.venv/bin/pytest *)"
+      "Bash(.venv/bin/pytest *)",
+      "Bash(python -m pytest tests/webapp/test_db.py -x -q)",
+      "Bash(python -m pytest tests/webapp/test_db.py -q)",
+      "Bash(python -m pytest tests/webapp/test_keyword_matcher.py -q)",
+      "Bash(python -m pytest tests/webapp/ -q)",
+      "Bash(python -m pytest tests/webapp/test_routes.py -q)",
+      "Bash(python -m pytest -q)"
     ]
   }
 }
