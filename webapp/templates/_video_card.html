@@ -1,0 +1,23 @@
+<div class="video-card">
+  <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="thumb-link">
+    {% if video.thumbnail_url %}
+    <img src="{{ video.thumbnail_url }}" alt="{{ video.title }}" loading="lazy">
+    {% else %}
+    <div class="no-thumb"></div>
+    {% endif %}
+  </a>
+  <div class="video-info">
+    <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="video-title">
+      {{ video.title or video.video_id }}
+    </a>
+    <div class="video-meta">
+      <span>{{ video.channel_name or '—' }}</span>
+      <span>{{ video.yt_view_count | view_count }} views</span>
+      <span>{{ video.duration_seconds | duration }}</span>
+      <span>Added {{ video.date_added | date }}</span>
+      {% if video.personal_view_count %}
+      <span>Watched {{ video.personal_view_count }}×</span>
+      {% endif %}
+    </div>
+  </div>
+</div>

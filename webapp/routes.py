@@ -31,8 +31,7 @@ def index():
         tags_with_kw = _db.get_tags_with_keywords(g.db)
         groups = group_videos_by_tags(videos, tags_with_kw)
 
-    return render_template(
-        "index.html",
+    template_vars = dict(
         videos=videos,
         channels=channels,
         tags=tags,
@@ -45,6 +44,11 @@ def index():
         current_search=search,
         group=group,
     )
+
+    if request.headers.get("HX-Request"):
+        return render_template("_video_container.html", **template_vars)
+
+    return render_template("index.html", **template_vars)
 
 
 @bp.route("/visit/<video_id>")

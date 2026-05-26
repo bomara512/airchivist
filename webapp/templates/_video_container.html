@@ -1,0 +1,23 @@
+{% if groups %}
+  {% for grp in groups %}
+  <section class="group">
+    <h2>{% if grp.tag %}{{ grp.tag.name }}{% else %}Untagged{% endif %}</h2>
+    {% set grp_videos = grp.videos %}
+    <div class="video-grid">
+      {% for video in grp_videos %}
+      {% include "_video_card.html" %}
+      {% else %}
+      <p class="empty">No videos found.</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+{% else %}
+  <div class="video-grid">
+    {% for video in videos %}
+    {% include "_video_card.html" %}
+    {% else %}
+    <p class="empty">No videos found.</p>
+    {% endfor %}
+  </div>
+{% endif %}

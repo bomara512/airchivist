@@ -189,17 +189,14 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/` | Main view: table of all videos with sort/filter controls |
-| GET | `/videos` | HTMX partial: `_video_row.html` or `_video_grid.html` based on `HX-Request` header |
+| GET | `/` | Main view: card grid with filter controls; returns `_video_container.html` partial when `HX-Request` header is present |
 | GET | `/visit/<video_id>` | Record a view, redirect to YouTube URL |
-| GET | `/group/channel` | All videos grouped by `channel_name` |
-| GET | `/group/keywords` | All videos grouped by keyword tag |
 | GET | `/tags` | Tag management page |
-| POST | `/tags` | Create a new tag (name + keywords) |
-| DELETE | `/tags/<int:tag_id>` | Delete a tag and its keywords |
+| POST | `/tags` | Create a new tag |
+| POST | `/tags/<int:tag_id>/keywords` | Replace a tag's keywords |
+| POST | `/tags/<int:tag_id>/delete` | Delete a tag and its associations |
 | POST | `/videos/<video_id>/tags` | Manually associate a video with a tag |
-| DELETE | `/videos/<video_id>/tags/<int:tag_id>` | Remove a video–tag association |
-| GET | `/stats` | JSON: `{total_videos, total_channels, fetch_errors}` |
+| POST | `/videos/<video_id>/tags/<int:tag_id>/delete` | Remove a video–tag association |
 
 ---
 
@@ -207,49 +204,49 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 
 ### Main View (`index.html`)
 
-**Layout**: Toggleable between table view and card grid view. Default is table view.
+**Layout**: Responsive card grid. Each card shows thumbnail, title, channel, YT views, duration, date added, and times watched (if > 0). Thumbnail and title both link to `/visit/<video_id>`.
 
-**Table columns**:
-- Thumbnail (small, lazy-loaded; clicking tracks a view)
-- Title (clicking tracks a view and opens YouTube)
-- Channel
-- Times Watched (`personal_view_count`, formatted with thousands separator)
-- YT Views (`yt_view_count`, formatted with M/K suffix)
-- Date Added
-- Date Last Viewed
+**Filter controls** (above the grid, no Apply button):
 
-Both the thumbnail and the title link to `/visit/<video_id>`, which records the view then redirects to YouTube in a new tab.
+All filters live in a single `<form>` wired with HTMX:
 
-**Sort controls**: Each column header is a link setting `sort_by=<col>&sort_dir=asc|desc` query params. The active column shows a directional arrow. HTMX swaps only the `<tbody>` on sort change. Both `personal_view_count` and `yt_view_count` are sortable.
+```html
+<form hx-get="/"
+      hx-target="#video-container"
+      hx-push-url="true"
+      hx-trigger="change from:select, keyup changed delay:300ms from:input[name=search]">
+```
 
-**Filter controls** (above the table):
-- Text search: filters by title/description, debounced via `hx-trigger="keyup changed delay:300ms"`
-- Channel dropdown: populated from `get_all_channels()`
-- Tag dropdown: populated from `get_all_tags()`
-- View toggle: Table / Grid buttons
+- **Search input**: triggers after 300 ms pause in typing (`keyup changed delay:300ms`)
+- **Channel / tag / sort-by / sort-dir / group selects**: trigger immediately on `change`
+- No Apply button — every change fires automatically
 
-**Card grid view**: Responsive 3-column grid. Each card shows thumbnail (links to `/visit/<video_id>`), title (links to `/visit/<video_id>`), channel, times watched, YT views, and tag pills.
+HTMX swaps only `<div id="video-container">`, preserving the toolbar. `hx-push-url="true"` keeps the browser URL in sync so filters are bookmarkable and shareable.
 
-### Group by Channel (`/group/channel`)
+The route returns `_video_container.html` (partial) when the `HX-Request` header is present, or the full `index.html` on a direct load.
 
-Accordion layout. Each channel name is a collapsible section header. HTMX loads each channel's video list lazily on first expand.
+**Grouping**: The group select offers "No grouping" (default) and "By keywords". When "By keywords" is selected, `group_videos_by_tags` partitions videos into labelled sections; unmatched videos appear in an "Untagged" section.
 
-### Group by Keywords (`/group/keywords`)
+### Template partials
 
-Same accordion layout with tag names as section headers. Each section shows which keywords matched. Videos matching multiple tags appear in each matching section. An "Untagged" section at the bottom lists videos with no matches.
+| File | Purpose |
+|---|---|
+| `base.html` | Shared layout, nav, CSS/HTMX script tags |
+| `index.html` | Filter toolbar + `#video-container` shell |
+| `_video_container.html` | Swapped by HTMX; renders flat grid or grouped sections |
+| `_video_card.html` | Single card included by `_video_container.html` |
+| `tags.html` | Tag list + create-tag form |
+| `tag_detail.html` | Per-tag keyword editor |
 
 ### Tag Management Page (`/tags`)
 
-Form: tag name field + keywords textarea (comma-separated). Existing tags listed with their keywords and a delete button. An "Auto-Preview" button triggers an HTMX GET to `/videos?tag=<name>` to show matching videos before saving.
+Tag list with a create-tag form (name only). Each tag links to its detail page where keywords (one per line) can be edited. Delete button removes the tag and all its video associations.
 
 ### Accessibility and Usability Notes
 
-- All interactive elements are keyboard-accessible.
-- `<table>` uses `<thead>`, `<tbody>`, `scope` attributes.
 - Thumbnail `<img>` tags include `alt` text from the video title with `loading="lazy"`.
-- `hx-indicator` shows a spinner during partial loads.
-- No external fonts or icon libraries — Unicode characters for sort arrows. No network dependencies for local use.
-- Broken thumbnail fallback: `onerror="this.style.display='none'"` on `<img>` tags.
+- No external fonts or icon libraries. No network dependencies for local use.
+- Broken thumbnails fall back to a CSS placeholder `div`.
 
 ---
 
