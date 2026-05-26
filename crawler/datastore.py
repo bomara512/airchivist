@@ -98,6 +98,16 @@ class Datastore:
             ),
         )
         self._conn.commit()
+        self._apply_yt_tags(metadata)
+
+    def _apply_yt_tags(self, metadata: VideoMetadata) -> None:
+        all_names = [*metadata.yt_categories, *metadata.yt_tags]
+        for name in all_names:
+            name = name.strip()
+            if not name:
+                continue
+            tag_id = self.add_tag(name)
+            self.tag_video(metadata.video_id, tag_id)
 
     def get_video_by_id(self, video_id: str) -> Optional[dict]:
         row = self._conn.execute(

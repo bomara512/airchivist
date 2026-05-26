@@ -16,6 +16,8 @@ _GOOD_INFO = {
     "duration": 213,
     "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
     "upload_date": "20091025",
+    "categories": ["Music"],
+    "tags": ["rick astley", "never gonna give you up", "pop", "80s"],
 }
 
 
@@ -106,6 +108,37 @@ class TestFetchMetadata:
             result = fetch_metadata("dQw4w9WgXcQ", delay=0)
         assert result.fetch_status == "error"
         assert result.title is None
+
+    def test_maps_yt_categories(self):
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL", return_value=_make_ydl_mock()):
+            result = fetch_metadata("dQw4w9WgXcQ", delay=0)
+        assert result.yt_categories == ["Music"]
+
+    def test_maps_yt_tags(self):
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL", return_value=_make_ydl_mock()):
+            result = fetch_metadata("dQw4w9WgXcQ", delay=0)
+        assert "rick astley" in result.yt_tags
+        assert "80s" in result.yt_tags
+
+    def test_yt_categories_defaults_to_empty_list_when_missing(self):
+        info = {**_GOOD_INFO}
+        del info["categories"]
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL", return_value=_make_ydl_mock(info=info)):
+            result = fetch_metadata("dQw4w9WgXcQ", delay=0)
+        assert result.yt_categories == []
+
+    def test_yt_tags_defaults_to_empty_list_when_missing(self):
+        info = {**_GOOD_INFO}
+        del info["tags"]
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL", return_value=_make_ydl_mock(info=info)):
+            result = fetch_metadata("dQw4w9WgXcQ", delay=0)
+        assert result.yt_tags == []
+
+    def test_yt_categories_handles_none_value(self):
+        info = {**_GOOD_INFO, "categories": None}
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL", return_value=_make_ydl_mock(info=info)):
+            result = fetch_metadata("dQw4w9WgXcQ", delay=0)
+        assert result.yt_categories == []
 
     def test_handles_missing_optional_fields(self):
         sparse_info = {

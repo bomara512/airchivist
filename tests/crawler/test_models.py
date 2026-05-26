@@ -77,3 +77,28 @@ class TestVideoMetadata:
         assert m.thumbnail_url is None
         assert m.date_published is None
         assert m.fetch_error is None
+
+    def test_yt_categories_defaults_to_empty_list(self):
+        m = VideoMetadata(video_id="abc", url="https://youtube.com/watch?v=abc")
+        assert m.yt_categories == []
+
+    def test_yt_tags_defaults_to_empty_list(self):
+        m = VideoMetadata(video_id="abc", url="https://youtube.com/watch?v=abc")
+        assert m.yt_tags == []
+
+    def test_yt_categories_stores_values(self):
+        m = VideoMetadata(video_id="abc", url="https://youtube.com/watch?v=abc",
+                          yt_categories=["Music", "Education"])
+        assert m.yt_categories == ["Music", "Education"]
+
+    def test_yt_tags_stores_values(self):
+        m = VideoMetadata(video_id="abc", url="https://youtube.com/watch?v=abc",
+                          yt_tags=["guitar", "tutorial", "fingerstyle"])
+        assert m.yt_tags == ["guitar", "tutorial", "fingerstyle"]
+
+    def test_yt_categories_and_tags_are_independent_instances(self):
+        # each instance must get its own list, not a shared default
+        m1 = VideoMetadata(video_id="aaa", url="https://youtube.com/watch?v=aaa")
+        m2 = VideoMetadata(video_id="bbb", url="https://youtube.com/watch?v=bbb")
+        m1.yt_categories.append("Music")
+        assert m2.yt_categories == []

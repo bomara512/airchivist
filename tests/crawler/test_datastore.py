@@ -18,6 +18,8 @@ def _make_metadata(video_id="abc12345678", **kwargs):
         thumbnail_url="https://i.ytimg.com/vi/abc/hqdefault.jpg",
         date_published=datetime(2023, 6, 1),
         fetch_status="ok",
+        yt_categories=[],
+        yt_tags=[],
     )
     defaults.update(kwargs)
     return VideoMetadata(video_id=video_id, **defaults)
@@ -208,6 +210,64 @@ class TestTags:
             ds.tag_video("abc12345678", t2)
             tags = ds.get_tags_for_video("abc12345678")
             assert set(tags) == {"music", "classics"}
+
+
+class TestAutoTagging:
+    def test_upsert_creates_tags_from_yt_categories(self, tmp_path):
+        meta = _make_metadata(yt_categories=["Music", "Education"])
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_video(meta, _make_bookmark())
+            tags = ds.get_tags_for_video("abc12345678")
+        assert "Music" in tags
+        assert "Education" in tags
+
+    def test_upsert_creates_tags_from_yt_tags(self, tmp_path):
+        meta = _make_metadata(yt_tags=["guitar", "tutorial", "fingerstyle"])
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_video(meta, _make_bookmark())
+            tags = ds.get_tags_for_video("abc12345678")
+        assert "guitar" in tags
+        assert "tutorial" in tags
+        assert "fingerstyle" in tags
+
+    def test_upsert_combines_categories_and_tags(self, tmp_path):
+        meta = _make_metadata(yt_categories=["Music"], yt_tags=["pop", "80s"])
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_video(meta, _make_bookmark())
+            tags = ds.get_tags_for_video("abc12345678")
+        assert set(tags) == {"Music", "pop", "80s"}
+
+    def test_upsert_auto_tagging_is_idempotent_on_rerun(self, tmp_path):
+        meta = _make_metadata(yt_categories=["Music"], yt_tags=["pop"])
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_video(meta, _make_bookmark())
+            ds.upsert_video(meta, _make_bookmark())
+            tag_count = ds._conn.execute("SELECT COUNT(*) FROM video_tags").fetchone()[0]
+        assert tag_count == 2  # Music + pop, no duplicates
+
+    def test_upsert_skips_empty_tag_names(self, tmp_path):
+        meta = _make_metadata(yt_categories=["", "  "], yt_tags=["valid"])
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_video(meta, _make_bookmark())
+            tags = ds.get_tags_for_video("abc12345678")
+        assert tags == ["valid"]
+
+    def test_upsert_no_tags_when_lists_empty(self, tmp_path):
+        meta = _make_metadata(yt_categories=[], yt_tags=[])
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_video(meta, _make_bookmark())
+            tags = ds.get_tags_for_video("abc12345678")
+        assert tags == []
+
+    def test_shared_tags_across_videos(self, tmp_path):
+        """Two videos with the same category share one tags row."""
+        m1 = _make_metadata("vid1111111a", yt_categories=["Music"])
+        m2 = _make_metadata("vid2222222b", yt_categories=["Music"])
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_video(m1, _make_bookmark("vid1111111a"))
+            ds.upsert_video(m2, _make_bookmark("vid2222222b"))
+            tag_count = ds._conn.execute("SELECT COUNT(*) FROM tags").fetchone()[0]
+        assert tag_count == 1  # one "Music" tag row shared by both videos
 
 
 class TestMisc:

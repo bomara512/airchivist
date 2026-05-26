@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 import re
@@ -33,6 +33,8 @@ class VideoMetadata:
     duration_seconds: Optional[int] = None
     thumbnail_url: Optional[str] = None
     date_published: Optional[datetime] = None
+    yt_categories: list[str] = field(default_factory=list)
+    yt_tags: list[str] = field(default_factory=list)
     fetch_status: str = 'pending'
     fetch_error: Optional[str] = None
 

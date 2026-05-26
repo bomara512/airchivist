@@ -48,6 +48,8 @@ def fetch_metadata(video_id: str, delay: float = 1.5) -> VideoMetadata:
             duration_seconds=info.get("duration"),
             thumbnail_url=info.get("thumbnail"),
             date_published=_parse_upload_date(info.get("upload_date")),
+            yt_categories=info.get("categories") or [],
+            yt_tags=info.get("tags") or [],
             fetch_status="ok",
         )
     except yt_dlp.utils.DownloadError as exc:
