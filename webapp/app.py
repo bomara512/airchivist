@@ -1,11 +1,13 @@
 import sqlite3
 from flask import Flask, g
 from webapp import filters as _filters
+from webapp.db import init_webapp_tables
 
 
 def create_app(db_path: str) -> Flask:
     app = Flask(__name__)
     app.config["DATABASE"] = db_path
+    init_webapp_tables(db_path)
 
     @app.before_request
     def open_db():
