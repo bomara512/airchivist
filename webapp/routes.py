@@ -5,7 +5,7 @@ from webapp.keyword_matcher import group_videos_by_tags
 
 bp = Blueprint("main", __name__)
 
-PAGE_SIZE = 50
+PAGE_SIZE = 20
 
 
 @bp.route("/")
