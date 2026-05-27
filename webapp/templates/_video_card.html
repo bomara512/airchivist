@@ -13,12 +13,14 @@
     <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="video-title" target="_blank" rel="noopener noreferrer">
       {{ video.title or video.video_id }}
     </a>
-    <div class="video-meta">
+    <div class="video-channel">
       {% if video.channel_id %}
       <a href="https://www.youtube.com/channel/{{ video.channel_id }}" class="channel-link" target="_blank" rel="noopener noreferrer">{{ video.channel_name or video.channel_id }}</a>
       {% else %}
       <span>{{ video.channel_name or '—' }}</span>
       {% endif %}
+    </div>
+    <div class="video-meta">
       <span>{{ video.yt_view_count | view_count }} views</span>
       <span>{{ video.date_published | date }}</span>
       {% if video.personal_view_count %}
