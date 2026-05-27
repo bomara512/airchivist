@@ -5,6 +5,9 @@
     {% else %}
     <div class="no-thumb"></div>
     {% endif %}
+    {% if video.duration_seconds %}
+    <span class="duration-overlay">{{ video.duration_seconds | duration }}</span>
+    {% endif %}
   </a>
   <div class="video-info">
     <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="video-title" target="_blank" rel="noopener noreferrer">
@@ -17,7 +20,6 @@
       <span>{{ video.channel_name or '—' }}</span>
       {% endif %}
       <span>{{ video.yt_view_count | view_count }} views</span>
-      <span>{{ video.duration_seconds | duration }}</span>
       <span>Published {{ video.date_published | date }}</span>
       <span>Added {{ video.date_added | date }}</span>
       {% if video.personal_view_count %}

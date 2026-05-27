@@ -9,7 +9,9 @@
       "Bash(python -m pytest tests/webapp/test_keyword_matcher.py -q)",
       "Bash(python -m pytest tests/webapp/ -q)",
       "Bash(python -m pytest tests/webapp/test_routes.py -q)",
-      "Bash(python -m pytest -q)"
+      "Bash(python -m pytest -q)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
