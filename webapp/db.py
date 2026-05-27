@@ -22,7 +22,12 @@ def _build_where(channel, tag, search):
         )
         params.append(tag)
     if search:
-        clauses.append("(v.title LIKE ? OR v.description LIKE ?)")
+        clauses.append(
+            "(v.title LIKE ? OR v.description LIKE ? OR v.id IN ("
+            "SELECT vt.video_id_fk FROM video_tags vt "
+            "JOIN tags t ON t.id = vt.tag_id_fk WHERE t.name LIKE ?))"
+        )
+        params.append(f"%{search}%")
         params.append(f"%{search}%")
         params.append(f"%{search}%")
     where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""

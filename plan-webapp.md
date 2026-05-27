@@ -101,6 +101,8 @@ def init_webapp_tables(db_path: str) -> None   # creates tag_keywords and video_
 
 `get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
 
+The `search` filter matches against `title`, `description`, and tag names (via a subquery on `video_tags` / `tags`), so a search for "guitar" surfaces videos tagged "guitar" even if that word doesn't appear in their title or description.
+
 ```python
 ALLOWED_SORT_COLUMNS = frozenset({
     'title', 'channel_name', 'yt_view_count', 'personal_view_count',

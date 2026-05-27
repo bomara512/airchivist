@@ -56,6 +56,12 @@ class TestGetAllVideos:
         assert len(rows) == 1
         assert rows[0]["title"] == "Thai Food Recipe"
 
+    def test_filters_by_tag_name(self, db_conn):
+        rows = get_all_videos(db_conn, search="thai food")
+        titles = {r["title"] for r in rows}
+        assert "Thai Food Recipe" in titles
+        assert "Pad Thai Tutorial" in titles
+
     def test_invalid_sort_by_raises(self, db_conn):
         with pytest.raises(ValueError):
             get_all_videos(db_conn, sort_by="DROP TABLE videos")
