@@ -204,7 +204,7 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 
 ### Main View (`index.html`)
 
-**Layout**: Responsive card grid. Each card shows thumbnail, title, channel, YT views, duration, date published, date added, and times watched (if > 0). Thumbnail and title both link to `/visit/<video_id>` with `target="_blank" rel="noopener noreferrer"`, opening YouTube in a new tab.
+**Layout**: Responsive card grid. Each card shows thumbnail, title, channel, YT views, duration, date published, date added, and times watched (if > 0). Thumbnail and title both link to `/visit/<video_id>` with `target="_blank" rel="noopener noreferrer"`, opening YouTube in a new tab. The channel name links to `https://www.youtube.com/channel/<channel_id>` (also opens in a new tab); if `channel_id` is absent it renders as plain text.
 
 **Filter controls** (above the grid, no Apply button):
 
