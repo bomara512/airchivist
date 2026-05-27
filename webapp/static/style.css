@@ -24,6 +24,8 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 .toolbar input, .toolbar select { background: #1a1a1a; color: #e8e8e8; border: 1px solid #444; padding: 0.4rem 0.6rem; border-radius: 4px; }
 .toolbar button { background: #cc0000; color: #fff; border: none; padding: 0.4rem 0.9rem; border-radius: 4px; cursor: pointer; }
 .toolbar button:hover { background: #ee0000; }
+.reset-btn { color: #666; font-size: 0.85rem; text-decoration: none; padding: 0.4rem 0.2rem; white-space: nowrap; }
+.reset-btn:hover { color: #aaa; }
 .toolbar p { color: #888; font-size: 0.9rem; margin: 0.5rem 0 0; }
 
 /* Video grid */

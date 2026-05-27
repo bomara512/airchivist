@@ -227,12 +227,17 @@ All filters live in a single `<form>` wired with HTMX:
 ```
 
 - **Search input**: triggers after 300 ms pause in typing (`keyup changed delay:300ms`)
-- **Channel / tag / sort-by / sort-dir / group selects**: trigger immediately on `change`
+- **Channel / sort-by / sort-dir / group selects**: trigger immediately on `change`
 - No Apply button — every change fires automatically
+- **Reset link** (`<a href="/">Reset</a>`) outside the form performs a full page navigation to `/`, restoring all controls to their default state
 
 HTMX swaps only `<div id="video-container">`, preserving the toolbar. `hx-push-url="true"` keeps the browser URL in sync so filters are bookmarkable and shareable.
 
 The route returns `_video_container.html` (partial) when the `HX-Request` header is present, or the full `index.html` on a direct load.
+
+The sort select uses human-readable labels (no underscores): Date Added, Title, YouTube Views, Times Watched, Last Viewed, Date Published. Values sent to the server remain the raw column names understood by `get_all_videos`.
+
+The tag selector is not present in the filter bar.
 
 **Grouping**: The group select offers "No grouping" (default) and "By keywords". When "By keywords" is selected, `group_videos_by_tags` partitions videos into labelled sections; unmatched videos appear in an "Untagged" section.
 

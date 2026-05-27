@@ -19,17 +19,13 @@
       {% endfor %}
     </select>
 
-    <select name="tag">
-      <option value="">All tags</option>
-      {% for t in tags %}
-      <option value="{{ t.name }}" {% if t.name == current_tag %}selected{% endif %}>{{ t.name }}</option>
-      {% endfor %}
-    </select>
-
     <select name="sort_by">
-      {% for col in ['date_added','title','yt_view_count','personal_view_count','date_last_viewed','date_published'] %}
-      <option value="{{ col }}" {% if col == sort_by %}selected{% endif %}>{{ col }}</option>
-      {% endfor %}
+      <option value="date_added"          {% if sort_by == 'date_added'          %}selected{% endif %}>Date Added</option>
+      <option value="title"               {% if sort_by == 'title'               %}selected{% endif %}>Title</option>
+      <option value="yt_view_count"       {% if sort_by == 'yt_view_count'       %}selected{% endif %}>YouTube Views</option>
+      <option value="personal_view_count" {% if sort_by == 'personal_view_count' %}selected{% endif %}>Times Watched</option>
+      <option value="date_last_viewed"    {% if sort_by == 'date_last_viewed'    %}selected{% endif %}>Last Viewed</option>
+      <option value="date_published"      {% if sort_by == 'date_published'      %}selected{% endif %}>Date Published</option>
     </select>
 
     <select name="sort_dir">
@@ -42,6 +38,8 @@
       <option value="keywords" {% if group == 'keywords' %}selected{% endif %}>By keywords</option>
     </select>
   </form>
+
+  <a href="/" class="reset-btn">Reset</a>
 
   <p>{{ stats.total_videos }} videos &middot; {{ stats.total_channels }} channels
      {% if stats.fetch_errors %} &middot; {{ stats.fetch_errors }} errors{% endif %}
