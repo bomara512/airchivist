@@ -9,6 +9,26 @@ ALLOWED_SORT_COLUMNS = frozenset({
 ALLOWED_SORT_DIRS = frozenset({'asc', 'desc'})
 
 
+def _build_where(channel, tag, search):
+    params = []
+    clauses = []
+    if channel:
+        clauses.append("v.channel_name = ?")
+        params.append(channel)
+    if tag:
+        clauses.append(
+            "v.id IN (SELECT vt.video_id_fk FROM video_tags vt "
+            "JOIN tags t ON t.id = vt.tag_id_fk WHERE t.name = ?)"
+        )
+        params.append(tag)
+    if search:
+        clauses.append("(v.title LIKE ? OR v.description LIKE ?)")
+        params.append(f"%{search}%")
+        params.append(f"%{search}%")
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return where_sql, params
+
+
 def get_all_videos(
     conn: sqlite3.Connection,
     sort_by: str = 'date_added',
@@ -16,32 +36,20 @@ def get_all_videos(
     channel: Optional[str] = None,
     tag: Optional[str] = None,
     search: Optional[str] = None,
+    page: int = 1,
+    page_size: Optional[int] = None,
 ) -> list:
     if sort_by not in ALLOWED_SORT_COLUMNS:
         raise ValueError(f"Invalid sort_by: {sort_by!r}")
     if sort_dir not in ALLOWED_SORT_DIRS:
         raise ValueError(f"Invalid sort_dir: {sort_dir!r}")
 
-    params = []
-    where_clauses = []
+    where_sql, params = _build_where(channel, tag, search)
 
-    if channel:
-        where_clauses.append("v.channel_name = ?")
-        params.append(channel)
-
-    if tag:
-        where_clauses.append(
-            "v.id IN (SELECT vt.video_id_fk FROM video_tags vt "
-            "JOIN tags t ON t.id = vt.tag_id_fk WHERE t.name = ?)"
-        )
-        params.append(tag)
-
-    if search:
-        where_clauses.append("(v.title LIKE ? OR v.description LIKE ?)")
-        params.append(f"%{search}%")
-        params.append(f"%{search}%")
-
-    where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    limit_sql = ""
+    if page_size is not None:
+        limit_sql = "LIMIT ? OFFSET ?"
+        params = params + [page_size, (page - 1) * page_size]
 
     sql = f"""
         SELECT v.*, GROUP_CONCAT(t.name) as tags
@@ -51,6 +59,7 @@ def get_all_videos(
         {where_sql}
         GROUP BY v.id
         ORDER BY v.{sort_by} {sort_dir}
+        {limit_sql}
     """
     rows = conn.execute(sql, params).fetchall()
     result = []
@@ -60,6 +69,21 @@ def get_all_videos(
             d["tags"] = ""
         result.append(d)
     return result
+
+
+def count_videos(
+    conn: sqlite3.Connection,
+    channel: Optional[str] = None,
+    tag: Optional[str] = None,
+    search: Optional[str] = None,
+) -> int:
+    where_sql, params = _build_where(channel, tag, search)
+    sql = f"""
+        SELECT COUNT(DISTINCT v.id)
+        FROM videos v
+        {where_sql}
+    """
+    return conn.execute(sql, params).fetchone()[0]
 
 
 def get_video_by_id(conn: sqlite3.Connection, video_id: str) -> Optional[dict]:

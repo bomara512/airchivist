@@ -4,7 +4,7 @@ from webapp.db import (
     get_all_videos, get_video_by_id, get_all_channels, get_all_tags,
     get_tags_with_keywords, get_tag_keywords, get_stats, get_tags_for_video,
     record_visit, create_tag, set_tag_keywords, delete_tag,
-    add_video_tag, remove_video_tag, init_webapp_tables,
+    add_video_tag, remove_video_tag, init_webapp_tables, count_videos,
 )
 
 
@@ -73,6 +73,32 @@ class TestGetAllVideos:
         rows = get_all_videos(db_conn)
         row = next(r for r in rows if r["video_id"] == "aaaaaaaaaa5")
         assert row["tags"] == ""
+
+    def test_pagination_limits_results(self, db_conn):
+        rows = get_all_videos(db_conn, page=1, page_size=2)
+        assert len(rows) == 2
+
+    def test_pagination_second_page(self, db_conn):
+        page1 = get_all_videos(db_conn, page=1, page_size=2)
+        page2 = get_all_videos(db_conn, page=2, page_size=2)
+        ids1 = {r["video_id"] for r in page1}
+        ids2 = {r["video_id"] for r in page2}
+        assert ids1.isdisjoint(ids2)
+
+    def test_pagination_last_page_may_have_fewer(self, db_conn):
+        rows = get_all_videos(db_conn, page=3, page_size=2)
+        assert len(rows) == 1
+
+
+class TestCountVideos:
+    def test_returns_total_count(self, db_conn):
+        assert count_videos(db_conn) == 5
+
+    def test_filters_by_channel(self, db_conn):
+        assert count_videos(db_conn, channel="GuitarChannel") == 2
+
+    def test_filters_by_search(self, db_conn):
+        assert count_videos(db_conn, search="shrimp") == 1
 
 
 class TestGetVideoById:

@@ -64,7 +64,10 @@ viewtube/
 ```python
 # Read functions
 def get_all_videos(conn, sort_by='date_added', sort_dir='desc',
-                   channel=None, tag=None, search=None) -> list[dict]
+                   channel=None, tag=None, search=None,
+                   page=1, page_size=None) -> list[dict]
+
+def count_videos(conn, channel=None, tag=None, search=None) -> int
 
 def get_video_by_id(conn, video_id: str) -> dict | None
 
@@ -72,19 +75,31 @@ def get_all_channels(conn) -> list[str]        # distinct non-null channel_name 
 
 def get_all_tags(conn) -> list[dict]           # id, name, video_count
 
-def get_videos_for_tag(conn, tag_name: str) -> list[dict]
-
 def get_tag_keywords(conn, tag_id: int) -> list[str]
+
+def get_tags_with_keywords(conn) -> list[dict]
+
+def get_tags_for_video(conn, video_id: str) -> list[str]
 
 def get_stats(conn) -> dict                    # total_videos, total_channels, fetch_errors
 
 # Write functions
 def record_visit(conn, video_id: str) -> None  # increments personal_view_count, sets date_last_viewed
 
-def init_webapp_tables(db_path: str) -> None   # creates tag_keywords table if missing
+def create_tag(conn, name: str) -> int
+
+def set_tag_keywords(conn, tag_id: int, keywords: list[str]) -> None
+
+def delete_tag(conn, tag_id: int) -> None
+
+def add_video_tag(conn, video_id: str, tag_id: int) -> None
+
+def remove_video_tag(conn, video_id: str, tag_id: int) -> None
+
+def init_webapp_tables(db_path: str) -> None   # creates tag_keywords and video_tags if missing
 ```
 
-`get_all_videos` builds its `WHERE` clause with a `conditions` list and `params` list to safely compose filters. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
+`get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
 
 ```python
 ALLOWED_SORT_COLUMNS = frozenset({
@@ -240,6 +255,8 @@ The sort select uses human-readable labels (no underscores): Date Added, Title, 
 The tag selector is not present in the filter bar.
 
 **Grouping**: The group select offers "No grouping" (default) and "By keywords". When "By keywords" is selected, `group_videos_by_tags` partitions videos into labelled sections; unmatched videos appear in an "Untagged" section.
+
+**Pagination**: Results are limited to 50 per page (`PAGE_SIZE = 50` in `routes.py`). The route reads `?page=N`, calls `count_videos` with the active filters to get the total, then passes `page`, `total_pages`, `prev_url`, and `next_url` to the template. Prev/Next links in `_video_container.html` use `hx-get` so page changes swap only `#video-container`. Changing any filter resets to page 1 (the page param is not a form field, so HTMX filter requests omit it). The `page_url()` helper in the route builds URLs by merging the current query args with the new page number.
 
 ### Template partials
 
