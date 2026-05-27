@@ -204,7 +204,11 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 
 ### Main View (`index.html`)
 
-**Layout**: Responsive card grid. Each card shows thumbnail, title, channel, YT views, date published, date added, and times watched (if > 0). Thumbnail and title both link to `/visit/<video_id>` with `target="_blank" rel="noopener noreferrer"`, opening YouTube in a new tab. The channel name links to `https://www.youtube.com/channel/<channel_id>` (also opens in a new tab); if `channel_id` is absent it renders as plain text.
+**Layout**: Responsive card grid. Each card shows thumbnail, title, channel, YT views, date published, and times watched (if > 0). Thumbnail and title both link to `/visit/<video_id>` with `target="_blank" rel="noopener noreferrer"`, opening YouTube in a new tab.
+
+The metadata row shows: channel · view count · publish date (no label) · watched count (if > 0). `date_added` is not displayed.
+
+The channel name links to `https://www.youtube.com/channel/<channel_id>` (opens in a new tab); if `channel_id` is absent it renders as plain text. It is visually distinguished from surrounding text by a dotted underline (`text-decoration-style: dotted`) that becomes solid on hover, signalling clickability without competing with the title.
 
 **Duration overlay**: Video duration is displayed as a pill badge in the bottom-right corner of the thumbnail (YouTube-style), using `position: absolute` inside the `position: relative` `.thumb-link`. Only rendered when `duration_seconds` is non-null.
 
