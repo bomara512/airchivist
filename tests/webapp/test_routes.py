@@ -33,9 +33,10 @@ class TestIndexRoute:
         resp = client.get("/?sort_by=DROP+TABLE")
         assert resp.status_code == 400
 
-    def test_group_by_keywords_view(self, client):
-        resp = client.get("/?group=keywords")
+    def test_group_by_channel_view(self, client):
+        resp = client.get("/?group=channel")
         assert resp.status_code == 200
+        assert b"GuitarChannel" in resp.data
 
 
 class TestVisitRoute:

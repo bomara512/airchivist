@@ -256,7 +256,7 @@ The sort select uses human-readable labels (no underscores): Date Added, Title, 
 
 The tag selector is not present in the filter bar.
 
-**Grouping**: The group select offers "No grouping" (default) and "By keywords". When "By keywords" is selected, `group_videos_by_tags` partitions videos into labelled sections; unmatched videos appear in an "Untagged" section.
+**Grouping**: The group select offers "No grouping" (default) and "By channel". When "By channel" is selected, the route partitions the current page's videos by `channel_name` in Python, producing one section per channel in the order they first appear. The result is a list of `{"tag": {"name": channel_name}, "videos": [...]}` dicts, reusing the same structure `_video_container.html` already renders for any grouped view.
 
 **Pagination**: Results are limited to 20 per page (`PAGE_SIZE = 20` in `routes.py`). The route reads `?page=N`, calls `count_videos` with the active filters to get the total, then passes `page`, `total_pages`, `prev_url`, and `next_url` to the template. Prev/Next links in `_video_container.html` use `hx-get` so page changes swap only `#video-container`. Changing any filter resets to page 1 (the page param is not a form field, so HTMX filter requests omit it). The `page_url()` helper in the route builds URLs by merging the current query args with the new page number.
 

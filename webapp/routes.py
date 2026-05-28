@@ -1,7 +1,6 @@
 import math
 from flask import Blueprint, g, request, redirect, abort, render_template, url_for
 from webapp import db as _db
-from webapp.keyword_matcher import group_videos_by_tags
 
 bp = Blueprint("main", __name__)
 
@@ -43,9 +42,12 @@ def index():
     stats = _db.get_stats(g.db)
 
     groups = None
-    if group == "keywords":
-        tags_with_kw = _db.get_tags_with_keywords(g.db)
-        groups = group_videos_by_tags(videos, tags_with_kw)
+    if group == "channel":
+        grouped = {}
+        for video in videos:
+            ch = video.get("channel_name") or "Unknown"
+            grouped.setdefault(ch, []).append(video)
+        groups = [{"tag": {"name": ch}, "videos": vids} for ch, vids in grouped.items()]
 
     template_vars = dict(
         videos=videos,
