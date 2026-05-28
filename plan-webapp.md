@@ -226,7 +226,7 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 Card layout within `.video-info`:
 1. Title (`.video-title`)
 2. Channel name (`.video-channel`) — on its own line below the title
-3. Metadata row (`.video-meta`) — below the channel: view count · publish date (no label) · watched count (if > 0). `date_added` is not displayed.
+3. Metadata row (`.video-meta`) — below the channel: view count · publish date · date added (no labels on either date) · watched count (if > 0).
 
 The channel name links to `https://www.youtube.com/channel/<channel_id>` (opens in a new tab); if `channel_id` is absent it renders as plain text. It is visually distinguished from surrounding metadata text by a dotted underline (`text-decoration-style: dotted`) that becomes solid on hover, signalling clickability without competing with the title.
 
