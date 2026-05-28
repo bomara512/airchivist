@@ -37,9 +37,9 @@
       <option value="" {% if not group %}selected{% endif %}>No grouping</option>
       <option value="channel" {% if group == 'channel' %}selected{% endif %}>By channel</option>
     </select>
-  </form>
 
-  <a href="/" class="reset-btn">Reset</a>
+    <a href="/" class="reset-btn">Reset</a>
+  </form>
 
   <p>{{ stats.total_videos }} videos &middot; {{ stats.total_channels }} channels
      {% if stats.fetch_errors %} &middot; {{ stats.fetch_errors }} errors{% endif %}
