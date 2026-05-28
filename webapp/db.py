@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from datetime import datetime, timezone
 from typing import Optional
@@ -22,14 +23,15 @@ def _build_where(channel, tag, search):
         )
         params.append(tag)
     if search:
+        pattern = r'\b' + re.escape(search)
         clauses.append(
-            "(v.title LIKE ? OR v.description LIKE ? OR v.id IN ("
+            "(REGEXP(?, v.title) OR REGEXP(?, v.description) OR v.id IN ("
             "SELECT vt.video_id_fk FROM video_tags vt "
-            "JOIN tags t ON t.id = vt.tag_id_fk WHERE t.name LIKE ?))"
+            "JOIN tags t ON t.id = vt.tag_id_fk WHERE REGEXP(?, t.name)))"
         )
-        params.append(f"%{search}%")
-        params.append(f"%{search}%")
-        params.append(f"%{search}%")
+        params.append(pattern)
+        params.append(pattern)
+        params.append(pattern)
     where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return where_sql, params
 

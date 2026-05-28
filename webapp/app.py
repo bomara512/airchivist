@@ -1,7 +1,12 @@
+import re
 import sqlite3
 from flask import Flask, g
 from webapp import filters as _filters
 from webapp.db import init_webapp_tables
+
+
+def _regexp(pattern, string):
+    return bool(re.search(pattern, string or "", re.IGNORECASE))
 
 
 def create_app(db_path: str) -> Flask:
@@ -14,6 +19,7 @@ def create_app(db_path: str) -> Flask:
         g.db = sqlite3.connect(app.config["DATABASE"])
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA foreign_keys = ON")
+        g.db.create_function("regexp", 2, _regexp)
 
     @app.teardown_appcontext
     def close_db(exc):

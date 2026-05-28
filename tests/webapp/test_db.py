@@ -62,6 +62,16 @@ class TestGetAllVideos:
         assert "Thai Food Recipe" in titles
         assert "Pad Thai Tutorial" in titles
 
+    def test_search_matches_word_prefix(self, db_conn):
+        # "Advanc" is a prefix of "Advanced" — should match
+        rows = get_all_videos(db_conn, search="Advanc")
+        assert len(rows) > 0
+
+    def test_search_does_not_match_mid_word(self, db_conn):
+        # "uitar" appears inside "guitar" but not at a word start — should not match
+        rows = get_all_videos(db_conn, search="uitar")
+        assert len(rows) == 0
+
     def test_invalid_sort_by_raises(self, db_conn):
         with pytest.raises(ValueError):
             get_all_videos(db_conn, sort_by="DROP TABLE videos")

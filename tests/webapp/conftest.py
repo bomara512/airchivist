@@ -1,6 +1,7 @@
+import re
 import pytest
 import sqlite3
-from webapp.app import create_app
+from webapp.app import create_app, _regexp
 
 SCHEMA_SQL = """
 CREATE TABLE videos (
@@ -73,6 +74,7 @@ VALUES (1, 'guitar'), (1, 'chord'), (1, 'lesson'),
 def _make_db(path=":memory:"):
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    conn.create_function("regexp", 2, _regexp)
     conn.executescript(SCHEMA_SQL + SEED_SQL)
     return conn
 
