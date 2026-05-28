@@ -101,7 +101,13 @@ def init_webapp_tables(db_path: str) -> None   # creates tag_keywords and video_
 
 `get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
 
-The `search` filter matches against `title`, `description`, and tag names (via a subquery on `video_tags` / `tags`), so a search for "guitar" surfaces videos tagged "guitar" even if that word doesn't appear in their title or description. Matching is word-prefix (`\bterm`, no trailing boundary, case-insensitive) — "prik" will not match "pa**prik**a" (mid-word) but will match "prikling". "Advanc" matches "Advanced". This requires a Python `regexp` function registered on each SQLite connection via `conn.create_function("regexp", 2, _regexp)` in `app.py`'s `before_request` and in the test fixture's `_make_db`.
+The `search` filter matches against four sources, all using word-prefix regex (`\bterm`, case-insensitive):
+1. `v.title`
+2. `v.description`
+3. Tag names associated with the video (via `video_tags` → `tags`)
+4. Tag keywords associated with the video (via `video_tags` → `tag_keywords`)
+
+So searching "lesson" surfaces videos tagged "guitar" (which has "lesson" as a keyword) even if the word doesn't appear in their title or description. Matching is word-prefix — "prik" will not match "pa**prik**a" (mid-word) but will match "prikling". This requires a Python `regexp` function registered on each SQLite connection via `conn.create_function("regexp", 2, _regexp)` in `app.py`'s `before_request` and in the test fixture's `_make_db`.
 
 ```python
 ALLOWED_SORT_COLUMNS = frozenset({

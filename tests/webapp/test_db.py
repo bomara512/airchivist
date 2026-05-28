@@ -46,10 +46,10 @@ class TestGetAllVideos:
         assert "Advanced Chords" in titles
 
     def test_filters_by_search_term_in_title(self, db_conn):
-        # "Lesson" appears only in "Guitar Lesson 1" title, not any description
-        rows = get_all_videos(db_conn, search="Lesson")
+        # "Tutorial" appears only in "Pad Thai Tutorial" title and no tag keywords
+        rows = get_all_videos(db_conn, search="Tutorial")
         assert len(rows) == 1
-        assert rows[0]["title"] == "Guitar Lesson 1"
+        assert rows[0]["title"] == "Pad Thai Tutorial"
 
     def test_filters_by_search_term_in_description(self, db_conn):
         rows = get_all_videos(db_conn, search="shrimp")
@@ -61,6 +61,13 @@ class TestGetAllVideos:
         titles = {r["title"] for r in rows}
         assert "Thai Food Recipe" in titles
         assert "Pad Thai Tutorial" in titles
+
+    def test_filters_by_tag_keyword(self, db_conn):
+        # "lesson" is a keyword of the "guitar" tag; Advanced Chords is tagged guitar
+        # but its title/description don't contain "lesson"
+        rows = get_all_videos(db_conn, search="lesson")
+        titles = {r["title"] for r in rows}
+        assert "Advanced Chords" in titles
 
     def test_search_matches_word_prefix(self, db_conn):
         # "Advanc" is a prefix of "Advanced" — should match

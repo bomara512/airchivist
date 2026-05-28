@@ -25,13 +25,13 @@ def _build_where(channel, tag, search):
     if search:
         pattern = r'\b' + re.escape(search)
         clauses.append(
-            "(REGEXP(?, v.title) OR REGEXP(?, v.description) OR v.id IN ("
-            "SELECT vt.video_id_fk FROM video_tags vt "
-            "JOIN tags t ON t.id = vt.tag_id_fk WHERE REGEXP(?, t.name)))"
+            "(REGEXP(?, v.title) OR REGEXP(?, v.description)"
+            " OR v.id IN (SELECT vt.video_id_fk FROM video_tags vt"
+            "             JOIN tags t ON t.id = vt.tag_id_fk WHERE REGEXP(?, t.name))"
+            " OR v.id IN (SELECT vt.video_id_fk FROM video_tags vt"
+            "             JOIN tag_keywords tk ON tk.tag_id = vt.tag_id_fk WHERE REGEXP(?, tk.keyword)))"
         )
-        params.append(pattern)
-        params.append(pattern)
-        params.append(pattern)
+        params.extend([pattern, pattern, pattern, pattern])
     where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return where_sql, params
 
