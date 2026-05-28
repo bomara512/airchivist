@@ -208,12 +208,6 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 |---|---|---|
 | GET | `/` | Main view: card grid with filter controls; returns `_video_container.html` partial when `HX-Request` header is present |
 | GET | `/visit/<video_id>` | Record a view, redirect to YouTube URL |
-| GET | `/tags` | Tag management page |
-| POST | `/tags` | Create a new tag |
-| POST | `/tags/<int:tag_id>/keywords` | Replace a tag's keywords |
-| POST | `/tags/<int:tag_id>/delete` | Delete a tag and its associations |
-| POST | `/videos/<video_id>/tags` | Manually associate a video with a tag |
-| POST | `/videos/<video_id>/tags/<int:tag_id>/delete` | Remove a video–tag association |
 
 ---
 
@@ -268,12 +262,6 @@ The tag selector is not present in the filter bar.
 | `index.html` | Filter toolbar + `#video-container` shell |
 | `_video_container.html` | Swapped by HTMX; renders flat grid or grouped sections |
 | `_video_card.html` | Single card included by `_video_container.html` |
-| `tags.html` | Tag list + create-tag form |
-| `tag_detail.html` | Per-tag keyword editor |
-
-### Tag Management Page (`/tags`)
-
-Tag list with a create-tag form (name only). Each tag links to its detail page where keywords (one per line) can be edited. Delete button removes the tag and all its video associations.
 
 ### Accessibility and Usability Notes
 

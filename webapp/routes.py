@@ -38,7 +38,6 @@ def index():
         return url_for("main.index", **args)
 
     channels = _db.get_all_channels(g.db)
-    tags = _db.get_all_tags(g.db)
     stats = _db.get_stats(g.db)
 
     groups = None
@@ -52,7 +51,6 @@ def index():
     template_vars = dict(
         videos=videos,
         channels=channels,
-        tags=tags,
         stats=stats,
         groups=groups,
         sort_by=sort_by,
@@ -83,60 +81,3 @@ def visit(video_id):
     return redirect(row["url"])
 
 
-@bp.route("/tags", methods=["GET", "POST"])
-def tags():
-    if request.method == "POST":
-        name = (request.form.get("name") or "").strip()
-        if not name:
-            abort(400)
-        _db.create_tag(g.db, name)
-        return redirect(url_for("main.tags"))
-
-    all_tags = _db.get_tags_with_keywords(g.db)
-    return render_template("tags.html", tags=all_tags)
-
-
-@bp.route("/tags/<int:tag_id>")
-def tag_detail(tag_id):
-    tags_with_kw = _db.get_tags_with_keywords(g.db)
-    tag = next((t for t in tags_with_kw if t["id"] == tag_id), None)
-    if tag is None:
-        abort(404)
-    return render_template("tag_detail.html", tag=tag)
-
-
-@bp.route("/tags/<int:tag_id>/keywords", methods=["POST"])
-def set_tag_keywords(tag_id):
-    tags_with_kw = _db.get_tags_with_keywords(g.db)
-    if not any(t["id"] == tag_id for t in tags_with_kw):
-        abort(404)
-    raw = request.form.get("keywords") or ""
-    keywords = [k.strip() for k in raw.splitlines() if k.strip()]
-    _db.set_tag_keywords(g.db, tag_id, keywords)
-    return redirect(url_for("main.tag_detail", tag_id=tag_id))
-
-
-@bp.route("/tags/<int:tag_id>/delete", methods=["POST"])
-def delete_tag(tag_id):
-    _db.delete_tag(g.db, tag_id)
-    return redirect(url_for("main.tags"))
-
-
-@bp.route("/videos/<video_id>/tags", methods=["POST"])
-def add_video_tag(video_id):
-    row = _db.get_video_by_id(g.db, video_id)
-    if row is None:
-        abort(404)
-    tag_id = request.form.get("tag_id")
-    if tag_id:
-        _db.add_video_tag(g.db, video_id, int(tag_id))
-    return redirect(url_for("main.index"))
-
-
-@bp.route("/videos/<video_id>/tags/<int:tag_id>/delete", methods=["POST"])
-def remove_video_tag(video_id, tag_id):
-    row = _db.get_video_by_id(g.db, video_id)
-    if row is None:
-        abort(404)
-    _db.remove_video_tag(g.db, video_id, tag_id)
-    return redirect(url_for("main.index"))
