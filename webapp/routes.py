@@ -107,6 +107,7 @@ def api_add():
     video_id = m.group(1)
     existing = _db.get_video_by_id(g.db, video_id)
     if existing and existing.get("fetch_status") == "ok":
+        _db.record_visit(g.db, video_id)
         resp = jsonify({"status": "exists", "title": existing.get("title")})
         resp.headers.update(cors_headers)
         return resp
@@ -134,6 +135,7 @@ def api_add():
         resp.headers.update(cors_headers)
         return resp, 200
 
+    _db.record_visit(g.db, video_id)
     resp = jsonify({"status": "added", "title": meta.title})
     resp.headers.update(cors_headers)
     return resp
