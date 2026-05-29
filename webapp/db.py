@@ -327,6 +327,104 @@ def apply_aliases(conn: sqlite3.Connection, video_id: str) -> None:
         conn.commit()
 
 
+def get_canonical_tags(conn: sqlite3.Connection) -> list:
+    tags = conn.execute("""
+        SELECT t.id, t.name, COUNT(DISTINCT vt.video_id_fk) as video_count
+        FROM tags t
+        LEFT JOIN video_tags vt ON vt.tag_id_fk = t.id
+        WHERE t.is_canonical = 1
+        GROUP BY t.id, t.name
+        ORDER BY t.name
+    """).fetchall()
+    result = []
+    for tag in tags:
+        aliases = conn.execute(
+            "SELECT id, pattern, match_type FROM tag_aliases WHERE canonical_tag_id = ? ORDER BY pattern",
+            (tag["id"],),
+        ).fetchall()
+        result.append({
+            "id": tag["id"],
+            "name": tag["name"],
+            "video_count": tag["video_count"],
+            "aliases": [dict(a) for a in aliases],
+        })
+    return result
+
+
+def create_canonical_tag(conn: sqlite3.Connection, name: str) -> int:
+    name = name.strip()
+    existing = conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()
+    if existing:
+        conn.execute("UPDATE tags SET is_canonical = 1 WHERE id = ?", (existing[0],))
+        conn.commit()
+        return existing[0]
+    cursor = conn.execute("INSERT INTO tags (name, is_canonical) VALUES (?, 1)", (name,))
+    conn.commit()
+    return cursor.lastrowid
+
+
+def add_alias(conn: sqlite3.Connection, tag_id: int, pattern: str, match_type: str = "exact") -> int:
+    conn.execute(
+        "INSERT OR IGNORE INTO tag_aliases (pattern, match_type, canonical_tag_id) VALUES (?, ?, ?)",
+        (pattern.strip(), match_type, tag_id),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT id FROM tag_aliases WHERE pattern = ? AND match_type = ? AND canonical_tag_id = ?",
+        (pattern.strip(), match_type, tag_id),
+    ).fetchone()
+    return row[0]
+
+
+def delete_alias(conn: sqlite3.Connection, alias_id: int) -> None:
+    conn.execute("DELETE FROM tag_aliases WHERE id = ?", (alias_id,))
+    conn.commit()
+
+
+def retroactive_apply(conn: sqlite3.Connection, alias_rule_id: Optional[int] = None) -> int:
+    """Apply alias rules to all existing videos. Returns number of new associations created."""
+    if alias_rule_id is not None:
+        rules = conn.execute(
+            "SELECT pattern, match_type, canonical_tag_id FROM tag_aliases WHERE id = ?",
+            (alias_rule_id,),
+        ).fetchall()
+    else:
+        rules = conn.execute(
+            "SELECT pattern, match_type, canonical_tag_id FROM tag_aliases"
+        ).fetchall()
+
+    total = 0
+    for pattern, match_type, canonical_tag_id in rules:
+        p = pattern.lower()
+        esc = p.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
+        if match_type == "exact":
+            cur = conn.execute("""
+                INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
+                SELECT DISTINCT vt.video_id_fk, ?
+                FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
+                WHERE LOWER(t.name) = ?
+            """, (canonical_tag_id, p))
+        elif match_type == "prefix":
+            cur = conn.execute("""
+                INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
+                SELECT DISTINCT vt.video_id_fk, ?
+                FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
+                WHERE LOWER(t.name) LIKE ? ESCAPE '\\'
+            """, (canonical_tag_id, esc + "%"))
+        elif match_type == "contains":
+            cur = conn.execute("""
+                INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
+                SELECT DISTINCT vt.video_id_fk, ?
+                FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
+                WHERE LOWER(t.name) LIKE ? ESCAPE '\\'
+            """, (canonical_tag_id, "%" + esc + "%"))
+        else:
+            continue
+        total += cur.rowcount
+    conn.commit()
+    return total
+
+
 def init_webapp_tables(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON")

@@ -248,6 +248,18 @@ Grouped view retains Prev/Next. HTMX `beforeend` appends new cards; `hx-swap-oob
 
 ## 2026-05-29
 
+### Tag distillation Phase 2 — retroactive pass and tag admin UI
+
+`retroactive_apply(conn, alias_rule_id=None)` applies alias rules to all existing videos in a single SQL pass per rule (`INSERT OR IGNORE INTO video_tags SELECT ...`), returning the count of new associations. Five new db functions: `get_canonical_tags`, `create_canonical_tag`, `add_alias`, `delete_alias`, `retroactive_apply`. New `GET/POST /tags` admin page lists canonical tags with their aliases, a create form, and a "Re-apply all rules" button. Adding an alias auto-applies it retroactively immediately. Tags link added to nav.
+
+**Implications**
+- **+** Retroactive pass is a bulk SQL operation — efficient regardless of library size
+- **+** Auto-applying on alias creation means the user sees results immediately without a separate step
+- **+** "Re-apply all rules" with `?applied=N` feedback gives confidence the pass ran
+- **−** Deleting an alias does not remove already-applied canonical tag associations — those remain in `video_tags` (intentional: non-destructive; Phase 3 could add a "revoke" option)
+
+---
+
 ### Tag distillation Phase 1 — schema, `apply_aliases`, crawler and bookmarklet hooks
 
 `tags` gains `is_canonical BOOLEAN NOT NULL DEFAULT 0`. New `tag_aliases (pattern, match_type, canonical_tag_id)` table supports `exact`, `prefix`, and `contains` matching (case-insensitive). `apply_aliases(conn, video_id)` in `webapp/db.py` checks a video's current tags against all alias rules and inserts matching canonical tag associations (idempotent). Hooked into `Datastore.upsert_video` (crawler) and `add_video` (bookmarklet). `add_video` now also stores raw `yt_tags`. `init_webapp_tables` migrates existing DBs via `ALTER TABLE`. Rules are entered manually via direct DB for now; Phase 2 adds a UI.

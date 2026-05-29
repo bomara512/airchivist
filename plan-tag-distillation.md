@@ -156,10 +156,18 @@ Show canonical tags instead of (or in addition to) raw tags on the card. Raw tag
 - Manual rule entry via direct DB (`INSERT INTO tag_aliases ...`)
 - **Note**: crawler imports `apply_aliases` from `webapp.db` — deliberate cross-package dependency within the same project; routes.py already imports from crawler, establishing the precedent
 
-### Phase 2 — Retroactive pass and rule management UI
-- `retroactive_apply(conn, alias_rule_id)` — scans all videos for a given rule
-- Basic tag admin page: list canonical tags, edit aliases
-- "Re-apply all rules" button
+### Phase 2 — Retroactive pass and rule management UI ✅ IMPLEMENTED (2026-05-29)
+- `retroactive_apply(conn, alias_rule_id=None)` — single-pass SQL: for each rule, INSERTs matching video-canonical associations in bulk; returns count of new rows created; idempotent via `INSERT OR IGNORE`
+- `get_canonical_tags(conn)` — returns canonical tags with video count and their alias rules
+- `create_canonical_tag(conn, name)` — creates new tag with `is_canonical=1`, or promotes existing tag
+- `add_alias(conn, tag_id, pattern, match_type)` — adds alias rule; returns its id
+- `delete_alias(conn, alias_id)` — removes alias rule
+- `GET/POST /tags` — tag admin page; POST creates a canonical tag
+- `POST /tags/<id>/alias` — adds alias and auto-applies it retroactively
+- `POST /tags/<id>/alias/<aid>/delete` — deletes alias
+- `POST /tags/retroactive` — re-applies all rules; redirects with `?applied=N` count
+- Tags link added to nav in `base.html`
+- Adding an alias auto-applies it retroactively (one step instead of two)
 
 ### Phase 3 — Suggestion engine
 - Clustering pass (edit distance + token overlap)

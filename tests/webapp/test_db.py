@@ -5,7 +5,8 @@ from webapp.db import (
     get_tags_with_keywords, get_tag_keywords, get_stats, get_tags_for_video,
     record_visit, create_tag, set_tag_keywords, delete_tag,
     add_video_tag, remove_video_tag, init_webapp_tables, count_videos,
-    apply_aliases,
+    apply_aliases, get_canonical_tags, create_canonical_tag,
+    add_alias, delete_alias, retroactive_apply,
 )
 
 
@@ -393,3 +394,102 @@ class TestInitWebappTables:
         conn.close()
         init_webapp_tables(db_path)
         init_webapp_tables(db_path)  # must not raise
+
+
+class TestCanonicalTagManagement:
+    def test_create_canonical_tag_new(self, db_conn):
+        tag_id = create_canonical_tag(db_conn, "cooking")
+        row = db_conn.execute("SELECT name, is_canonical FROM tags WHERE id=?", (tag_id,)).fetchone()
+        assert row[0] == "cooking"
+        assert row[1] == 1
+
+    def test_create_canonical_tag_promotes_existing(self, db_conn):
+        tag_id = create_canonical_tag(db_conn, "guitar")  # already exists in seed
+        row = db_conn.execute("SELECT is_canonical FROM tags WHERE id=?", (tag_id,)).fetchone()
+        assert row[0] == 1
+
+    def test_create_canonical_tag_idempotent(self, db_conn):
+        id1 = create_canonical_tag(db_conn, "guitar")
+        id2 = create_canonical_tag(db_conn, "guitar")
+        assert id1 == id2
+
+    def test_get_canonical_tags_returns_only_canonical(self, db_conn):
+        create_canonical_tag(db_conn, "guitar")
+        result = get_canonical_tags(db_conn)
+        names = {t["name"] for t in result}
+        assert "guitar" in names
+        assert "thai food" not in names  # not canonical
+
+    def test_get_canonical_tags_includes_video_count(self, db_conn):
+        create_canonical_tag(db_conn, "guitar")
+        result = get_canonical_tags(db_conn)
+        guitar = next(t for t in result if t["name"] == "guitar")
+        assert guitar["video_count"] == 2
+
+    def test_get_canonical_tags_includes_aliases(self, db_conn):
+        tag_id = create_canonical_tag(db_conn, "guitar")
+        add_alias(db_conn, tag_id, "guitar lesson", "prefix")
+        result = get_canonical_tags(db_conn)
+        guitar = next(t for t in result if t["name"] == "guitar")
+        assert any(a["pattern"] == "guitar lesson" for a in guitar["aliases"])
+
+    def test_add_alias_returns_id(self, db_conn):
+        tag_id = create_canonical_tag(db_conn, "guitar")
+        alias_id = add_alias(db_conn, tag_id, "guitar lesson", "prefix")
+        assert isinstance(alias_id, int)
+
+    def test_add_alias_idempotent(self, db_conn):
+        tag_id = create_canonical_tag(db_conn, "guitar")
+        id1 = add_alias(db_conn, tag_id, "guitar lesson", "prefix")
+        id2 = add_alias(db_conn, tag_id, "guitar lesson", "prefix")
+        assert id1 == id2
+
+    def test_delete_alias_removes_it(self, db_conn):
+        tag_id = create_canonical_tag(db_conn, "guitar")
+        alias_id = add_alias(db_conn, tag_id, "guitar lesson", "prefix")
+        delete_alias(db_conn, alias_id)
+        row = db_conn.execute("SELECT id FROM tag_aliases WHERE id=?", (alias_id,)).fetchone()
+        assert row is None
+
+
+class TestRetroactiveApply:
+    def _setup_canonical(self, db_conn, tag_name, pattern, match_type="exact"):
+        tag_id = create_canonical_tag(db_conn, tag_name)
+        alias_id = add_alias(db_conn, tag_id, pattern, match_type)
+        return tag_id, alias_id
+
+    def test_applies_exact_rule_to_all_videos(self, db_conn):
+        tag_id, alias_id = self._setup_canonical(db_conn, "string instrument", "guitar")
+        count = retroactive_apply(db_conn, alias_id)
+        assert count == 2  # aaaaaaaaaa1 and aaaaaaaaaa3 are tagged guitar
+        assert "string instrument" in get_tags_for_video(db_conn, "aaaaaaaaaa1")
+        assert "string instrument" in get_tags_for_video(db_conn, "aaaaaaaaaa3")
+
+    def test_applies_prefix_rule_to_all_videos(self, db_conn):
+        tag_id, alias_id = self._setup_canonical(db_conn, "thai cuisine", "thai", "prefix")
+        retroactive_apply(db_conn, alias_id)
+        assert "thai cuisine" in get_tags_for_video(db_conn, "aaaaaaaaaa2")
+        assert "thai cuisine" in get_tags_for_video(db_conn, "aaaaaaaaaa4")
+
+    def test_applies_contains_rule_to_all_videos(self, db_conn):
+        tag_id, alias_id = self._setup_canonical(db_conn, "food content", "food", "contains")
+        retroactive_apply(db_conn, alias_id)
+        assert "food content" in get_tags_for_video(db_conn, "aaaaaaaaaa2")
+
+    def test_applies_all_rules_when_no_id_given(self, db_conn):
+        tag_id1, _ = self._setup_canonical(db_conn, "string instrument", "guitar")
+        tag_id2, _ = self._setup_canonical(db_conn, "thai cuisine", "thai", "prefix")
+        retroactive_apply(db_conn)
+        assert "string instrument" in get_tags_for_video(db_conn, "aaaaaaaaaa1")
+        assert "thai cuisine" in get_tags_for_video(db_conn, "aaaaaaaaaa2")
+
+    def test_returns_count_of_new_associations(self, db_conn):
+        tag_id, alias_id = self._setup_canonical(db_conn, "string instrument", "guitar")
+        count = retroactive_apply(db_conn, alias_id)
+        assert count == 2
+
+    def test_is_idempotent(self, db_conn):
+        tag_id, alias_id = self._setup_canonical(db_conn, "string instrument", "guitar")
+        retroactive_apply(db_conn, alias_id)
+        count2 = retroactive_apply(db_conn, alias_id)
+        assert count2 == 0

@@ -147,3 +147,36 @@ def install():
     return render_template("install.html")
 
 
+@bp.route("/tags", methods=["GET", "POST"])
+def tags():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        if name:
+            _db.create_canonical_tag(g.db, name)
+        return redirect(url_for("main.tags"))
+    canonical = _db.get_canonical_tags(g.db)
+    return render_template("tags.html", canonical_tags=canonical)
+
+
+@bp.route("/tags/<int:tag_id>/alias", methods=["POST"])
+def tag_add_alias(tag_id):
+    pattern = request.form.get("pattern", "").strip()
+    match_type = request.form.get("match_type", "exact")
+    if pattern and match_type in ("exact", "prefix", "contains"):
+        alias_id = _db.add_alias(g.db, tag_id, pattern, match_type)
+        _db.retroactive_apply(g.db, alias_id)
+    return redirect(url_for("main.tags"))
+
+
+@bp.route("/tags/<int:tag_id>/alias/<int:alias_id>/delete", methods=["POST"])
+def tag_delete_alias(tag_id, alias_id):
+    _db.delete_alias(g.db, alias_id)
+    return redirect(url_for("main.tags"))
+
+
+@bp.route("/tags/retroactive", methods=["POST"])
+def tags_retroactive():
+    count = _db.retroactive_apply(g.db)
+    return redirect(url_for("main.tags", applied=count))
+
+

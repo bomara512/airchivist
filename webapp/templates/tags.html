@@ -1,27 +1,61 @@
 {% extends "base.html" %}
-{% block title %}Tags — ViewTube{% endblock %}
+{% block title %}ViewTube — Tags{% endblock %}
 
 {% block content %}
-<h1>Tags</h1>
-
-<form method="post" action="{{ url_for('main.tags') }}">
-  <input name="name" placeholder="New tag name" required>
-  <button type="submit">Add Tag</button>
-</form>
-
-<ul class="tag-list">
-  {% for tag in tags %}
-  <li>
-    <a href="{{ url_for('main.tag_detail', tag_id=tag.id) }}">{{ tag.name }}</a>
-    {% if tag.keywords %}
-    <span class="kw-preview">{{ tag.keywords | join(', ') }}</span>
-    {% endif %}
-    <form method="post" action="{{ url_for('main.delete_tag', tag_id=tag.id) }}" style="display:inline">
-      <button type="submit">Delete</button>
+<div class="tags-header">
+  <h1>Canonical Tags</h1>
+  <div class="tags-actions">
+    <form method="post" action="{{ url_for('main.tags') }}" class="inline-form">
+      <input name="name" placeholder="New canonical tag…" autocomplete="off" required>
+      <button type="submit">Create</button>
     </form>
-  </li>
-  {% else %}
-  <li>No tags yet.</li>
+    <form method="post" action="{{ url_for('main.tags_retroactive') }}">
+      <button type="submit" class="secondary-btn">Re-apply all rules</button>
+    </form>
+    {% if request.args.get('applied') is not none %}
+    <span class="applied-notice">{{ request.args.get('applied') }} new association(s) created.</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if canonical_tags %}
+<div class="canonical-tag-list">
+  {% for tag in canonical_tags %}
+  <div class="canonical-tag-card">
+    <div class="canonical-tag-header">
+      <span class="canonical-tag-name">{{ tag.name }}</span>
+      <span class="canonical-tag-count">{{ tag.video_count }} video{{ 's' if tag.video_count != 1 }}</span>
+    </div>
+
+    {% if tag.aliases %}
+    <ul class="alias-list">
+      {% for alias in tag.aliases %}
+      <li>
+        <span class="alias-pattern">{{ alias.pattern }}</span>
+        <span class="alias-type">{{ alias.match_type }}</span>
+        <form method="post" action="{{ url_for('main.tag_delete_alias', tag_id=tag.id, alias_id=alias.id) }}" class="inline-form">
+          <button type="submit" class="alias-delete-btn" title="Remove alias">×</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="no-aliases">No aliases yet.</p>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('main.tag_add_alias', tag_id=tag.id) }}" class="add-alias-form">
+      <input name="pattern" placeholder="Pattern…" autocomplete="off" required>
+      <select name="match_type">
+        <option value="exact">exact</option>
+        <option value="prefix">prefix</option>
+        <option value="contains">contains</option>
+      </select>
+      <button type="submit">Add &amp; apply</button>
+    </form>
+  </div>
   {% endfor %}
-</ul>
+</div>
+{% else %}
+<p class="empty">No canonical tags yet. Create one above.</p>
+{% endif %}
 {% endblock %}
