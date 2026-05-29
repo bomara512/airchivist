@@ -5,6 +5,7 @@ from webapp.db import (
     get_tags_with_keywords, get_tag_keywords, get_stats, get_tags_for_video,
     record_visit, create_tag, set_tag_keywords, delete_tag,
     add_video_tag, remove_video_tag, init_webapp_tables, count_videos,
+    apply_aliases,
 )
 
 
@@ -292,6 +293,71 @@ class TestVideoTagAssociations:
         assert "guitar" not in tags
 
 
+class TestApplyAliases:
+    def _add_canonical(self, db_conn, name):
+        db_conn.execute("INSERT INTO tags (name, is_canonical) VALUES (?, 1)", (name,))
+        db_conn.commit()
+        return db_conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()[0]
+
+    def _add_alias(self, db_conn, pattern, canonical_id, match_type="exact"):
+        db_conn.execute(
+            "INSERT INTO tag_aliases (pattern, match_type, canonical_tag_id) VALUES (?, ?, ?)",
+            (pattern, match_type, canonical_id),
+        )
+        db_conn.commit()
+
+    def test_exact_match_adds_canonical_tag(self, db_conn):
+        cid = self._add_canonical(db_conn, "string instrument")
+        self._add_alias(db_conn, "guitar", cid)
+        apply_aliases(db_conn, "aaaaaaaaaa1")  # aaaaaaaaaa1 is tagged "guitar"
+        assert "string instrument" in get_tags_for_video(db_conn, "aaaaaaaaaa1")
+
+    def test_prefix_match_adds_canonical_tag(self, db_conn):
+        cid = self._add_canonical(db_conn, "thai cuisine")
+        self._add_alias(db_conn, "thai", cid, match_type="prefix")
+        apply_aliases(db_conn, "aaaaaaaaaa2")  # aaaaaaaaaa2 is tagged "thai food"
+        assert "thai cuisine" in get_tags_for_video(db_conn, "aaaaaaaaaa2")
+
+    def test_contains_match_adds_canonical_tag(self, db_conn):
+        cid = self._add_canonical(db_conn, "thai cuisine")
+        self._add_alias(db_conn, "food", cid, match_type="contains")
+        apply_aliases(db_conn, "aaaaaaaaaa2")  # "thai food" contains "food"
+        assert "thai cuisine" in get_tags_for_video(db_conn, "aaaaaaaaaa2")
+
+    def test_no_match_makes_no_change(self, db_conn):
+        cid = self._add_canonical(db_conn, "coding")
+        self._add_alias(db_conn, "python", cid)
+        tags_before = set(get_tags_for_video(db_conn, "aaaaaaaaaa1"))
+        apply_aliases(db_conn, "aaaaaaaaaa1")
+        assert set(get_tags_for_video(db_conn, "aaaaaaaaaa1")) == tags_before
+
+    def test_is_idempotent(self, db_conn):
+        cid = self._add_canonical(db_conn, "string instrument")
+        self._add_alias(db_conn, "guitar", cid)
+        apply_aliases(db_conn, "aaaaaaaaaa1")
+        apply_aliases(db_conn, "aaaaaaaaaa1")
+        count = db_conn.execute(
+            "SELECT COUNT(*) FROM video_tags vt "
+            "JOIN tags t ON t.id = vt.tag_id_fk "
+            "WHERE t.name = 'string instrument'"
+        ).fetchone()[0]
+        assert count == 1
+
+    def test_unknown_video_id_does_nothing(self, db_conn):
+        apply_aliases(db_conn, "doesnotexist")  # must not raise
+
+    def test_matching_is_case_insensitive(self, db_conn):
+        cid = self._add_canonical(db_conn, "string instrument")
+        self._add_alias(db_conn, "GUITAR", cid)
+        apply_aliases(db_conn, "aaaaaaaaaa1")
+        assert "string instrument" in get_tags_for_video(db_conn, "aaaaaaaaaa1")
+
+    def test_no_alias_rules_makes_no_change(self, db_conn):
+        tags_before = set(get_tags_for_video(db_conn, "aaaaaaaaaa1"))
+        apply_aliases(db_conn, "aaaaaaaaaa1")
+        assert set(get_tags_for_video(db_conn, "aaaaaaaaaa1")) == tags_before
+
+
 class TestInitWebappTables:
     def test_creates_tag_keywords_table(self, tmp_path):
         db_path = str(tmp_path / "fresh.db")
@@ -307,6 +373,18 @@ class TestInitWebappTables:
         ).fetchall()}
         conn.close()
         assert "tag_keywords" in tables
+        assert "tag_aliases" in tables
+
+    def test_adds_is_canonical_column(self, tmp_path):
+        db_path = str(tmp_path / "fresh.db")
+        conn = sqlite3.connect(db_path)
+        conn.executescript("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE);")
+        conn.close()
+        init_webapp_tables(db_path)
+        conn = sqlite3.connect(db_path)
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(tags)").fetchall()}
+        conn.close()
+        assert "is_canonical" in cols
 
     def test_is_idempotent(self, tmp_path):
         db_path = str(tmp_path / "fresh.db")

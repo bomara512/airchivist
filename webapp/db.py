@@ -240,6 +240,7 @@ def add_video(
     date_published: Optional[str] = None,
     fetch_status: str = 'ok',
     fetch_error: Optional[str] = None,
+    yt_tags: Optional[list] = None,
 ) -> None:
     now = datetime.now(timezone.utc).isoformat()
     conn.execute("""
@@ -267,6 +268,64 @@ def add_video(
     ))
     conn.commit()
 
+    video_row = conn.execute("SELECT id FROM videos WHERE video_id = ?", (video_id,)).fetchone()
+    if video_row and yt_tags:
+        for name in yt_tags:
+            name = name.strip()
+            if not name:
+                continue
+            conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
+            tag_row = conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()
+            conn.execute(
+                "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (?, ?)",
+                (video_row[0], tag_row[0]),
+            )
+        conn.commit()
+
+    apply_aliases(conn, video_id)
+
+
+def apply_aliases(conn: sqlite3.Connection, video_id: str) -> None:
+    """Associate video with canonical tags whose alias rules match any of its current tags."""
+    video_row = conn.execute("SELECT id FROM videos WHERE video_id = ?", (video_id,)).fetchone()
+    if not video_row:
+        return
+
+    try:
+        rules = conn.execute(
+            "SELECT pattern, match_type, canonical_tag_id FROM tag_aliases"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return  # tag_aliases table not yet created
+
+    if not rules:
+        return
+
+    tag_names = [r[0] for r in conn.execute(
+        "SELECT t.name FROM tags t JOIN video_tags vt ON vt.tag_id_fk = t.id WHERE vt.video_id_fk = ?",
+        (video_row[0],),
+    ).fetchall()]
+
+    canonical_ids = set()
+    for pattern, match_type, canonical_tag_id in rules:
+        p = pattern.lower()
+        for name in tag_names:
+            n = name.lower()
+            if match_type == 'exact' and n == p:
+                canonical_ids.add(canonical_tag_id)
+            elif match_type == 'prefix' and n.startswith(p):
+                canonical_ids.add(canonical_tag_id)
+            elif match_type == 'contains' and p in n:
+                canonical_ids.add(canonical_tag_id)
+
+    for cid in canonical_ids:
+        conn.execute(
+            "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (?, ?)",
+            (video_row[0], cid),
+        )
+    if canonical_ids:
+        conn.commit()
+
 
 def init_webapp_tables(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
@@ -283,6 +342,18 @@ def init_webapp_tables(db_path: str) -> None:
             tag_id_fk   INTEGER NOT NULL REFERENCES tags(id)   ON DELETE CASCADE,
             PRIMARY KEY (video_id_fk, tag_id_fk)
         );
+        CREATE TABLE IF NOT EXISTS tag_aliases (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            pattern          TEXT    NOT NULL,
+            match_type       TEXT    NOT NULL DEFAULT 'exact',
+            canonical_tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+            UNIQUE(pattern, match_type)
+        );
     """)
+    try:
+        conn.execute("ALTER TABLE tags ADD COLUMN is_canonical BOOLEAN NOT NULL DEFAULT 0")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # column already exists
     conn.commit()
     conn.close()

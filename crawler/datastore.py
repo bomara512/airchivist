@@ -27,8 +27,9 @@ CREATE TABLE IF NOT EXISTS videos (
 );
 
 CREATE TABLE IF NOT EXISTS tags (
-    id   INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT    NOT NULL UNIQUE,
+    is_canonical BOOLEAN NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS video_tags (
@@ -99,6 +100,8 @@ class Datastore:
         )
         self._conn.commit()
         self._apply_yt_tags(metadata)
+        from webapp.db import apply_aliases
+        apply_aliases(self._conn, metadata.video_id)
 
     def _apply_yt_tags(self, metadata: VideoMetadata) -> None:
         all_names = [*metadata.yt_categories, *metadata.yt_tags]

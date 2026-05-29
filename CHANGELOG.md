@@ -248,6 +248,19 @@ Grouped view retains Prev/Next. HTMX `beforeend` appends new cards; `hx-swap-oob
 
 ## 2026-05-29
 
+### Tag distillation Phase 1 — schema, `apply_aliases`, crawler and bookmarklet hooks
+
+`tags` gains `is_canonical BOOLEAN NOT NULL DEFAULT 0`. New `tag_aliases (pattern, match_type, canonical_tag_id)` table supports `exact`, `prefix`, and `contains` matching (case-insensitive). `apply_aliases(conn, video_id)` in `webapp/db.py` checks a video's current tags against all alias rules and inserts matching canonical tag associations (idempotent). Hooked into `Datastore.upsert_video` (crawler) and `add_video` (bookmarklet). `add_video` now also stores raw `yt_tags`. `init_webapp_tables` migrates existing DBs via `ALTER TABLE`. Rules are entered manually via direct DB for now; Phase 2 adds a UI.
+
+**Implications**
+- **+** New videos automatically get canonical tags applied at ingest time — no manual backfill needed for future additions
+- **+** Alias rules are additive and non-destructive — raw tags are preserved
+- **+** `apply_aliases` is safe to call on a DB without the `tag_aliases` table (graceful no-op), so the crawler won't break on old DBs
+- **−** Crawler now imports from `webapp.db` — cross-package dependency that slightly muddles the module boundary; acceptable for a monorepo but worth noting
+- **−** No rules exist yet, so the feature is dormant until rules are entered directly in the DB
+
+---
+
 ### `plan-production.md` created
 Documents the path to hosted/multi-user deployment: WSGI, auth, database migration, background jobs, API key security.
 

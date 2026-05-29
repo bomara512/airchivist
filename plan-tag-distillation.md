@@ -147,11 +147,14 @@ Show canonical tags instead of (or in addition to) raw tags on the card. Raw tag
 
 ## Implementation Phases
 
-### Phase 1 — Schema and rules (no UI)
-- Add `is_canonical` to `tags`, create `tag_aliases` table
-- Write `apply_aliases(conn, video_id)` function in `webapp/db.py`
-- Hook into crawler `upsert_video` and webapp `api_add`
-- Manual rule entry via direct DB or a simple CLI command
+### Phase 1 — Schema and rules (no UI) ✅ IMPLEMENTED (2026-05-29)
+- `is_canonical BOOLEAN NOT NULL DEFAULT 0` added to `tags` in crawler `_SCHEMA`; migration via `ALTER TABLE` in `init_webapp_tables` for existing DBs
+- `tag_aliases (id, pattern, match_type, canonical_tag_id)` table created in `init_webapp_tables`; `match_type` supports `'exact'`, `'prefix'`, `'contains'`; matching is case-insensitive
+- `apply_aliases(conn, video_id)` in `webapp/db.py`: reads all alias rules, tests each against the video's current tags, inserts matching canonical tag associations into `video_tags` (idempotent via `INSERT OR IGNORE`); gracefully handles missing `tag_aliases` table
+- Hooked into crawler `Datastore.upsert_video` (after `_apply_yt_tags`) and webapp `api_add` (via `add_video`)
+- `add_video` now accepts `yt_tags: list[str]` and stores them as regular tags before calling `apply_aliases`
+- Manual rule entry via direct DB (`INSERT INTO tag_aliases ...`)
+- **Note**: crawler imports `apply_aliases` from `webapp.db` — deliberate cross-package dependency within the same project; routes.py already imports from crawler, establishing the precedent
 
 ### Phase 2 — Retroactive pass and rule management UI
 - `retroactive_apply(conn, alias_rule_id)` — scans all videos for a given rule

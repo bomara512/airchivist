@@ -24,8 +24,9 @@ CREATE TABLE videos (
     last_fetched_at     TEXT
 );
 CREATE TABLE tags (
-    id   INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT    NOT NULL UNIQUE,
+    is_canonical BOOLEAN NOT NULL DEFAULT 0
 );
 CREATE TABLE video_tags (
     video_id_fk INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
@@ -37,6 +38,13 @@ CREATE TABLE tag_keywords (
     tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
     keyword TEXT NOT NULL,
     UNIQUE(tag_id, keyword)
+);
+CREATE TABLE tag_aliases (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern          TEXT    NOT NULL,
+    match_type       TEXT    NOT NULL DEFAULT 'exact',
+    canonical_tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    UNIQUE(pattern, match_type)
 );
 """
 

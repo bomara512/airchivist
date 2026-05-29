@@ -128,6 +128,7 @@ def api_add():
         date_published=meta.date_published.isoformat() if meta.date_published else None,
         fetch_status=meta.fetch_status,
         fetch_error=meta.fetch_error,
+        yt_tags=[*meta.yt_categories, *meta.yt_tags],
     )
 
     if meta.fetch_status != "ok":
