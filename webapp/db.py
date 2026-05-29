@@ -226,6 +226,48 @@ def remove_video_tag(conn: sqlite3.Connection, video_id: str, tag_id: int) -> No
     conn.commit()
 
 
+def add_video(
+    conn: sqlite3.Connection,
+    video_id: str,
+    url: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    channel_name: Optional[str] = None,
+    channel_id: Optional[str] = None,
+    yt_view_count: Optional[int] = None,
+    duration_seconds: Optional[int] = None,
+    thumbnail_url: Optional[str] = None,
+    date_published: Optional[str] = None,
+    fetch_status: str = 'ok',
+    fetch_error: Optional[str] = None,
+) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute("""
+        INSERT INTO videos (
+            video_id, url, title, description, channel_name, channel_id,
+            yt_view_count, duration_seconds, thumbnail_url, date_published,
+            fetch_status, fetch_error, date_added
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(video_id) DO UPDATE SET
+            url              = excluded.url,
+            title            = excluded.title,
+            description      = excluded.description,
+            channel_name     = excluded.channel_name,
+            channel_id       = excluded.channel_id,
+            yt_view_count    = excluded.yt_view_count,
+            duration_seconds = excluded.duration_seconds,
+            thumbnail_url    = excluded.thumbnail_url,
+            date_published   = excluded.date_published,
+            fetch_status     = excluded.fetch_status,
+            fetch_error      = excluded.fetch_error
+    """, (
+        video_id, url, title, description, channel_name, channel_id,
+        yt_view_count, duration_seconds, thumbnail_url, date_published,
+        fetch_status, fetch_error, now,
+    ))
+    conn.commit()
+
+
 def init_webapp_tables(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON")

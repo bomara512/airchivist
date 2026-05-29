@@ -17,6 +17,11 @@ header nav { display: flex; gap: 1.5rem; align-items: center; }
 header nav a { color: #e8e8e8; text-decoration: none; font-weight: 600; font-size: 1.1rem; }
 header nav a:hover { color: #ff4444; }
 .nav-stats { color: #666; font-size: 0.85rem; font-weight: 400; }
+.nav-install { margin-left: auto; font-size: 0.85rem !important; font-weight: 400 !important; color: #888 !important; }
+
+.bookmarklet-link { display: inline-block; background: #cc0000; color: #fff; text-decoration: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: grab; margin: 1rem 0; }
+.bookmarklet-link:hover { background: #ee0000; }
+.install-hint { color: #666; font-size: 0.85rem; }
 
 main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 

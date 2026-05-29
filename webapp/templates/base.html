@@ -14,6 +14,7 @@
       {% if stats is defined %}
       <span class="nav-stats">{{ stats.total_videos }} videos &middot; {{ stats.total_channels }} channels</span>
       {% endif %}
+      <a href="{{ url_for('main.install') }}" class="nav-install">Install bookmarklet</a>
     </nav>
   </header>
   <main>

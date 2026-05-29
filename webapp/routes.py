@@ -1,6 +1,7 @@
 import math
-from flask import Blueprint, g, request, redirect, abort, render_template, url_for
+from flask import Blueprint, g, request, redirect, abort, render_template, url_for, jsonify, make_response
 from webapp import db as _db
+from crawler.models import _YT_ID_RE
 
 bp = Blueprint("main", __name__)
 
@@ -78,5 +79,64 @@ def visit(video_id):
         abort(404)
     _db.record_visit(g.db, video_id)
     return redirect(row["url"])
+
+
+@bp.route("/api/add", methods=["POST", "OPTIONS"])
+def api_add():
+    cors_headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST",
+        "Access-Control-Allow-Headers": "Content-Type",
+    }
+    if request.method == "OPTIONS":
+        return make_response("", 204, cors_headers)
+
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+
+    m = _YT_ID_RE.search(url)
+    if not m:
+        resp = jsonify({"status": "error", "error": "Not a YouTube video URL"})
+        resp.headers.update(cors_headers)
+        return resp, 400
+
+    video_id = m.group(1)
+    existing = _db.get_video_by_id(g.db, video_id)
+    if existing and existing.get("fetch_status") == "ok":
+        resp = jsonify({"status": "exists", "title": existing.get("title")})
+        resp.headers.update(cors_headers)
+        return resp
+
+    from crawler.metadata_fetcher import fetch_metadata
+    meta = fetch_metadata(video_id, delay=0)
+    _db.add_video(
+        g.db,
+        video_id=meta.video_id,
+        url=meta.url,
+        title=meta.title,
+        description=meta.description,
+        channel_name=meta.channel_name,
+        channel_id=meta.channel_id,
+        yt_view_count=meta.yt_view_count,
+        duration_seconds=meta.duration_seconds,
+        thumbnail_url=meta.thumbnail_url,
+        date_published=meta.date_published.isoformat() if meta.date_published else None,
+        fetch_status=meta.fetch_status,
+        fetch_error=meta.fetch_error,
+    )
+
+    if meta.fetch_status != "ok":
+        resp = jsonify({"status": "error", "error": meta.fetch_error or "fetch failed"})
+        resp.headers.update(cors_headers)
+        return resp, 200
+
+    resp = jsonify({"status": "added", "title": meta.title})
+    resp.headers.update(cors_headers)
+    return resp
+
+
+@bp.route("/install")
+def install():
+    return render_template("install.html")
 
 
