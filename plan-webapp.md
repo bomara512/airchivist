@@ -228,7 +228,7 @@ Card layout within `.video-info`:
 2. Channel name (`.video-channel`) — on its own line below the title
 3. Metadata row (`.video-meta`) — below the channel: view count · publish date · date added (no labels on either date). Personal view count is shown inline with the YouTube view count as `1,234 [5] views` when > 0, replacing a separate "Watched N×" item.
 
-The channel name links to `https://www.youtube.com/channel/<channel_id>` (opens in a new tab); if `channel_id` is absent it renders as plain text. It is visually distinguished from surrounding metadata text by a dotted underline (`text-decoration-style: dotted`) that becomes solid on hover, signalling clickability without competing with the title.
+The channel name links to `https://www.youtube.com/channel/<channel_id>` (opens in a new tab); if `channel_id` is absent it renders as plain text. A small funnel icon (`.channel-filter-icon`) sits beside the channel name; clicking it navigates to `/?channel=<name>` (full page load so the channel select in the toolbar reflects the active filter). The icon is dim by default and turns red on hover.
 
 **Duration overlay**: Video duration is displayed as a pill badge in the bottom-right corner of the thumbnail (YouTube-style), using `position: absolute` inside the `position: relative` `.thumb-link`. Only rendered when `duration_seconds` is non-null.
 

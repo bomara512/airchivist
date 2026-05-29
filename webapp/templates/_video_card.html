@@ -19,6 +19,13 @@
       {% else %}
       <span>{{ video.channel_name or '—' }}</span>
       {% endif %}
+      {% if video.channel_name %}
+      <a href="{{ url_for('main.index', channel=video.channel_name) }}" class="channel-filter-icon" title="Filter by {{ video.channel_name }}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A.998.998 0 0 0 18.95 4H5.04a1 1 0 0 0-.79 1.61z"/>
+        </svg>
+      </a>
+      {% endif %}
     </div>
     <div class="video-meta">
       <span>{{ video.yt_view_count | view_count }}{% if video.personal_view_count %} [{{ video.personal_view_count }}]{% endif %} views</span>
