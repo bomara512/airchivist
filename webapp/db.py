@@ -45,6 +45,7 @@ def get_all_videos(
     search: Optional[str] = None,
     page: int = 1,
     page_size: Optional[int] = None,
+    group: Optional[str] = None,
 ) -> list:
     if sort_by not in ALLOWED_SORT_COLUMNS:
         raise ValueError(f"Invalid sort_by: {sort_by!r}")
@@ -58,6 +59,10 @@ def get_all_videos(
         limit_sql = "LIMIT ? OFFSET ?"
         params = params + [page_size, (page - 1) * page_size]
 
+    order_sql = f"v.{sort_by} {sort_dir}"
+    if group == "channel":
+        order_sql = f"v.channel_name ASC, {order_sql}"
+
     sql = f"""
         SELECT v.*, GROUP_CONCAT(t.name) as tags
         FROM videos v
@@ -65,7 +70,7 @@ def get_all_videos(
         LEFT JOIN tags t ON t.id = vt.tag_id_fk
         {where_sql}
         GROUP BY v.id
-        ORDER BY v.{sort_by} {sort_dir}
+        ORDER BY {order_sql}
         {limit_sql}
     """
     rows = conn.execute(sql, params).fetchall()

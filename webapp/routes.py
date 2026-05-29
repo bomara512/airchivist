@@ -26,6 +26,7 @@ def index():
             g.db, sort_by=sort_by, sort_dir=sort_dir,
             channel=channel, tag=tag, search=search,
             page=page, page_size=PAGE_SIZE,
+            group=group,
         )
     except ValueError:
         abort(400)
