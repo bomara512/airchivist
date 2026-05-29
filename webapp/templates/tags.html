@@ -18,6 +18,31 @@
   </div>
 </div>
 
+{% if suggestions %}
+<section class="suggestions-section">
+  <h2>Suggested clusters <span class="suggestions-count">({{ suggestions | length }})</span></h2>
+  <p class="suggestions-hint">These tags look similar. Name a canonical tag and click "Create &amp; apply" to merge them.</p>
+  <div class="suggestion-list">
+    {% for cluster in suggestions %}
+    <div class="suggestion-card">
+      <div class="suggestion-members">
+        {% for member in cluster %}
+        <span class="tag-pill">{{ member }}</span>
+        {% endfor %}
+      </div>
+      <form method="post" action="{{ url_for('main.tag_suggest_confirm') }}" class="suggestion-form">
+        {% for member in cluster %}
+        <input type="hidden" name="member" value="{{ member }}">
+        {% endfor %}
+        <input name="canonical_name" placeholder="{{ cluster | sort | first }}…" autocomplete="off" required>
+        <button type="submit">Create &amp; apply</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 {% if canonical_tags %}
 <div class="canonical-tag-list">
   {% for tag in canonical_tags %}

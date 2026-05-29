@@ -248,6 +248,19 @@ Grouped view retains Prev/Next. HTMX `beforeend` appends new cards; `hx-swap-oob
 
 ## 2026-05-29
 
+### Tag distillation Phase 3 — suggestion engine
+
+`webapp/tag_suggester.py` clusters similar tags using union-find: pairwise similarity is `max(edit_similarity, token_jaccard)` with a default threshold of 0.6. `get_suggestions(conn)` queries non-canonical, non-aliased tags and returns clusters. `confirm_suggestion` creates a canonical tag, adds exact aliases for all cluster members, and retroactively applies. Tags page shows a "Suggested clusters" section when any exist — each cluster shows member pills, a name input, and "Create & apply".
+
+**Implications**
+- **+** No external dependencies — `difflib.SequenceMatcher` and set operations only
+- **+** Already-aliased tags are excluded from suggestions so processed clusters don't resurface
+- **+** On-demand computation is fine at personal-library scale (≤500 tags ≈ 250K comparisons, well under 1 second)
+- **−** All cluster-generated aliases use `exact` match type — user may need to manually adjust to `prefix`/`contains` for broader coverage
+- **−** No "dismiss" option — unwanted suggestions reappear on every page load until the tags are aliased or the threshold is raised
+
+---
+
 ### Tag distillation Phase 2 — retroactive pass and tag admin UI
 
 `retroactive_apply(conn, alias_rule_id=None)` applies alias rules to all existing videos in a single SQL pass per rule (`INSERT OR IGNORE INTO video_tags SELECT ...`), returning the count of new associations. Five new db functions: `get_canonical_tags`, `create_canonical_tag`, `add_alias`, `delete_alias`, `retroactive_apply`. New `GET/POST /tags` admin page lists canonical tags with their aliases, a create form, and a "Re-apply all rules" button. Adding an alias auto-applies it retroactively immediately. Tags link added to nav.

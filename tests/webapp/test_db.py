@@ -7,6 +7,7 @@ from webapp.db import (
     add_video_tag, remove_video_tag, init_webapp_tables, count_videos,
     apply_aliases, get_canonical_tags, create_canonical_tag,
     add_alias, delete_alias, retroactive_apply,
+    get_suggestions, confirm_suggestion,
 )
 
 
@@ -357,6 +358,92 @@ class TestApplyAliases:
         tags_before = set(get_tags_for_video(db_conn, "aaaaaaaaaa1"))
         apply_aliases(db_conn, "aaaaaaaaaa1")
         assert set(get_tags_for_video(db_conn, "aaaaaaaaaa1")) == tags_before
+
+
+class TestGetSuggestions:
+    def _seed_raw_tags(self, db_conn):
+        # Add raw tags that are similar to each other
+        for name in ["meal prep", "meal-prep", "meal prep recipes"]:
+            db_conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
+        db_conn.commit()
+        # Associate them with a video so they pass the JOIN filter
+        for name in ["meal prep", "meal-prep", "meal prep recipes"]:
+            tag_row = db_conn.execute("SELECT id FROM tags WHERE name=?", (name,)).fetchone()
+            db_conn.execute(
+                "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (1, ?)",
+                (tag_row[0],),
+            )
+        db_conn.commit()
+
+    def test_returns_clusters_of_similar_tags(self, db_conn):
+        self._seed_raw_tags(db_conn)
+        clusters = get_suggestions(db_conn)
+        flat = [t for c in clusters for t in c]
+        assert "meal prep" in flat or "meal-prep" in flat
+
+    def test_excludes_canonical_tags(self, db_conn):
+        self._seed_raw_tags(db_conn)
+        create_canonical_tag(db_conn, "meal prep")
+        clusters = get_suggestions(db_conn)
+        flat = [t for c in clusters for t in c]
+        assert "meal prep" not in flat
+
+    def test_excludes_already_aliased_tags(self, db_conn):
+        self._seed_raw_tags(db_conn)
+        tag_id = create_canonical_tag(db_conn, "food prep")
+        add_alias(db_conn, tag_id, "meal prep", "exact")
+        clusters = get_suggestions(db_conn)
+        flat = [t for c in clusters for t in c]
+        assert "meal prep" not in flat
+
+    def test_returns_empty_when_no_similar_tags(self, db_conn):
+        clusters = get_suggestions(db_conn)
+        # seed data has "guitar" and "thai food" — unrelated, so no clusters
+        assert clusters == []
+
+
+class TestConfirmSuggestion:
+    def test_creates_canonical_tag_and_aliases(self, db_conn):
+        db_conn.execute("INSERT OR IGNORE INTO tags (name) VALUES ('meal prep')")
+        db_conn.execute(
+            "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (1, last_insert_rowid())"
+        )
+        db_conn.commit()
+        confirm_suggestion(db_conn, "meal-prep", ["meal prep"])
+        row = db_conn.execute("SELECT is_canonical FROM tags WHERE name='meal-prep'").fetchone()
+        assert row and row[0] == 1
+        alias = db_conn.execute(
+            "SELECT id FROM tag_aliases WHERE pattern='meal prep'"
+        ).fetchone()
+        assert alias is not None
+
+    def test_applies_retroactively(self, db_conn):
+        db_conn.execute("INSERT OR IGNORE INTO tags (name) VALUES ('meal prep')")
+        db_conn.commit()
+        tag_row = db_conn.execute("SELECT id FROM tags WHERE name='meal prep'").fetchone()
+        db_conn.execute(
+            "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (1, ?)",
+            (tag_row[0],),
+        )
+        db_conn.commit()
+        count = confirm_suggestion(db_conn, "meal-prep", ["meal prep"])
+        assert count >= 1
+        assert "meal-prep" in get_tags_for_video(db_conn, "aaaaaaaaaa1")
+
+    def test_returns_count_of_new_associations(self, db_conn):
+        db_conn.execute("INSERT OR IGNORE INTO tags (name) VALUES ('guitar lesson')")
+        db_conn.commit()
+        tag_row = db_conn.execute("SELECT id FROM tags WHERE name='guitar lesson'").fetchone()
+        # Associate with both guitar videos
+        db_conn.execute(
+            "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (1, ?)", (tag_row[0],)
+        )
+        db_conn.execute(
+            "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (3, ?)", (tag_row[0],)
+        )
+        db_conn.commit()
+        count = confirm_suggestion(db_conn, "guitar-lessons", ["guitar lesson"])
+        assert count == 2
 
 
 class TestInitWebappTables:

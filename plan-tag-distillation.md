@@ -169,10 +169,14 @@ Show canonical tags instead of (or in addition to) raw tags on the card. Raw tag
 - Tags link added to nav in `base.html`
 - Adding an alias auto-applies it retroactively (one step instead of two)
 
-### Phase 3 — Suggestion engine
-- Clustering pass (edit distance + token overlap)
-- Suggestion UI: review and confirm proposed clusters
-- Schedule periodic suggestion refresh (weekly cron or on-demand)
+### Phase 3 — Suggestion engine ✅ IMPLEMENTED (2026-05-29)
+- `webapp/tag_suggester.py`: `similarity(a, b)` combines edit similarity (`difflib.SequenceMatcher`) and token Jaccard (word-set overlap), taking the max of both; `suggest_clusters(tag_names, threshold=0.6)` uses union-find to group tags into clusters, filters to >= 2 members, returns sorted largest-first
+- `get_suggestions(conn, threshold=0.6, max_tags=500)` in `webapp/db.py`: queries non-canonical, non-aliased tags (ordered by usage, capped at 500) and passes to `suggest_clusters`
+- `confirm_suggestion(conn, canonical_name, member_names)`: creates canonical tag, adds exact aliases for all members, runs `retroactive_apply`
+- `POST /tags/suggest/confirm` route: reads `canonical_name` and list of `member` form fields
+- Suggestions section shown at top of Tags page when clusters exist; each card shows member tag pills, a canonical name input (placeholder = first alphabetically), and "Create & apply" button
+- Computed on-demand at page load; no caching (fast enough for personal-library scale, ≤500 tags → ≤250K comparisons)
+- Tags already used as aliases are excluded from suggestions (won't re-suggest already-handled clusters)
 
 ---
 

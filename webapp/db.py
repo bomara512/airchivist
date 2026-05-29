@@ -425,6 +425,32 @@ def retroactive_apply(conn: sqlite3.Connection, alias_rule_id: Optional[int] = N
     return total
 
 
+def get_suggestions(conn: sqlite3.Connection, threshold: float = 0.6, max_tags: int = 500) -> list:
+    """Return clusters of similar non-canonical, non-aliased tags."""
+    rows = conn.execute("""
+        SELECT t.name
+        FROM tags t
+        JOIN video_tags vt ON vt.tag_id_fk = t.id
+        WHERE t.is_canonical = 0
+          AND t.name NOT IN (SELECT pattern FROM tag_aliases)
+        GROUP BY t.id, t.name
+        ORDER BY COUNT(vt.video_id_fk) DESC
+        LIMIT ?
+    """, (max_tags,)).fetchall()
+    from webapp.tag_suggester import suggest_clusters
+    return suggest_clusters([r[0] for r in rows], threshold)
+
+
+def confirm_suggestion(conn: sqlite3.Connection, canonical_name: str, member_names: list[str]) -> int:
+    """Create a canonical tag, add exact aliases for all members, and retroactively apply."""
+    tag_id = create_canonical_tag(conn, canonical_name)
+    for name in member_names:
+        name = name.strip()
+        if name:
+            add_alias(conn, tag_id, name, "exact")
+    return retroactive_apply(conn)
+
+
 def init_webapp_tables(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON")

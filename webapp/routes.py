@@ -155,7 +155,8 @@ def tags():
             _db.create_canonical_tag(g.db, name)
         return redirect(url_for("main.tags"))
     canonical = _db.get_canonical_tags(g.db)
-    return render_template("tags.html", canonical_tags=canonical)
+    suggestions = _db.get_suggestions(g.db)
+    return render_template("tags.html", canonical_tags=canonical, suggestions=suggestions)
 
 
 @bp.route("/tags/<int:tag_id>/alias", methods=["POST"])
@@ -178,5 +179,14 @@ def tag_delete_alias(tag_id, alias_id):
 def tags_retroactive():
     count = _db.retroactive_apply(g.db)
     return redirect(url_for("main.tags", applied=count))
+
+
+@bp.route("/tags/suggest/confirm", methods=["POST"])
+def tag_suggest_confirm():
+    canonical_name = request.form.get("canonical_name", "").strip()
+    members = [m for m in request.form.getlist("member") if m.strip()]
+    if canonical_name and members:
+        _db.confirm_suggestion(g.db, canonical_name, members)
+    return redirect(url_for("main.tags"))
 
 
