@@ -21,12 +21,9 @@
       {% endif %}
     </div>
     <div class="video-meta">
-      <span>{{ video.yt_view_count | view_count }} views</span>
+      <span>{{ video.yt_view_count | view_count }}{% if video.personal_view_count %} [{{ video.personal_view_count }}]{% endif %} views</span>
       <span>{{ video.date_published | date }}</span>
       <span>{{ video.date_added | date }}</span>
-      {% if video.personal_view_count %}
-      <span>Watched {{ video.personal_view_count }}×</span>
-      {% endif %}
     </div>
   </div>
 </div>
