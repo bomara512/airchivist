@@ -1,0 +1,13 @@
+{% for video in videos %}
+{% include "_video_card.html" %}
+{% endfor %}
+<div id="load-more" hx-swap-oob="true">
+  {% if next_url %}
+  <button class="load-more-btn"
+          hx-get="{{ next_url }}&append=1"
+          hx-target="#video-grid"
+          hx-swap="beforeend">
+    Load more
+  </button>
+  {% endif %}
+</div>

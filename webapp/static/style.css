@@ -62,6 +62,12 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 .tag-pill { background: #2a2a2a; color: #aaa; text-decoration: none; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.75rem; }
 .tag-pill:hover { background: #cc0000; color: #fff; }
 
+/* Load more */
+#load-more { display: flex; justify-content: center; margin: 2rem 0 1rem; }
+.load-more-btn { background: #1a1a1a; color: #e8e8e8; border: 1px solid #444; padding: 0.5rem 2rem; border-radius: 4px; font-size: 0.9rem; cursor: pointer; }
+.load-more-btn:hover { background: #cc0000; border-color: #cc0000; }
+.load-more-btn.htmx-request { opacity: 0.5; cursor: default; }
+
 /* Pagination */
 .pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 2rem 0 1rem; }
 .page-btn { background: #1a1a1a; color: #e8e8e8; text-decoration: none; padding: 0.4rem 0.9rem; border-radius: 4px; font-size: 0.9rem; }

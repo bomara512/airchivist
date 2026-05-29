@@ -5,7 +5,7 @@ from crawler.models import _YT_ID_RE
 
 bp = Blueprint("main", __name__)
 
-PAGE_SIZE = 20
+PAGE_SIZE = 100
 
 
 @bp.route("/")
@@ -16,6 +16,7 @@ def index():
     tag = request.args.get("tag") or None
     search = request.args.get("search") or None
     group = request.args.get("group") or None
+    append = request.args.get("append") == "1"
     try:
         page = max(1, int(request.args.get("page", 1)))
     except ValueError:
@@ -36,7 +37,8 @@ def index():
     page = min(page, total_pages)
 
     def page_url(p):
-        args = {**request.args.to_dict(), "page": p}
+        args = {k: v for k, v in request.args.to_dict().items() if k not in ("page", "append")}
+        args["page"] = p
         return url_for("main.index", **args)
 
     channels = _db.get_all_channels(g.db)
@@ -67,6 +69,8 @@ def index():
     )
 
     if request.headers.get("HX-Request"):
+        if append:
+            return render_template("_load_more.html", **template_vars)
         return render_template("_video_container.html", **template_vars)
 
     return render_template("index.html", **template_vars)

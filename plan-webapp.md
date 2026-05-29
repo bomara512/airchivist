@@ -270,7 +270,12 @@ The tag selector is not present in the filter bar.
 
 **Bookmarklet / quick-add**: `POST /api/add` accepts `{"url": "<youtube-url>"}` from any origin (CORS headers included). It extracts the video ID via the same `_YT_ID_RE` regex used by the crawler, checks for an existing `fetch_status='ok'` record, then calls `fetch_metadata(video_id, delay=0)` and persists the result via `add_video` in `webapp/db.py`. Returns `{"status": "added"|"exists"|"error", "title": "..."}`. `add_video` uses `ON CONFLICT(video_id) DO UPDATE` but does not overwrite `date_added`, `personal_view_count`, or `date_last_viewed`. `GET /install` renders `install.html`, which shows the bookmarklet as a draggable `<a href="javascript:...">` link. The bookmarklet shows a toast notification on the YouTube page while the fetch runs, then updates it with the result.
 
-**Pagination**: Results are limited to 20 per page (`PAGE_SIZE = 20` in `routes.py`). The route reads `?page=N`, calls `count_videos` with the active filters to get the total, then passes `page`, `total_pages`, `prev_url`, and `next_url` to the template. Prev/Next links in `_video_container.html` use `hx-get` so page changes swap only `#video-container`. Changing any filter resets to page 1 (the page param is not a form field, so HTMX filter requests omit it). The `page_url()` helper in the route builds URLs by merging the current query args with the new page number. Prev/Next links use `hx-swap="innerHTML show:window:top"` to scroll back to the top of the page after the swap; the filter form does not, so filter changes leave the scroll position unchanged.
+**Pagination / Load more**: `PAGE_SIZE = 100`. Flat view uses a "Load more" button; grouped view uses Prev/Next links (appending across channel sections is awkward with HTMX).
+
+- **Flat view**: `_video_container.html` renders an `id="video-grid"` div and an `id="load-more"` div containing the button. The button uses `hx-target="#video-grid"` with `hx-swap="beforeend"` and `?append=1` in its URL. The server returns `_load_more.html`, which is the new cards followed by an OOB `<div id="load-more" hx-swap-oob="true">` that replaces the button (empty when no more pages, new button otherwise).
+- **Grouped view**: standard Prev/Next links that swap the entire `#video-container`.
+- `page_url()` strips both `page` and `append` from the current query args before building the new URL, so `append=1` never accumulates.
+- Filter changes still reset to page 1 (page is not a form field).
 
 ### Template partials
 

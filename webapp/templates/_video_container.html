@@ -12,30 +12,39 @@
     </div>
   </section>
   {% endfor %}
+
+  {% if total_pages > 1 %}
+  <nav class="pagination">
+    {% if prev_url %}
+    <a href="{{ prev_url }}" class="page-btn" hx-get="{{ prev_url }}" hx-target="#video-container" hx-swap="innerHTML show:window:top" hx-push-url="true">&laquo; Prev</a>
+    {% else %}
+    <span class="page-btn page-btn--disabled">&laquo; Prev</span>
+    {% endif %}
+    <span class="page-info">{{ page }} / {{ total_pages }}</span>
+    {% if next_url %}
+    <a href="{{ next_url }}" class="page-btn" hx-get="{{ next_url }}" hx-target="#video-container" hx-swap="innerHTML show:window:top" hx-push-url="true">Next &raquo;</a>
+    {% else %}
+    <span class="page-btn page-btn--disabled">Next &raquo;</span>
+    {% endif %}
+  </nav>
+  {% endif %}
+
 {% else %}
-  <div class="video-grid">
+  <div id="video-grid" class="video-grid">
     {% for video in videos %}
     {% include "_video_card.html" %}
     {% else %}
     <p class="empty">No videos found.</p>
     {% endfor %}
   </div>
-{% endif %}
-
-{% if total_pages > 1 %}
-<nav class="pagination">
-  {% if prev_url %}
-  <a href="{{ prev_url }}" class="page-btn" hx-get="{{ prev_url }}" hx-target="#video-container" hx-swap="innerHTML show:window:top" hx-push-url="true">&laquo; Prev</a>
-  {% else %}
-  <span class="page-btn page-btn--disabled">&laquo; Prev</span>
-  {% endif %}
-
-  <span class="page-info">{{ page }} / {{ total_pages }}</span>
-
-  {% if next_url %}
-  <a href="{{ next_url }}" class="page-btn" hx-get="{{ next_url }}" hx-target="#video-container" hx-swap="innerHTML show:window:top" hx-push-url="true">Next &raquo;</a>
-  {% else %}
-  <span class="page-btn page-btn--disabled">Next &raquo;</span>
-  {% endif %}
-</nav>
+  <div id="load-more">
+    {% if next_url %}
+    <button class="load-more-btn"
+            hx-get="{{ next_url }}&append=1"
+            hx-target="#video-grid"
+            hx-swap="beforeend">
+      Load more
+    </button>
+    {% endif %}
+  </div>
 {% endif %}
