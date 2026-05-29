@@ -38,7 +38,6 @@ def index():
         return url_for("main.index", **args)
 
     channels = _db.get_all_channels(g.db)
-    stats = _db.get_stats(g.db)
 
     groups = None
     if group == "channel":
@@ -51,7 +50,6 @@ def index():
     template_vars = dict(
         videos=videos,
         channels=channels,
-        stats=stats,
         groups=groups,
         sort_by=sort_by,
         sort_dir=sort_dir,

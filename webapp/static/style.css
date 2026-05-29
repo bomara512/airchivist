@@ -16,6 +16,7 @@ header {
 header nav { display: flex; gap: 1.5rem; align-items: center; }
 header nav a { color: #e8e8e8; text-decoration: none; font-weight: 600; font-size: 1.1rem; }
 header nav a:hover { color: #ff4444; }
+.nav-stats { color: #666; font-size: 0.85rem; font-weight: 400; }
 
 main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 

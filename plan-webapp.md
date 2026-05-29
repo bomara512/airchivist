@@ -194,6 +194,14 @@ def create_app(db_path: str) -> Flask:
     from . import routes
     app.register_blueprint(routes.bp)
 
+    @app.context_processor
+    def inject_stats():
+        # Makes stats available in all templates (used by base.html header)
+        db = g.get("db")
+        if db is None:
+            return {}
+        return {"stats": get_stats(db)}
+
     from .filters import format_view_count, format_date, format_duration
     app.jinja_env.filters['view_count'] = format_view_count
     app.jinja_env.filters['date'] = format_date
@@ -201,6 +209,8 @@ def create_app(db_path: str) -> Flask:
 
     return app
 ```
+
+`get_stats` is no longer called in `routes.py` — the context processor handles it globally. The header in `base.html` shows `N videos · N channels` (error count excluded); the toolbar no longer has a summary line.
 
 `sqlite3.Row` as the row factory lets templates access columns by name without converting to dicts.
 
@@ -264,7 +274,7 @@ The tag selector is not present in the filter bar.
 
 | File | Purpose |
 |---|---|
-| `base.html` | Shared layout, nav, CSS/HTMX script tags |
+| `base.html` | Shared layout, nav (includes video/channel count via context processor), CSS/HTMX script tags |
 | `index.html` | Filter toolbar + `#video-container` shell |
 | `_video_container.html` | Swapped by HTMX; renders flat grid or grouped sections |
 | `_video_card.html` | Single card included by `_video_container.html` |

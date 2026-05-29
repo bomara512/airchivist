@@ -11,6 +11,9 @@
   <header>
     <nav>
       <a href="{{ url_for('main.index') }}">ViewTube</a>
+      {% if stats is defined %}
+      <span class="nav-stats">{{ stats.total_videos }} videos &middot; {{ stats.total_channels }} channels</span>
+      {% endif %}
     </nav>
   </header>
   <main>

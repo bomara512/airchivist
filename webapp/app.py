@@ -2,7 +2,7 @@ import re
 import sqlite3
 from flask import Flask, g
 from webapp import filters as _filters
-from webapp.db import init_webapp_tables
+from webapp.db import init_webapp_tables, get_stats
 
 
 def _regexp(pattern, string):
@@ -20,6 +20,13 @@ def create_app(db_path: str) -> Flask:
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA foreign_keys = ON")
         g.db.create_function("regexp", 2, _regexp)
+
+    @app.context_processor
+    def inject_stats():
+        db = g.get("db")
+        if db is None:
+            return {}
+        return {"stats": get_stats(db)}
 
     @app.teardown_appcontext
     def close_db(exc):
