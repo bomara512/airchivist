@@ -12,7 +12,7 @@ ALLOWED_SORT_DIRS = frozenset({'asc', 'desc'})
 
 def _build_where(channel, tag, search):
     params = []
-    clauses = []
+    clauses = ["v.fetch_status = 'ok'"]
     if channel:
         clauses.append("v.channel_name = ?")
         params.append(channel)

@@ -99,7 +99,7 @@ def remove_video_tag(conn, video_id: str, tag_id: int) -> None
 def init_webapp_tables(db_path: str) -> None   # creates tag_keywords and video_tags if missing
 ```
 
-`get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
+`get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments. `fetch_status = 'ok'` is always applied as a base condition — videos with any other status (error, pending, private, deleted) are never shown. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
 
 The `search` filter matches against four sources, all using word-prefix regex (`\bterm`, case-insensitive):
 1. `v.title`

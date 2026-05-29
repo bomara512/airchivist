@@ -11,7 +11,7 @@ from webapp.db import (
 class TestGetAllVideos:
     def test_returns_all_rows(self, db_conn):
         rows = get_all_videos(db_conn)
-        assert len(rows) == 5
+        assert len(rows) == 4  # aaaaaaaaaa5 excluded (fetch_status='error')
 
     def test_sorts_by_date_added_desc_by_default(self, db_conn):
         rows = get_all_videos(db_conn)
@@ -93,8 +93,14 @@ class TestGetAllVideos:
         assert "guitar" in row["tags"]
 
     def test_row_with_no_tags_has_empty_tags(self, db_conn):
+        # aaaaaaaaaa4 (Pad Thai Tutorial) is tagged "thai food", not untagged
+        # use a video we know has no tags among the ok-status ones — none in seed,
+        # so insert a fresh one
+        db_conn.execute(
+            "INSERT INTO videos (video_id, url, fetch_status) VALUES ('notagvid', 'http://x', 'ok')"
+        )
         rows = get_all_videos(db_conn)
-        row = next(r for r in rows if r["video_id"] == "aaaaaaaaaa5")
+        row = next(r for r in rows if r["video_id"] == "notagvid")
         assert row["tags"] == ""
 
     def test_pagination_limits_results(self, db_conn):
@@ -109,13 +115,14 @@ class TestGetAllVideos:
         assert ids1.isdisjoint(ids2)
 
     def test_pagination_last_page_may_have_fewer(self, db_conn):
-        rows = get_all_videos(db_conn, page=3, page_size=2)
+        # 4 ok-status videos, page_size=3 → page 2 has 1
+        rows = get_all_videos(db_conn, page=2, page_size=3)
         assert len(rows) == 1
 
 
 class TestCountVideos:
     def test_returns_total_count(self, db_conn):
-        assert count_videos(db_conn) == 5
+        assert count_videos(db_conn) == 4  # aaaaaaaaaa5 excluded (fetch_status='error')
 
     def test_filters_by_channel(self, db_conn):
         assert count_videos(db_conn, channel="GuitarChannel") == 2
