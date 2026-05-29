@@ -12,7 +12,8 @@
       "Bash(python -m pytest -q)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(python -m pytest tests/webapp/test_db.py::TestGetAllVideos::test_filters_by_search_term_in_title -v)"
+      "Bash(python -m pytest tests/webapp/test_db.py::TestGetAllVideos::test_filters_by_search_term_in_title -v)",
+      "Bash(python -m pytest tests/webapp/test_db.py::TestGetAllChannels -q)"
     ]
   }
 }
