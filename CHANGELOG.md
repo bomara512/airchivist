@@ -291,6 +291,17 @@ The automated cluster suggestion engine was built and then replaced. The origina
 
 ---
 
+### Fix: FOREIGN KEY constraint failed when assigning tags to existing canonical tag
+
+`retroactive_apply` queried all alias rules with a plain `SELECT ... FROM tag_aliases`. SQLite's `INSERT OR IGNORE` suppresses UNIQUE/PRIMARY KEY conflicts but **not** FK violations, so if any alias rule had an orphaned `canonical_tag_id` (e.g. from a manually-inserted row or a delete without cascade), the `INSERT OR IGNORE INTO video_tags` would fail. Fixed by joining `tag_aliases` with `tags` in the rules query, which naturally excludes any rule whose `canonical_tag_id` no longer exists. Also added `PRAGMA foreign_keys = ON` to the test DB connection so this class of bug is caught in future.
+
+**Implications**
+- **+** Orphaned alias rules are silently skipped rather than crashing the page
+- **+** Tests now enforce FK constraints, matching the production connection settings
+- **−** Orphaned rules are skipped silently — they won't surface in the UI; the user would need to inspect the DB directly to detect them
+
+---
+
 ### `plan-production.md` created
 Documents the path to hosted/multi-user deployment: WSGI, auth, database migration, background jobs, API key security.
 

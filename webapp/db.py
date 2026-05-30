@@ -385,12 +385,15 @@ def retroactive_apply(conn: sqlite3.Connection, alias_rule_id: Optional[int] = N
     """Apply alias rules to all existing videos. Returns number of new associations created."""
     if alias_rule_id is not None:
         rules = conn.execute(
-            "SELECT pattern, match_type, canonical_tag_id FROM tag_aliases WHERE id = ?",
+            "SELECT ta.pattern, ta.match_type, ta.canonical_tag_id "
+            "FROM tag_aliases ta JOIN tags t ON t.id = ta.canonical_tag_id "
+            "WHERE ta.id = ?",
             (alias_rule_id,),
         ).fetchall()
     else:
         rules = conn.execute(
-            "SELECT pattern, match_type, canonical_tag_id FROM tag_aliases"
+            "SELECT ta.pattern, ta.match_type, ta.canonical_tag_id "
+            "FROM tag_aliases ta JOIN tags t ON t.id = ta.canonical_tag_id"
         ).fetchall()
 
     total = 0

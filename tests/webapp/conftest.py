@@ -83,6 +83,7 @@ def _make_db(path=":memory:"):
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.create_function("regexp", 2, _regexp)
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA_SQL + SEED_SQL)
     return conn
 
