@@ -8,6 +8,8 @@ from webapp.db import (
     apply_aliases, get_canonical_tags, create_canonical_tag,
     add_alias, delete_alias, retroactive_apply,
     get_unclassified_tags, confirm_suggestion,
+    save_llm_suggestions, get_llm_suggestions, dismiss_llm_suggestion,
+    is_llm_suggestion_cache_stale,
 )
 
 
@@ -597,3 +599,56 @@ class TestRetroactiveApply:
         retroactive_apply(db_conn, alias_id)
         count2 = retroactive_apply(db_conn, alias_id)
         assert count2 == 0
+
+
+class TestLLMSuggestions:
+    _SUGGESTION = {"canonical": "guitar", "members": ["beginner guitar", "guitar lesson"],
+                   "confidence": "high", "is_noise": False}
+
+    def test_get_returns_empty_when_none(self, db_conn):
+        assert get_llm_suggestions(db_conn) == []
+
+    def test_is_stale_when_no_suggestions(self, db_conn):
+        assert is_llm_suggestion_cache_stale(db_conn, "abc123") is True
+
+    def test_save_and_get_roundtrip(self, db_conn):
+        save_llm_suggestions(db_conn, [self._SUGGESTION], "abc123")
+        result = get_llm_suggestions(db_conn)
+        assert len(result) == 1
+        assert result[0]["canonical"] == "guitar"
+        assert result[0]["members"] == ["beginner guitar", "guitar lesson"]
+        assert result[0]["confidence"] == "high"
+        assert result[0]["is_noise"] is False
+        assert "id" in result[0]
+
+    def test_save_clears_previous_suggestions(self, db_conn):
+        save_llm_suggestions(db_conn, [self._SUGGESTION], "hash1")
+        save_llm_suggestions(db_conn, [{"canonical": "cooking", "members": ["recipe"],
+                                         "confidence": "medium", "is_noise": False}], "hash2")
+        result = get_llm_suggestions(db_conn)
+        assert len(result) == 1
+        assert result[0]["canonical"] == "cooking"
+
+    def test_noise_suggestions_sorted_last(self, db_conn):
+        noise = {"canonical": "_noise", "members": ["#ad"], "confidence": "high", "is_noise": True}
+        save_llm_suggestions(db_conn, [noise, self._SUGGESTION], "h")
+        result = get_llm_suggestions(db_conn)
+        assert result[0]["is_noise"] is False
+        assert result[-1]["is_noise"] is True
+
+    def test_is_not_stale_when_hash_matches(self, db_conn):
+        save_llm_suggestions(db_conn, [self._SUGGESTION], "abc123")
+        assert is_llm_suggestion_cache_stale(db_conn, "abc123") is False
+
+    def test_is_stale_when_hash_differs(self, db_conn):
+        save_llm_suggestions(db_conn, [self._SUGGESTION], "abc123")
+        assert is_llm_suggestion_cache_stale(db_conn, "different") is True
+
+    def test_dismiss_removes_suggestion(self, db_conn):
+        save_llm_suggestions(db_conn, [self._SUGGESTION], "abc123")
+        suggestion_id = get_llm_suggestions(db_conn)[0]["id"]
+        dismiss_llm_suggestion(db_conn, suggestion_id)
+        assert get_llm_suggestions(db_conn) == []
+
+    def test_dismiss_unknown_id_is_noop(self, db_conn):
+        dismiss_llm_suggestion(db_conn, 9999)  # must not raise

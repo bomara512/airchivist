@@ -1,6 +1,8 @@
 import math
+import os
 from flask import Blueprint, g, request, redirect, abort, render_template, url_for, jsonify, make_response
 from webapp import db as _db
+from webapp import llm_tagger as _llm
 from crawler.models import _YT_ID_RE
 
 bp = Blueprint("main", __name__)
@@ -171,8 +173,19 @@ def tags():
         return redirect(url_for("main.tags"))
     canonical = _db.get_canonical_tags(g.db)
     unclassified, total_unclassified = _db.get_unclassified_tags(g.db)
-    return render_template("tags.html", canonical_tags=canonical,
-                           unclassified_tags=unclassified, total_unclassified=total_unclassified)
+    pool_hash = _llm.compute_pool_hash(unclassified)
+    llm_stale = _db.is_llm_suggestion_cache_stale(g.db, pool_hash)
+    llm_suggestions = [] if llm_stale else _db.get_llm_suggestions(g.db)
+    return render_template(
+        "tags.html",
+        canonical_tags=canonical,
+        unclassified_tags=unclassified,
+        total_unclassified=total_unclassified,
+        llm_available=_llm.is_available(),
+        llm_stale=llm_stale,
+        llm_suggestions=llm_suggestions,
+        llm_error=request.args.get("llm_error"),
+    )
 
 
 @bp.route("/tags/<int:tag_id>/alias", methods=["POST"])
@@ -203,6 +216,29 @@ def tag_suggest_confirm():
     members = [m for m in request.form.getlist("member") if m.strip()]
     if canonical_name and members:
         _db.confirm_suggestion(g.db, canonical_name, members)
+    return redirect(url_for("main.tags"))
+
+
+@bp.route("/tags/llm-suggest", methods=["POST"])
+def tags_llm_suggest():
+    canonical = _db.get_canonical_tags(g.db)
+    unclassified, _ = _db.get_unclassified_tags(g.db)
+    pool_hash = _llm.compute_pool_hash(unclassified)
+    try:
+        suggestions = _llm.get_suggestions(canonical, unclassified)
+    except EnvironmentError as e:
+        return redirect(url_for("main.tags", llm_error=str(e)))
+    except ImportError:
+        return redirect(url_for("main.tags", llm_error="anthropic package not installed"))
+    except Exception as e:
+        return redirect(url_for("main.tags", llm_error=f"LLM error: {e}"))
+    _db.save_llm_suggestions(g.db, suggestions, pool_hash)
+    return redirect(url_for("main.tags"))
+
+
+@bp.route("/tags/llm-suggest/<int:suggestion_id>/dismiss", methods=["POST"])
+def tags_llm_suggest_dismiss(suggestion_id):
+    _db.dismiss_llm_suggestion(g.db, suggestion_id)
     return redirect(url_for("main.tags"))
 
 

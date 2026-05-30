@@ -200,22 +200,16 @@ The key insight: alias rules established from past LLM passes propagate automati
 
 ## Implementation Phases
 
-### Phase 4a — LLM suggestion engine
+### Phase 4a — LLM suggestion engine ✓ DONE
 
-- `webapp/llm_tagger.py`: `get_suggestions(canonical_tags, unclassified_tags, model="claude-haiku-4-5") -> list[dict]`
-  - Constructs prompt with existing canonicals and unclassified tags
-  - Calls Anthropic API via tool use (structured JSON output)
-  - Returns parsed suggestion list
-- `webapp/db.py` additions:
-  - `save_llm_suggestions(conn, suggestions, pool_hash)` — writes to `llm_suggestions`
-  - `get_llm_suggestions(conn) -> list[dict]` — reads pending suggestions
-  - `dismiss_llm_suggestion(conn, suggestion_id)` — removes a suggestion without acting on it
-  - `is_llm_suggestion_cache_stale(conn, current_hash) -> bool`
-  - `init_webapp_tables` extended with `llm_suggestions` DDL
-- `webapp/routes.py`:
-  - `POST /tags/llm-suggest` — triggers LLM run, stores results, redirects to `/tags`
-  - `POST /tags/llm-suggest/<id>/dismiss` — dismisses one suggestion card
-  - Accept reuses existing `POST /tags/suggest/confirm`
+- `webapp/llm_tagger.py`: `get_suggestions`, `compute_pool_hash`, `is_available`, `_build_user_message`
+  - Lazy `import anthropic` — `ImportError` raised at call time if not installed, not at module import
+  - `tool_choice={"type": "tool", "name": "categorize_tags"}` forces structured JSON output
+  - Noise tags bundled as `{"canonical": "_noise", "is_noise": True}`
+  - `compute_pool_hash`: SHA256 of sorted tag names, first 16 hex chars
+- `webapp/db.py`: `save_llm_suggestions`, `get_llm_suggestions`, `dismiss_llm_suggestion`, `is_llm_suggestion_cache_stale`; `llm_suggestions` DDL in `init_webapp_tables`
+- `webapp/routes.py`: `POST /tags/llm-suggest`, `POST /tags/llm-suggest/<id>/dismiss`; `tags()` GET passes `llm_available`, `llm_stale`, `llm_suggestions`, `llm_error` to template
+- Tests: `tests/webapp/test_llm_tagger.py` (19 tests), `TestLLMSuggestions` in `test_db.py` (9 tests); all pass without `anthropic` installed (mock via `sys.modules`)
 
 ### Phase 4b — Suggestion cards UI
 

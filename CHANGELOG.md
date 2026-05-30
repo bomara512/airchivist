@@ -346,3 +346,24 @@ Documents the path to hosted/multi-user deployment: WSGI, auth, database migrati
 
 **Implications**
 - Informational only; no code changes
+
+---
+
+## 2026-05-29
+
+### Phase 4a: LLM tag categorization backend
+
+`webapp/llm_tagger.py` added with `get_suggestions`, `compute_pool_hash`, `is_available`, and `_build_user_message`. `get_suggestions` uses Anthropic's tool-use API with `tool_choice={"type":"tool","name":"categorize_tags"}` to guarantee structured JSON output — no regex parsing of freeform text. The `anthropic` package is lazily imported so the module always loads; `ImportError` surfaces only when a user actually triggers a suggestion run. Noise tags are returned as a single `{"canonical":"_noise","is_noise":True}` entry rather than individual entries. `compute_pool_hash` takes a SHA256 of the sorted tag name list (first 16 hex chars) for staleness detection.
+
+`webapp/db.py` extended with `save_llm_suggestions`, `get_llm_suggestions`, `dismiss_llm_suggestion`, `is_llm_suggestion_cache_stale`, and the `llm_suggestions` DDL in `init_webapp_tables`. Noise suggestions sort last in `get_llm_suggestions`.
+
+`webapp/routes.py` updated: `tags()` GET now passes `llm_available`, `llm_stale`, `llm_suggestions`, and `llm_error` to the template. New routes: `POST /tags/llm-suggest` (trigger LLM run) and `POST /tags/llm-suggest/<id>/dismiss`.
+
+28 new tests across `test_llm_tagger.py` and `TestLLMSuggestions` in `test_db.py`. Tests mock `anthropic` via `sys.modules` injection (not `patch("anthropic.Anthropic", ...)`), allowing the full suite to run without the package installed.
+
+**Implications**
+- **+** Feature degrades gracefully: app starts, imports, and functions fully without `anthropic` installed or API key set
+- **+** Structured output via tool use eliminates the need for prompt-engineering the response format
+- **+** Staleness detection prevents stale suggestions from showing after new videos are added
+- **−** UI for suggestion cards not yet built (Phase 4b) — backend is wired but the Tags page doesn't render suggestions yet
+- **−** `anthropic` is not yet in `requirements.txt` (optional dependency, needs a comment or separate requirements file)

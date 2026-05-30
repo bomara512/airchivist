@@ -1,3 +1,4 @@
+import json
 import re
 import sqlite3
 from datetime import datetime, timezone
@@ -469,6 +470,58 @@ def confirm_suggestion(conn: sqlite3.Connection, canonical_name: str, member_nam
     return retroactive_apply(conn)
 
 
+def save_llm_suggestions(conn: sqlite3.Connection, suggestions: list[dict], pool_hash: str) -> None:
+    """Replace stored LLM suggestions with a fresh batch."""
+    conn.execute("DELETE FROM llm_suggestions")
+    now = datetime.now(timezone.utc).isoformat()
+    for s in suggestions:
+        conn.execute(
+            "INSERT INTO llm_suggestions (canonical, members, confidence, is_noise, created_at, pool_hash) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                s["canonical"],
+                json.dumps(s["members"]),
+                s.get("confidence", "medium"),
+                1 if s.get("is_noise") else 0,
+                now,
+                pool_hash,
+            ),
+        )
+    conn.commit()
+
+
+def get_llm_suggestions(conn: sqlite3.Connection) -> list[dict]:
+    rows = conn.execute(
+        "SELECT id, canonical, members, confidence, is_noise "
+        "FROM llm_suggestions ORDER BY is_noise ASC, id ASC"
+    ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "canonical": row["canonical"],
+            "members": json.loads(row["members"]),
+            "confidence": row["confidence"],
+            "is_noise": bool(row["is_noise"]),
+        }
+        for row in rows
+    ]
+
+
+def dismiss_llm_suggestion(conn: sqlite3.Connection, suggestion_id: int) -> None:
+    conn.execute("DELETE FROM llm_suggestions WHERE id = ?", (suggestion_id,))
+    conn.commit()
+
+
+def is_llm_suggestion_cache_stale(conn: sqlite3.Connection, current_hash: str) -> bool:
+    """True when there are no stored suggestions or the pool has changed since the last run."""
+    row = conn.execute(
+        "SELECT pool_hash FROM llm_suggestions LIMIT 1"
+    ).fetchone()
+    if row is None:
+        return True
+    return row["pool_hash"] != current_hash
+
+
 def init_webapp_tables(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON")
@@ -490,6 +543,15 @@ def init_webapp_tables(db_path: str) -> None:
             match_type       TEXT    NOT NULL DEFAULT 'exact',
             canonical_tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
             UNIQUE(pattern, match_type)
+        );
+        CREATE TABLE IF NOT EXISTS llm_suggestions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            canonical  TEXT    NOT NULL,
+            members    TEXT    NOT NULL,
+            confidence TEXT,
+            is_noise   BOOLEAN NOT NULL DEFAULT 0,
+            created_at TEXT    NOT NULL,
+            pool_hash  TEXT    NOT NULL
         );
     """)
     try:

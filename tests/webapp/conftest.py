@@ -46,6 +46,15 @@ CREATE TABLE tag_aliases (
     canonical_tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
     UNIQUE(pattern, match_type)
 );
+CREATE TABLE llm_suggestions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    canonical  TEXT    NOT NULL,
+    members    TEXT    NOT NULL,
+    confidence TEXT,
+    is_noise   BOOLEAN NOT NULL DEFAULT 0,
+    created_at TEXT    NOT NULL,
+    pool_hash  TEXT    NOT NULL
+);
 """
 
 SEED_SQL = """
