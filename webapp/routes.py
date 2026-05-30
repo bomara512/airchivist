@@ -51,6 +51,19 @@ def index():
             ch = video.get("channel_name") or "Unknown"
             grouped.setdefault(ch, []).append(video)
         groups = [{"tag": {"name": ch}, "videos": vids} for ch, vids in grouped.items()]
+    elif group == "tag":
+        grouped = {}
+        untagged = []
+        for video in videos:
+            tag_names = [t.strip() for t in (video.get("tags") or "").split(",") if t.strip()]
+            if tag_names:
+                for name in tag_names:
+                    grouped.setdefault(name, []).append(video)
+            else:
+                untagged.append(video)
+        groups = [{"tag": {"name": name}, "videos": vids} for name, vids in sorted(grouped.items())]
+        if untagged:
+            groups.append({"tag": {"name": "Untagged"}, "videos": untagged})
 
     template_vars = dict(
         videos=videos,

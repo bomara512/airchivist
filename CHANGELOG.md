@@ -291,6 +291,18 @@ The automated cluster suggestion engine was built and then replaced. The origina
 
 ---
 
+### "By tag" grouping added to group select
+
+Group select now offers "No grouping", "By channel", and "By tag". Tag grouping partitions the current page of videos by their canonical tags in Python; a video with multiple canonical tags appears under each. Groups are sorted alphabetically; videos with no canonical tags appear at the end in an "Untagged" section.
+
+**Implications**
+- **+** Lets the user browse by topic (e.g. see all "meal-prep" videos together) without leaving the main view
+- **+** Videos appear in multiple groups when they have multiple canonical tags — useful for cross-topic content
+- **−** Pagination is at the video level, not the group level — a group may be split across pages on large libraries
+- **−** Groups only appear once canonical tags are assigned; before distillation everything lands in "Untagged"
+
+---
+
 ### Canonical tags surfaced in filter bar and video cards
 
 `get_all_videos` now uses `GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END)` so the `tags` field on each video row contains only canonical tag names (raw YouTube tags are preserved in the DB and still used for search, but are not displayed). A new `get_canonical_tags_for_filter` query returns canonical tag names that have at least one video associated. The toolbar gains a tag `<select>` dropdown (shown only when canonical tags exist) that filters via the existing `?tag=` param. Video cards gain canonical tag pills that link to `/?tag=<name>` for one-click filtering.

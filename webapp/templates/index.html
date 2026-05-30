@@ -45,6 +45,7 @@
     <select name="group">
       <option value="" {% if not group %}selected{% endif %}>No grouping</option>
       <option value="channel" {% if group == 'channel' %}selected{% endif %}>By channel</option>
+      <option value="tag" {% if group == 'tag' %}selected{% endif %}>By tag</option>
     </select>
 
     <a href="/" class="reset-btn">Reset</a>
