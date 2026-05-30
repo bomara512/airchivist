@@ -32,5 +32,12 @@
       <span>{{ video.date_published | date }}</span>
       <span>{{ video.date_added | date }}</span>
     </div>
+    {% if video.tags %}
+    <div class="video-tags">
+      {% for tag_name in video.tags.split(',') %}
+      <a href="{{ url_for('main.index', tag=tag_name) }}" class="tag-pill">{{ tag_name }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
 </div>

@@ -42,6 +42,7 @@ def index():
         return url_for("main.index", **args)
 
     channels = _db.get_all_channels(g.db)
+    canonical_tags = _db.get_canonical_tags_for_filter(g.db)
 
     groups = None
     if group == "channel":
@@ -54,6 +55,7 @@ def index():
     template_vars = dict(
         videos=videos,
         channels=channels,
+        canonical_tags=canonical_tags,
         groups=groups,
         sort_by=sort_by,
         sort_dir=sort_dir,

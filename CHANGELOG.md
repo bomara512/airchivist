@@ -291,6 +291,19 @@ The automated cluster suggestion engine was built and then replaced. The origina
 
 ---
 
+### Canonical tags surfaced in filter bar and video cards
+
+`get_all_videos` now uses `GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END)` so the `tags` field on each video row contains only canonical tag names (raw YouTube tags are preserved in the DB and still used for search, but are not displayed). A new `get_canonical_tags_for_filter` query returns canonical tag names that have at least one video associated. The toolbar gains a tag `<select>` dropdown (shown only when canonical tags exist) that filters via the existing `?tag=` param. Video cards gain canonical tag pills that link to `/?tag=<name>` for one-click filtering.
+
+**Implications**
+- **+** Tag filter and tag pills only show meaningful, curated tags — not the hundreds of raw YouTube tags
+- **+** Clicking a tag pill is equivalent to using the tag filter dropdown — consistent and bookmarkable
+- **+** Tag filter integrates cleanly with channel filter and search (all composed in `_build_where`)
+- **−** Videos with no canonical tags show no pills — until the user distills their tag pool, cards look the same as before
+- **−** Raw tags are still stored but invisible in the UI; there's no way to browse them without going to the Tags admin page
+
+---
+
 ### Fix: FOREIGN KEY constraint failed when assigning tags to existing canonical tag
 
 `retroactive_apply` queried all alias rules with a plain `SELECT ... FROM tag_aliases`. SQLite's `INSERT OR IGNORE` suppresses UNIQUE/PRIMARY KEY conflicts but **not** FK violations, so if any alias rule had an orphaned `canonical_tag_id` (e.g. from a manually-inserted row or a delete without cascade), the `INSERT OR IGNORE INTO video_tags` would fail. Fixed by joining `tag_aliases` with `tags` in the rules query, which naturally excludes any rule whose `canonical_tag_id` no longer exists. Also added `PRAGMA foreign_keys = ON` to the test DB connection so this class of bug is caught in future.

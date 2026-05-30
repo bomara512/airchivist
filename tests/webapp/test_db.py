@@ -90,10 +90,15 @@ class TestGetAllVideos:
         with pytest.raises(ValueError):
             get_all_videos(db_conn, sort_dir="sideways")
 
-    def test_each_row_includes_tags(self, db_conn):
+    def test_each_row_includes_canonical_tags_only(self, db_conn):
+        # promote "guitar" to canonical; non-canonical tags should not appear
+        db_conn.execute("UPDATE tags SET is_canonical = 1 WHERE name = 'guitar'")
+        db_conn.commit()
         rows = get_all_videos(db_conn)
-        row = next(r for r in rows if r["video_id"] == "aaaaaaaaaa1")
-        assert "guitar" in row["tags"]
+        guitar_row = next(r for r in rows if r["video_id"] == "aaaaaaaaaa1")
+        assert "guitar" in guitar_row["tags"]
+        thai_row = next(r for r in rows if r["video_id"] == "aaaaaaaaaa2")
+        assert "thai food" not in thai_row["tags"]  # thai food is not canonical
 
     def test_row_with_no_tags_has_empty_tags(self, db_conn):
         # aaaaaaaaaa4 (Pad Thai Tutorial) is tagged "thai food", not untagged

@@ -71,7 +71,9 @@ def count_videos(conn, channel=None, tag=None, search=None) -> int
 
 def get_video_by_id(conn, video_id: str) -> dict | None
 
-def get_all_channels(conn) -> list[str]        # distinct non-null channel_name values
+def get_all_channels(conn) -> list[str]              # distinct non-null channel_name values, alphabetized
+
+def get_canonical_tags_for_filter(conn) -> list[str] # canonical tag names that have ≥1 video, for the filter dropdown
 
 def get_all_tags(conn) -> list[dict]           # id, name, video_count
 
@@ -237,6 +239,7 @@ Card layout within `.video-info`:
 1. Title (`.video-title`)
 2. Channel name (`.video-channel`) — on its own line below the title
 3. Metadata row (`.video-meta`) — below the channel: view count · publish date · date added (no labels on either date). Personal view count is shown inline with the YouTube view count as `1,234 [5] views` when > 0, replacing a separate "Watched N×" item.
+4. Tag pills (`.video-tags`) — canonical tags only, each linking to `/?tag=<name>` to filter by that tag. Only rendered when the video has at least one canonical tag.
 
 The channel name links to `https://www.youtube.com/channel/<channel_id>` (opens in a new tab); if `channel_id` is absent it renders as plain text. A small funnel icon (`.channel-filter-icon`) sits beside the channel name; clicking it navigates to `/?channel=<name>` (full page load so the channel select in the toolbar reflects the active filter). The icon is dim by default and turns red on hover.
 
@@ -264,7 +267,7 @@ The route returns `_video_container.html` (partial) when the `HX-Request` header
 
 The sort select uses human-readable labels (no underscores): Date Added, Title, YouTube Views, Times Watched, Last Viewed, Date Published. Values sent to the server remain the raw column names understood by `get_all_videos`.
 
-The tag selector is not present in the filter bar.
+A canonical tag `<select name="tag">` is rendered between the channel dropdown and the sort-by dropdown, but only when at least one canonical tag has at least one associated video. Options are populated from `get_canonical_tags_for_filter`. Selecting a tag filters via the existing `?tag=` query param and `_build_where` logic.
 
 **Grouping**: The group select offers "No grouping" (default) and "By channel". When "By channel" is selected, `get_all_videos` prepends `channel_name ASC` to the ORDER BY so the SQL returns rows grouped by channel first, then sorted by the user's chosen field within each channel. The route then partitions the fetched videos by `channel_name` in Python, producing one section per channel. The result is a list of `{"tag": {"name": channel_name}, "videos": [...]}` dicts, reusing the same structure `_video_container.html` already renders for any grouped view. Pagination is applied after the combined sort, so a channel with many videos may span multiple pages.
 

@@ -64,7 +64,7 @@ def get_all_videos(
         order_sql = f"v.channel_name ASC, {order_sql}"
 
     sql = f"""
-        SELECT v.*, GROUP_CONCAT(t.name) as tags
+        SELECT v.*, GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END) as tags
         FROM videos v
         LEFT JOIN video_tags vt ON vt.video_id_fk = v.id
         LEFT JOIN tags t ON t.id = vt.tag_id_fk
@@ -109,6 +109,18 @@ def get_all_channels(conn: sqlite3.Connection) -> list[str]:
     rows = conn.execute(
         "SELECT DISTINCT channel_name FROM videos WHERE channel_name IS NOT NULL ORDER BY channel_name"
     ).fetchall()
+    return [r[0] for r in rows]
+
+
+def get_canonical_tags_for_filter(conn: sqlite3.Connection) -> list[str]:
+    rows = conn.execute("""
+        SELECT t.name
+        FROM tags t
+        JOIN video_tags vt ON vt.tag_id_fk = t.id
+        WHERE t.is_canonical = 1
+        GROUP BY t.id, t.name
+        ORDER BY t.name
+    """).fetchall()
     return [r[0] for r in rows]
 
 

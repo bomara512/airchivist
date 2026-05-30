@@ -19,6 +19,15 @@
       {% endfor %}
     </select>
 
+    {% if canonical_tags %}
+    <select name="tag">
+      <option value="">All tags</option>
+      {% for ct in canonical_tags %}
+      <option value="{{ ct }}" {% if ct == current_tag %}selected{% endif %}>{{ ct }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+
     <select name="sort_by">
       <option value="date_added"          {% if sort_by == 'date_added'          %}selected{% endif %}>Date Added</option>
       <option value="title"               {% if sort_by == 'title'               %}selected{% endif %}>Title</option>
