@@ -185,4 +185,4 @@ Show canonical tags instead of (or in addition to) raw tags on the card. Raw tag
 
 - **Noise tags with no natural canonical form** (e.g. `#ad`, `2024`, `HD`) — these are best handled by a blocklist rather than distillation
 - **Cross-language tags** — tags in other languages won't cluster with English equivalents without a translation step
-- **Semantic similarity beyond surface form** — `cooking` and `culinary arts` won't cluster via edit distance; would need embeddings or an LLM suggestion pass (Phase 4 if ever needed)
+- **Semantic similarity beyond surface form** — `cooking` and `culinary arts` won't cluster via edit distance; see `plan-llm-tagger.md` for the Phase 4 LLM-based suggestion pass
