@@ -1,0 +1,25 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #1a1a1a;
+  color: #e8e8e8;
+  width: 260px;
+  padding: 1rem;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+.status {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #aaa;
+  width: 100%;
+}
+
+.status.success { color: #4caf50; }
+.status.partial  { color: #ff9800; }
+.status.error    { color: #ff6b6b; }
+
+.status div + div { margin-top: 0.25rem; }

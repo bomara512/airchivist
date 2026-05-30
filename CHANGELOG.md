@@ -291,6 +291,20 @@ The automated cluster suggestion engine was built and then replaced. The origina
 
 ---
 
+### Firefox extension Phase 1 — dual bookmark in one click
+
+New `extension/` directory. A browser action popup that, on any YouTube video page, simultaneously creates a Firefox bookmark (in an auto-created "ViewTube" folder) and posts to `/api/add`. Both operations run in parallel via `Promise.allSettled`. On full success the popup shows the video title and auto-closes after 1.5 s. On partial failure it shows per-action status (green ✓ / red ✗). ViewTube URL defaults to `localhost:8080` and is readable from `browser.storage.local` so the Phase 2 options page can configure it without changing popup.js.
+
+**Implications**
+- **+** Single click replaces the bookmarklet + Ctrl+D workflow
+- **+** Firefox bookmark survives even if ViewTube is unreachable; partial failure is clearly reported rather than silently dropped
+- **+** Bookmark folder "ViewTube" keeps extension saves separate from regular bookmarks; folder ID is cached so subsequent opens don't re-search the bookmarks tree
+- **−** No options page yet — ViewTube URL and bookmark folder are not user-configurable (Phase 2)
+- **−** Icon is always visible in the toolbar regardless of whether the current page is YouTube (Phase 3 adds page-detection)
+- **−** Must be loaded as a temporary add-on via `about:debugging`; permanent installation requires signing (Phase 2+ or web-ext sign)
+
+---
+
 ### "By tag" grouping added to group select
 
 Group select now offers "No grouping", "By channel", and "By tag". Tag grouping partitions the current page of videos by their canonical tags in Python; a video with multiple canonical tags appears under each. Groups are sorted alphabetically; videos with no canonical tags appear at the end in an "Untagged" section.

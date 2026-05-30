@@ -1,0 +1,16 @@
+{
+  "manifest_version": 2,
+  "name": "ViewTube",
+  "version": "1.0",
+  "description": "Bookmark YouTube videos to Firefox and ViewTube in one click",
+  "permissions": [
+    "bookmarks",
+    "activeTab",
+    "storage"
+  ],
+  "browser_action": {
+    "default_icon": "icons/icon.svg",
+    "default_popup": "popup/popup.html",
+    "default_title": "Save to ViewTube"
+  }
+}

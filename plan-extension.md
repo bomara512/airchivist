@@ -147,15 +147,17 @@ The toolbar icon should only be fully active on YouTube video pages. Two options
 
 ## Implementation Phases
 
-### Phase 1 — Core (working extension)
+### Phase 1 — Core (working extension) ✅ IMPLEMENTED (2026-05-29)
 
-- `manifest.json`
-- `popup/popup.html` + `popup.js` + `popup.css`
-  - Reads tab URL/title
-  - Validates YouTube video URL using the same regex pattern as the server (`/[?&]v=([A-Za-z0-9_-]{11})/` or `youtu.be/...`)
-  - Creates Firefox bookmark (in a "ViewTube" auto-created folder)
-  - POSTs to `/api/add`
-  - Shows status
+Files in `extension/`:
+- `manifest.json` — MV2, permissions: `bookmarks`, `activeTab`, `storage`
+- `icons/icon.svg` — red rounded square with white V stroke
+- `popup/popup.html` — minimal shell, status div, loads popup.js
+- `popup/popup.css` — dark theme matching ViewTube; `.success` (green), `.partial` (orange), `.error` (red)
+- `popup/popup.js`:
+  - `getOrCreateFolder()` — finds or creates "ViewTube" bookmark folder; caches ID in `browser.storage.local`; validates cached ID still exists on each open
+  - `run()` — validates YouTube URL (`/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/`); loads folder + settings in parallel; runs `browser.bookmarks.create` and `fetch /api/add` in parallel via `Promise.allSettled`; shows per-action status on partial failure; auto-closes after 1.5 s on full success
+  - ViewTube `status: "exists"` treated as success (visit is still recorded server-side)
 
 ### Phase 2 — Options
 
