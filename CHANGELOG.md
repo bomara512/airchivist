@@ -248,16 +248,21 @@ Grouped view retains Prev/Next. HTMX `beforeend` appends new cards; `hx-swap-oob
 
 ## 2026-05-29
 
-### Tag distillation Phase 3 — suggestion engine
+### Tag distillation Phase 3 — replaced suggestion engine with manual tag pool
 
-`webapp/tag_suggester.py` clusters similar tags using union-find: pairwise similarity is `max(edit_similarity, token_jaccard)` with a default threshold of 0.6. `get_suggestions(conn)` queries non-canonical, non-aliased tags and returns clusters. `confirm_suggestion` creates a canonical tag, adds exact aliases for all cluster members, and retroactively applies. Tags page shows a "Suggested clusters" section when any exist — each cluster shows member pills, a name input, and "Create & apply".
+The automated cluster suggestion engine was built and then replaced. The original approach (`tag_suggester.py`) grouped similar-looking tags via edit similarity + token Jaccard and presented them as "clusters to confirm". The user found this unintuitive: algorithmic clusters don't always match conceptual groupings, and there was no way to see the full unclassified set or pick an arbitrary subset.
+
+**Replacement**: Tags page now shows an "Unclassified Tags" section — a scrollable pool of all non-canonical, non-aliased tags as checkbox pills. The user selects any combination they consider related, types a canonical name, and clicks "Assign selected". Selected tags become exact aliases of the canonical tag and vanish from the pool. Process repeats until the pool is empty.
+
+`tag_suggester.py` is retained but not used in the main UI flow.
 
 **Implications**
-- **+** No external dependencies — `difflib.SequenceMatcher` and set operations only
-- **+** Already-aliased tags are excluded from suggestions so processed clusters don't resurface
-- **+** On-demand computation is fine at personal-library scale (≤500 tags ≈ 250K comparisons, well under 1 second)
-- **−** All cluster-generated aliases use `exact` match type — user may need to manually adjust to `prefix`/`contains` for broader coverage
-- **−** No "dismiss" option — unwanted suggestions reappear on every page load until the tags are aliased or the threshold is raised
+- **+** User has full visibility into all unclassified tags at once
+- **+** No algorithm decides what "belongs together" — the user's domain knowledge drives grouping
+- **+** Any subset of tags can be combined, including non-similar ones (e.g. merging `#shorts` and `short-video` even if their similarity score is low)
+- **+** Pool shrinks as tags are classified — gives a clear sense of progress
+- **−** Requires manual effort proportional to library size; automated clustering would have been faster for large libraries
+- **−** No "suggest a name" based on the selection — user must type it themselves
 
 ---
 

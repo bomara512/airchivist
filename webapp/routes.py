@@ -155,8 +155,9 @@ def tags():
             _db.create_canonical_tag(g.db, name)
         return redirect(url_for("main.tags"))
     canonical = _db.get_canonical_tags(g.db)
-    suggestions = _db.get_suggestions(g.db)
-    return render_template("tags.html", canonical_tags=canonical, suggestions=suggestions)
+    unclassified, total_unclassified = _db.get_unclassified_tags(g.db)
+    return render_template("tags.html", canonical_tags=canonical,
+                           unclassified_tags=unclassified, total_unclassified=total_unclassified)
 
 
 @bp.route("/tags/<int:tag_id>/alias", methods=["POST"])

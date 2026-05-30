@@ -102,15 +102,16 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 .add-alias-form { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
 .no-aliases { color: #555; font-size: 0.85rem; margin: 0 0 0.5rem; }
 
-/* Suggestions */
-.suggestions-section { margin-bottom: 2rem; }
-.suggestions-section h2 { margin-bottom: 0.25rem; }
-.suggestions-count { color: #666; font-size: 0.85rem; font-weight: 400; }
-.suggestions-hint { color: #666; font-size: 0.85rem; margin: 0 0 1rem; }
-.suggestion-list { display: flex; flex-direction: column; gap: 0.75rem; max-width: 640px; }
-.suggestion-card { background: #1a1a1a; border-radius: 8px; padding: 0.75rem 1rem; }
-.suggestion-members { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.6rem; }
-.suggestion-form { display: flex; gap: 0.4rem; align-items: center; }
+/* Tag pool */
+.tag-pool-section { margin-bottom: 2rem; }
+.pool-count-badge { color: #666; font-size: 0.85rem; font-weight: 400; }
+.pool-assign-bar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; position: sticky; top: 0; background: #0f0f0f; padding: 0.75rem 0; z-index: 10; border-bottom: 1px solid #222; }
+.tag-pool { display: flex; flex-wrap: wrap; gap: 0.4rem; padding-top: 0.5rem; }
+.pool-tag { display: inline-flex; align-items: center; gap: 0.3rem; background: #2a2a2a; color: #aaa; padding: 0.25rem 0.65rem; border-radius: 12px; font-size: 0.8rem; cursor: pointer; user-select: none; }
+.pool-tag:hover { background: #3a3a3a; color: #e8e8e8; }
+.pool-tag:has(input:checked) { background: #cc0000; color: #fff; }
+.pool-tag input[type="checkbox"] { display: none; }
+.pool-tag-count { opacity: 0.6; font-size: 0.75rem; }
 
 .kw-preview { color: #666; font-size: 0.85rem; }
 

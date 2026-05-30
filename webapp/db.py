@@ -425,20 +425,23 @@ def retroactive_apply(conn: sqlite3.Connection, alias_rule_id: Optional[int] = N
     return total
 
 
-def get_suggestions(conn: sqlite3.Connection, threshold: float = 0.6, max_tags: int = 500) -> list:
-    """Return clusters of similar non-canonical, non-aliased tags."""
-    rows = conn.execute("""
-        SELECT t.name
+def get_unclassified_tags(conn: sqlite3.Connection, max_tags: int = 500) -> tuple[list, int]:
+    """Return (tags, total_count) for non-canonical, non-aliased tags ordered by usage."""
+    base = """
         FROM tags t
         JOIN video_tags vt ON vt.tag_id_fk = t.id
         WHERE t.is_canonical = 0
           AND t.name NOT IN (SELECT pattern FROM tag_aliases)
+    """
+    total = conn.execute("SELECT COUNT(DISTINCT t.id) " + base).fetchone()[0]
+    rows = conn.execute("""
+        SELECT t.name, COUNT(vt.video_id_fk) as video_count
+    """ + base + """
         GROUP BY t.id, t.name
-        ORDER BY COUNT(vt.video_id_fk) DESC
+        ORDER BY video_count DESC, t.name ASC
         LIMIT ?
     """, (max_tags,)).fetchall()
-    from webapp.tag_suggester import suggest_clusters
-    return suggest_clusters([r[0] for r in rows], threshold)
+    return [{"name": r[0], "video_count": r[1]} for r in rows], total
 
 
 def confirm_suggestion(conn: sqlite3.Connection, canonical_name: str, member_names: list[str]) -> int:

@@ -18,69 +18,77 @@
   </div>
 </div>
 
-{% if suggestions %}
-<section class="suggestions-section">
-  <h2>Suggested clusters <span class="suggestions-count">({{ suggestions | length }})</span></h2>
-  <p class="suggestions-hint">These tags look similar. Name a canonical tag and click "Create &amp; apply" to merge them.</p>
-  <div class="suggestion-list">
-    {% for cluster in suggestions %}
-    <div class="suggestion-card">
-      <div class="suggestion-members">
-        {% for member in cluster %}
-        <span class="tag-pill">{{ member }}</span>
+{% if unclassified_tags %}
+<section class="tag-pool-section">
+  <h2>Unclassified Tags
+    <span class="pool-count-badge">
+      {{ unclassified_tags | length }}{% if total_unclassified > (unclassified_tags | length) %} of {{ total_unclassified }}{% endif %}
+    </span>
+  </h2>
+  <form method="post" action="{{ url_for('main.tag_suggest_confirm') }}">
+    <div class="pool-assign-bar">
+      <input name="canonical_name" placeholder="Canonical tag name…"
+             list="canonical-datalist" autocomplete="off" required>
+      <datalist id="canonical-datalist">
+        {% for tag in canonical_tags %}
+        <option value="{{ tag.name }}">
         {% endfor %}
+      </datalist>
+      <button type="submit">Assign selected</button>
+    </div>
+    <div class="tag-pool">
+      {% for tag in unclassified_tags %}
+      <label class="pool-tag">
+        <input type="checkbox" name="member" value="{{ tag.name }}">
+        {{ tag.name }}{% if tag.video_count > 1 %}<span class="pool-tag-count">{{ tag.video_count }}</span>{% endif %}
+      </label>
+      {% endfor %}
+    </div>
+  </form>
+</section>
+{% endif %}
+
+{% if canonical_tags %}
+<section>
+  <h2>Canonical Tags <span class="pool-count-badge">{{ canonical_tags | length }}</span></h2>
+  <div class="canonical-tag-list">
+    {% for tag in canonical_tags %}
+    <div class="canonical-tag-card">
+      <div class="canonical-tag-header">
+        <span class="canonical-tag-name">{{ tag.name }}</span>
+        <span class="canonical-tag-count">{{ tag.video_count }} video{{ 's' if tag.video_count != 1 }}</span>
       </div>
-      <form method="post" action="{{ url_for('main.tag_suggest_confirm') }}" class="suggestion-form">
-        {% for member in cluster %}
-        <input type="hidden" name="member" value="{{ member }}">
+
+      {% if tag.aliases %}
+      <ul class="alias-list">
+        {% for alias in tag.aliases %}
+        <li>
+          <span class="alias-pattern">{{ alias.pattern }}</span>
+          <span class="alias-type">{{ alias.match_type }}</span>
+          <form method="post" action="{{ url_for('main.tag_delete_alias', tag_id=tag.id, alias_id=alias.id) }}" class="inline-form">
+            <button type="submit" class="alias-delete-btn" title="Remove alias">×</button>
+          </form>
+        </li>
         {% endfor %}
-        <input name="canonical_name" placeholder="{{ cluster | sort | first }}…" autocomplete="off" required>
-        <button type="submit">Create &amp; apply</button>
+      </ul>
+      {% else %}
+      <p class="no-aliases">No aliases yet.</p>
+      {% endif %}
+
+      <form method="post" action="{{ url_for('main.tag_add_alias', tag_id=tag.id) }}" class="add-alias-form">
+        <input name="pattern" placeholder="Pattern…" autocomplete="off" required>
+        <select name="match_type">
+          <option value="exact">exact</option>
+          <option value="prefix">prefix</option>
+          <option value="contains">contains</option>
+        </select>
+        <button type="submit">Add &amp; apply</button>
       </form>
     </div>
     {% endfor %}
   </div>
 </section>
-{% endif %}
-
-{% if canonical_tags %}
-<div class="canonical-tag-list">
-  {% for tag in canonical_tags %}
-  <div class="canonical-tag-card">
-    <div class="canonical-tag-header">
-      <span class="canonical-tag-name">{{ tag.name }}</span>
-      <span class="canonical-tag-count">{{ tag.video_count }} video{{ 's' if tag.video_count != 1 }}</span>
-    </div>
-
-    {% if tag.aliases %}
-    <ul class="alias-list">
-      {% for alias in tag.aliases %}
-      <li>
-        <span class="alias-pattern">{{ alias.pattern }}</span>
-        <span class="alias-type">{{ alias.match_type }}</span>
-        <form method="post" action="{{ url_for('main.tag_delete_alias', tag_id=tag.id, alias_id=alias.id) }}" class="inline-form">
-          <button type="submit" class="alias-delete-btn" title="Remove alias">×</button>
-        </form>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="no-aliases">No aliases yet.</p>
-    {% endif %}
-
-    <form method="post" action="{{ url_for('main.tag_add_alias', tag_id=tag.id) }}" class="add-alias-form">
-      <input name="pattern" placeholder="Pattern…" autocomplete="off" required>
-      <select name="match_type">
-        <option value="exact">exact</option>
-        <option value="prefix">prefix</option>
-        <option value="contains">contains</option>
-      </select>
-      <button type="submit">Add &amp; apply</button>
-    </form>
-  </div>
-  {% endfor %}
-</div>
 {% else %}
-<p class="empty">No canonical tags yet. Create one above.</p>
+<p class="empty">No canonical tags yet. Create one above or assign from the pool.</p>
 {% endif %}
 {% endblock %}

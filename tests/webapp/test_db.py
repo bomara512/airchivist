@@ -7,7 +7,7 @@ from webapp.db import (
     add_video_tag, remove_video_tag, init_webapp_tables, count_videos,
     apply_aliases, get_canonical_tags, create_canonical_tag,
     add_alias, delete_alias, retroactive_apply,
-    get_suggestions, confirm_suggestion,
+    get_unclassified_tags, confirm_suggestion,
 )
 
 
@@ -360,46 +360,58 @@ class TestApplyAliases:
         assert set(get_tags_for_video(db_conn, "aaaaaaaaaa1")) == tags_before
 
 
-class TestGetSuggestions:
-    def _seed_raw_tags(self, db_conn):
-        # Add raw tags that are similar to each other
-        for name in ["meal prep", "meal-prep", "meal prep recipes"]:
-            db_conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
+class TestGetUnclassifiedTags:
+    def _seed_raw_tag(self, db_conn, name, video_fk=1):
+        db_conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
         db_conn.commit()
-        # Associate them with a video so they pass the JOIN filter
-        for name in ["meal prep", "meal-prep", "meal prep recipes"]:
-            tag_row = db_conn.execute("SELECT id FROM tags WHERE name=?", (name,)).fetchone()
-            db_conn.execute(
-                "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (1, ?)",
-                (tag_row[0],),
-            )
+        tag_row = db_conn.execute("SELECT id FROM tags WHERE name=?", (name,)).fetchone()
+        db_conn.execute(
+            "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (?, ?)",
+            (video_fk, tag_row[0]),
+        )
         db_conn.commit()
 
-    def test_returns_clusters_of_similar_tags(self, db_conn):
-        self._seed_raw_tags(db_conn)
-        clusters = get_suggestions(db_conn)
-        flat = [t for c in clusters for t in c]
-        assert "meal prep" in flat or "meal-prep" in flat
+    def test_returns_non_canonical_non_aliased_tags(self, db_conn):
+        self._seed_raw_tag(db_conn, "meal prep")
+        tags, _ = get_unclassified_tags(db_conn)
+        names = [t["name"] for t in tags]
+        assert "meal prep" in names
 
     def test_excludes_canonical_tags(self, db_conn):
-        self._seed_raw_tags(db_conn)
+        self._seed_raw_tag(db_conn, "meal prep")
         create_canonical_tag(db_conn, "meal prep")
-        clusters = get_suggestions(db_conn)
-        flat = [t for c in clusters for t in c]
-        assert "meal prep" not in flat
+        tags, _ = get_unclassified_tags(db_conn)
+        names = [t["name"] for t in tags]
+        assert "meal prep" not in names
 
-    def test_excludes_already_aliased_tags(self, db_conn):
-        self._seed_raw_tags(db_conn)
+    def test_excludes_aliased_tags(self, db_conn):
+        self._seed_raw_tag(db_conn, "meal prep")
         tag_id = create_canonical_tag(db_conn, "food prep")
         add_alias(db_conn, tag_id, "meal prep", "exact")
-        clusters = get_suggestions(db_conn)
-        flat = [t for c in clusters for t in c]
-        assert "meal prep" not in flat
+        tags, _ = get_unclassified_tags(db_conn)
+        names = [t["name"] for t in tags]
+        assert "meal prep" not in names
 
-    def test_returns_empty_when_no_similar_tags(self, db_conn):
-        clusters = get_suggestions(db_conn)
-        # seed data has "guitar" and "thai food" — unrelated, so no clusters
-        assert clusters == []
+    def test_returns_total_count(self, db_conn):
+        self._seed_raw_tag(db_conn, "meal prep")
+        self._seed_raw_tag(db_conn, "meal-prep")
+        _, total = get_unclassified_tags(db_conn)
+        # seed data also has "guitar" and "thai food" (non-canonical)
+        assert total >= 2
+
+    def test_includes_video_count(self, db_conn):
+        self._seed_raw_tag(db_conn, "meal prep", video_fk=1)
+        self._seed_raw_tag(db_conn, "meal prep", video_fk=2)
+        tags, _ = get_unclassified_tags(db_conn)
+        meal = next(t for t in tags if t["name"] == "meal prep")
+        assert meal["video_count"] == 2
+
+    def test_respects_max_tags(self, db_conn):
+        for i in range(10):
+            self._seed_raw_tag(db_conn, f"tag-{i:03d}")
+        tags, total = get_unclassified_tags(db_conn, max_tags=3)
+        assert len(tags) == 3
+        assert total > 3
 
 
 class TestConfirmSuggestion:
