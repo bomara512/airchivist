@@ -113,6 +113,31 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 .pool-tag input[type="checkbox"] { display: none; }
 .pool-tag-count { opacity: 0.6; font-size: 0.75rem; }
 
+/* LLM suggestions */
+.pool-section-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+.pool-section-header h2 { margin: 0; }
+.llm-unavailable-notice { color: #555; font-size: 0.8rem; }
+.llm-error { color: #ff6b6b; font-size: 0.85rem; background: #1a0000; border: 1px solid #4a0000; border-radius: 4px; padding: 0.5rem 0.75rem; margin-bottom: 1rem; }
+.llm-empty-notice { color: #555; font-size: 0.85rem; margin: 0 0 1rem; }
+.llm-suggestions { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem; }
+.llm-suggestion-card { background: #131c2e; border: 1px solid #1e3055; border-radius: 8px; padding: 1rem; position: relative; }
+.llm-suggestion-noise { background: #1a1a1a; border-color: #2a2a2a; }
+.llm-dismiss-form { position: absolute; top: 0.6rem; right: 0.6rem; margin: 0; }
+.suggestion-dismiss-btn { background: none; border: none; color: #444; cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 0 4px; }
+.suggestion-dismiss-btn:hover { color: #cc0000; }
+.llm-suggestion-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.llm-suggestion-label { color: #666; font-size: 0.85rem; }
+.llm-canonical-input { background: #0d1520; color: #e8e8e8; border: 1px solid #1e3055; border-radius: 4px; padding: 0.3rem 0.5rem; font-size: 0.95rem; font-weight: 600; min-width: 140px; }
+.llm-confidence-badge { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.45rem; border-radius: 3px; flex-shrink: 0; }
+.llm-confidence-high { background: #0f2a0f; color: #4caf50; }
+.llm-confidence-medium { background: #2a1a00; color: #ff9800; }
+.llm-confidence-low { background: #222; color: #777; }
+.llm-accept-btn { background: #0f2a0f; color: #4caf50; border: 1px solid #1a4a1a; padding: 0.3rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; flex-shrink: 0; }
+.llm-accept-btn:hover { background: #1a4a1a; color: #6fcf6f; }
+.llm-accept-form { margin: 0; }
+.llm-member-pool { padding-top: 0; }
+.llm-noise-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
 .kw-preview { color: #666; font-size: 0.85rem; }
 
 form { margin-bottom: 1.5rem; }

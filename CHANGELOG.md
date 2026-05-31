@@ -351,6 +351,20 @@ Documents the path to hosted/multi-user deployment: WSGI, auth, database migrati
 
 ## 2026-05-29
 
+### Phase 4b: LLM suggestion cards UI
+
+The Tags page Unclassified section now shows LLM suggestion cards above the manual pool. A "Smart Suggest" button triggers the LLM run; it reads "Refresh Suggestions" when a fresh cache exists. If `ANTHROPIC_API_KEY` is not set or the `anthropic` package is absent, a notice replaces the button. API errors are shown inline as a red banner.
+
+Each normal suggestion card has an editable canonical name field (pre-filled, autocompletes from existing canonicals), a confidence badge (green/amber/grey for high/medium/low), pre-checked member checkboxes the user can uncheck, and an Accept button that submits to the existing `confirm_suggestion` route. A dismiss button (×, positioned top-right) submits to the new dismiss route without affecting the pool. Noise tags get their own read-only card with a dismiss button. When the cache is fresh but the model returned no suggestions, a "pool looks well-organized" notice is shown instead.
+
+**Implications**
+- **+** Accept reuses the existing `confirm_suggestion` → `add_alias` → `retroactive_apply` pipeline — no new confirm logic
+- **+** Member checkboxes let the user accept a suggestion partially (uncheck disagreements before submitting)
+- **+** Canonical name is editable — the user can correct the LLM's proposed name before accepting
+- **−** Accepting a suggestion card dismisses it implicitly (tags leave the pool), but the suggestion row stays in `llm_suggestions` until the next refresh — minor stale-row leak, harmless
+
+---
+
 ### Phase 4a: LLM tag categorization backend
 
 `webapp/llm_tagger.py` added with `get_suggestions`, `compute_pool_hash`, `is_available`, and `_build_user_message`. `get_suggestions` uses Anthropic's tool-use API with `tool_choice={"type":"tool","name":"categorize_tags"}` to guarantee structured JSON output — no regex parsing of freeform text. The `anthropic` package is lazily imported so the module always loads; `ImportError` surfaces only when a user actually triggers a suggestion run. Noise tags are returned as a single `{"canonical":"_noise","is_noise":True}` entry rather than individual entries. `compute_pool_hash` takes a SHA256 of the sorted tag name list (first 16 hex chars) for staleness detection.

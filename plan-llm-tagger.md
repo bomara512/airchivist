@@ -211,10 +211,16 @@ The key insight: alias rules established from past LLM passes propagate automati
 - `webapp/routes.py`: `POST /tags/llm-suggest`, `POST /tags/llm-suggest/<id>/dismiss`; `tags()` GET passes `llm_available`, `llm_stale`, `llm_suggestions`, `llm_error` to template
 - Tests: `tests/webapp/test_llm_tagger.py` (19 tests), `TestLLMSuggestions` in `test_db.py` (9 tests); all pass without `anthropic` installed (mock via `sys.modules`)
 
-### Phase 4b — Suggestion cards UI
+### Phase 4b — Suggestion cards UI ✓ DONE
 
-- `webapp/templates/tags.html`: add LLM suggestion cards section above the manual pool; each card is a pre-populated form pointing to the existing `confirm_suggestion` route
-- `webapp/static/style.css`: suggestion card styles; confidence badge (green/yellow/grey)
+- `webapp/templates/tags.html`:
+  - Unclassified Tags `<h2>` row replaced with a flex `pool-section-header` div containing the heading and a "Smart Suggest" / "Refresh Suggestions" button (or an "unavailable" notice when `llm_available` is False)
+  - LLM error banner (`llm-error`) shown below the header when `llm_error` is set
+  - Suggestion cards rendered above the manual pool; each non-noise card has a separate dismiss form (`POST /tags/llm-suggest/<id>/dismiss`) positioned absolute top-right, and an accept form (`POST /tags/suggest/confirm`) with an editable canonical name field, confidence badge, and pre-checked member checkboxes — reuses existing confirm route unchanged
+  - Noise card shows member tags as read-only pills with a dismiss button; no accept form
+  - "No grouping suggestions" notice shown when cache is fresh but empty
+  - `canonical-datalist` moved into the pool form (was already there); `llm-canonical-input` autocompletes from the same datalist
+- `webapp/static/style.css`: suggestion card styles; confidence badge colours (green/amber/grey for high/medium/low); dismiss button positioned absolute; accept button styled green to distinguish from primary actions
 
 ### Phase 4c — Crawler `--suggest` flag (optional)
 
