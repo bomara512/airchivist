@@ -424,6 +424,23 @@ Rethought the bulk categorization workflow after the web-based manual pool and L
 - **−** Single-video long-tail tags (23K) are left unclassified — intentional for now; browseable on demand but not processed
 - **−** The `_noise` canonical approach (used in llm_tagger.py) is now superseded but the `_noise` canonical and `llm_suggestions` table still exist; should be cleaned up in a future pass
 
+### Canonical tag cleanup pass
+
+Cleaned up the canonical tag list after the initial bulk categorization run. Changes to the live DB:
+
+- **Merged duplicates**: `meal-prep` → `meal prep`, `vocal-reacts` → `vocal reaction & analysis`, `flightsim` → `flight simulation (general)`. Aliases and video associations consolidated into the winner; loser canonical demoted (raw tag preserved).
+- **Renamed**: `dev` → `programming & tech talks`. The name was a CLI artifact; the 32 aliases and 200 videos represent tech conference talks and general programming content.
+- **Deleted**: `sat bawl pro` and `weeds and sardines` — both were garbled/channel-specific single-alias canonicals whose videos are already covered by cooking and meal-prep canonicals.
+- **Deleted alias**: removed `basic` from `calligraphy` — it was a spurious alias that matched unrelated content. The canonical itself (16 videos) is still intact via the raw "calligraphy" tag.
+- **Deleted**: `maker` (1 video) and `science` (9 videos, all covered by algorithms/software-engineering canonicals).
+
+Result: 72 → 67 canonical tags.
+
+**Implications**
+- **+** No duplicate concepts in the filter sidebar
+- **+** Flight sim, meal prep, and vocal reaction content now unified under single canonicals with full alias coverage
+- **−** `calligraphy` now has 0 aliases — only exact-match "calligraphy" raw-tag videos are captured; alternate spellings/phrasing would need explicit alias additions
+
 ### Unclassified tag pool: minimum video threshold
 
 `get_unclassified_tags` gained a `min_videos: int = 2` parameter. The single-video long-tail (23K tags) is now excluded from the webapp pool entirely — only tags used on 2+ videos appear. Previously the pool showed up to 500 of the top tags by count, which after the categorization pass still surfaced hundreds of 2-4 video tags as an overwhelming checkbox cloud.
