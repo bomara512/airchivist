@@ -1,13 +1,22 @@
 {% if related %}
-<div class="tag-related">
+<div class="tag-related" id="tag-related-inner">
   <span class="tag-related-label">Related to "{{ source_tag }}":</span>
   <div class="tag-related-pills">
     {% for tag in related %}
     <label class="pool-tag pool-tag-related" data-tag-name="{{ tag.name | e }}">
       <input type="checkbox" name="member" value="{{ tag.name }}" checked>
       {{ tag.name }}<span class="pool-tag-count">{{ tag.shared }}</span>
+      <button type="button" class="related-dismiss" title="Dismiss">×</button>
     </label>
     {% endfor %}
   </div>
 </div>
+<script>
+document.getElementById('tag-related-inner').addEventListener('click', function (e) {
+  const btn = e.target.closest('.related-dismiss');
+  if (!btn) return;
+  e.preventDefault();
+  btn.closest('.pool-tag-related').remove();
+});
+</script>
 {% endif %}

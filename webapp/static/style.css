@@ -116,6 +116,9 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 .pool-tag-related { background: #1a2e1a; color: #aaccaa; }
 .pool-tag-related:hover { background: #233a23; color: #e8f5e8; }
 .pool-tag-related:has(input:checked) { background: #2a5a2a; color: #fff; }
+.related-dismiss { background: none; border: none; color: transparent; cursor: pointer; font-size: 0.9rem; padding: 0 0 0 0.2rem; line-height: 1; transition: color 0.1s; }
+.pool-tag-related:hover .related-dismiss { color: #5a8a5a; }
+.pool-tag-related:hover .related-dismiss:hover { color: #cc0000; }
 
 .alias-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
 .alias-pill { display: inline-flex; align-items: center; background: #252525; color: #bbb; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-family: monospace; cursor: context-menu; user-select: none; border: 1px solid transparent; }
