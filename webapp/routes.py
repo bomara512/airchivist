@@ -202,7 +202,7 @@ def tag_add_alias(tag_id):
 
 @bp.route("/tags/<int:tag_id>/alias/<int:alias_id>/delete", methods=["POST"])
 def tag_delete_alias(tag_id, alias_id):
-    _db.delete_alias(g.db, alias_id)
+    _db.delete_alias_with_cleanup(g.db, alias_id)
     return redirect(url_for("main.tags"))
 
 

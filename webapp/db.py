@@ -469,6 +469,69 @@ def delete_alias(conn: sqlite3.Connection, alias_id: int) -> None:
     conn.commit()
 
 
+def delete_alias_with_cleanup(conn: sqlite3.Connection, alias_id: int) -> int:
+    """Delete alias and remove video associations no longer covered by any remaining alias.
+    Returns the number of video associations removed."""
+    alias = conn.execute(
+        "SELECT pattern, match_type, canonical_tag_id FROM tag_aliases WHERE id = ?",
+        (alias_id,),
+    ).fetchone()
+    if not alias:
+        return 0
+
+    pattern = alias["pattern"]
+    match_type = alias["match_type"]
+    canonical_tag_id = alias["canonical_tag_id"]
+
+    def _matching_video_ids(pat: str, mt: str, restrict: list | None = None) -> set[int]:
+        """Find video IDs that have a raw tag matching pat/mt, optionally restricted to a list."""
+        sql = ("SELECT DISTINCT vt.video_id_fk FROM video_tags vt "
+               "JOIN tags t ON t.id = vt.tag_id_fk "
+               "WHERE t.id != ? ")  # exclude the canonical tag itself
+        params: list = [canonical_tag_id]
+        if mt == "exact":
+            sql += "AND t.name = ? "
+            params.append(pat)
+        elif mt == "prefix":
+            sql += "AND t.name LIKE ? "
+            params.append(pat + "%")
+        else:
+            sql += "AND t.name LIKE ? "
+            params.append("%" + pat + "%")
+        if restrict:
+            sql += f"AND vt.video_id_fk IN ({','.join('?' * len(restrict))}) "
+            params.extend(restrict)
+        return {r[0] for r in conn.execute(sql, params).fetchall()}
+
+    matched_ids = _matching_video_ids(pattern, match_type)
+
+    conn.execute("DELETE FROM tag_aliases WHERE id = ?", (alias_id,))
+
+    if not matched_ids:
+        conn.commit()
+        return 0
+
+    remaining = conn.execute(
+        "SELECT pattern, match_type FROM tag_aliases WHERE canonical_tag_id = ?",
+        (canonical_tag_id,),
+    ).fetchall()
+
+    still_covered: set[int] = set()
+    for ra in remaining:
+        still_covered |= _matching_video_ids(ra["pattern"], ra["match_type"], restrict=list(matched_ids))
+
+    to_remove = matched_ids - still_covered
+    if to_remove:
+        placeholders = ",".join("?" * len(to_remove))
+        conn.execute(
+            f"DELETE FROM video_tags WHERE tag_id_fk = ? AND video_id_fk IN ({placeholders})",
+            [canonical_tag_id, *to_remove],
+        )
+
+    conn.commit()
+    return len(to_remove)
+
+
 def edit_alias(conn: sqlite3.Connection, alias_id: int, pattern: str, match_type: str) -> None:
     conn.execute(
         "UPDATE tag_aliases SET pattern = ?, match_type = ? WHERE id = ?",

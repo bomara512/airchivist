@@ -400,6 +400,15 @@ Each normal suggestion card has an editable canonical name field (pre-filled, au
 
 ## 2026-06-04
 
+### Alias delete now cleans up video associations
+
+`delete_alias_with_cleanup` replaces the bare `delete_alias` call in the alias delete route. When an alias pill is deleted, the function: (1) finds all videos that matched that alias pattern, (2) deletes the alias rule, (3) checks which of those videos are still covered by any remaining alias for the same canonical, and (4) removes `video_tags` rows for videos that are no longer covered by anything. Videos that also match another alias for the same canonical are unaffected.
+
+**Implications**
+- **+** Delete now means what it looks like — the raw tag no longer contributes to that canonical
+- **+** Recoverable: `retroactive_apply` will restore associations if the alias is re-added
+- **−** Can't delete an alias while preserving its video coverage (would need a separate "detach alias only" action)
+
 ### Tag groups + merge cooking / cooking recipes
 
 **Merge**: folded "cooking recipes" (743 aliases) into "cooking", giving a single canonical with 1,117 aliases and 832 videos. The "cooking recipes" canonical is demoted (raw tag preserved); the distinction between recipe and technique content was not useful for filtering.
