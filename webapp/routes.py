@@ -224,6 +224,15 @@ def tag_mark_noise():
     return redirect(url_for("main.tags"))
 
 
+@bp.route("/tags/related")
+def tag_related():
+    tag_name = request.args.get("tag", "").strip()
+    if not tag_name:
+        return ""
+    related = _db.get_related_unclassified_tags(g.db, tag_name)
+    return render_template("_tag_related.html", source_tag=tag_name, related=related)
+
+
 @bp.route("/tags/groups", methods=["POST"])
 def tag_group_create():
     name = request.form.get("name", "").strip()

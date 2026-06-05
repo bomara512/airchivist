@@ -97,10 +97,16 @@
       </datalist>
       <button type="submit">Assign selected</button>
     </div>
+    <div id="tag-suggestions"></div>
     <div class="tag-pool">
       {% for tag in unclassified_tags %}
       <label class="pool-tag" data-tag-name="{{ tag.name | e }}">
-        <input type="checkbox" name="member" value="{{ tag.name }}">
+        <input type="checkbox" name="member" value="{{ tag.name }}"
+               hx-get="{{ url_for('main.tag_related') }}"
+               hx-vals='{"tag": "{{ tag.name | e }}"}'
+               hx-trigger="change[this.checked]"
+               hx-target="#tag-suggestions"
+               hx-swap="innerHTML">
         {{ tag.name }}{% if tag.video_count > 1 %}<span class="pool-tag-count">{{ tag.video_count }}</span>{% endif %}
       </label>
       {% endfor %}

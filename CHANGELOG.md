@@ -400,6 +400,18 @@ Each normal suggestion card has an editable canonical name field (pre-filled, au
 
 ## 2026-06-04
 
+### Co-occurrence suggestions when selecting unclassified tags
+
+Checking any pill in the unclassified pool fires an HTMX request to `GET /tags/related?tag=<name>`, which returns the top 20 unclassified tags that most frequently appear on the same videos. Results render in a green-tinted suggestion strip above the pool, pre-checked so they're included in the next "Assign selected" submission. Checking a different pill replaces the strip with suggestions for the new tag.
+
+The co-occurrence query joins `video_tags` against itself, filtered to unclassified/non-noise tags, ordered by shared video count. No suggestions are shown if nothing is checked or if no co-occurrences exist.
+
+**Implications**
+- **+** Dramatically speeds up grouping sessions — one click surfaces the natural cluster around a tag
+- **+** Pre-checked by default so the workflow is: check one tag → review suggestions → uncheck any outliers → assign
+- **−** Suggestions are for the most recently checked tag only; no multi-tag intersection query
+- **−** Suggested tags may already be checked in the main pool; submitting with duplicates is harmless (alias insert uses INSERT OR IGNORE)
+
 ### Right-click "Mark as noise" on unclassified pool tags
 
 Right-clicking any pill in the unclassified tag pool shows a context menu with a single "Mark as noise" option. This sets `is_noise = 1` on the tag, removing it from the pool immediately and permanently — including across future re-crawls (the crawler uses `INSERT OR IGNORE`, so the existing row with `is_noise=1` is preserved). The `video_tags` associations are kept intact; the tag is hidden, not deleted.

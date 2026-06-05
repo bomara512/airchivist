@@ -592,6 +592,30 @@ def mark_tag_noise(conn: sqlite3.Connection, tag_name: str) -> None:
     conn.commit()
 
 
+def get_related_unclassified_tags(
+    conn: sqlite3.Connection,
+    tag_name: str,
+    limit: int = 20,
+) -> list[dict]:
+    """Return unclassified tags that co-occur most often with tag_name on the same videos."""
+    rows = conn.execute("""
+        SELECT t2.name, COUNT(DISTINCT vt2.video_id_fk) AS shared
+        FROM video_tags vt1
+        JOIN tags t1 ON t1.id = vt1.tag_id_fk
+        JOIN video_tags vt2 ON vt2.video_id_fk = vt1.video_id_fk
+        JOIN tags t2 ON t2.id = vt2.tag_id_fk
+        WHERE t1.name = ?
+          AND t2.id != t1.id
+          AND t2.is_canonical = 0
+          AND t2.is_noise = 0
+          AND t2.name NOT IN (SELECT pattern FROM tag_aliases)
+        GROUP BY t2.id, t2.name
+        ORDER BY shared DESC, t2.name COLLATE NOCASE ASC
+        LIMIT ?
+    """, (tag_name, limit)).fetchall()
+    return [{"name": r["name"], "shared": r["shared"]} for r in rows]
+
+
 def get_unclassified_tags(
     conn: sqlite3.Connection,
     max_tags: int = 1000,

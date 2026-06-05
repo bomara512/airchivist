@@ -108,6 +108,15 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 .group-member-pill:hover .group-member-remove { color: #666; }
 .group-member-pill:hover .group-member-remove:hover { color: #cc0000; }
 
+/* Related tag suggestions */
+#tag-suggestions { margin-bottom: 0.75rem; }
+.tag-related { background: #111a11; border: 1px solid #1e3a1e; border-radius: 6px; padding: 0.6rem 0.75rem; }
+.tag-related-label { display: block; color: #5a8a5a; font-size: 0.75rem; margin-bottom: 0.4rem; }
+.tag-related-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.pool-tag-related { background: #1a2e1a; color: #aaccaa; }
+.pool-tag-related:hover { background: #233a23; color: #e8f5e8; }
+.pool-tag-related:has(input:checked) { background: #2a5a2a; color: #fff; }
+
 .alias-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
 .alias-pill { display: inline-flex; align-items: center; background: #252525; color: #bbb; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-family: monospace; cursor: context-menu; user-select: none; border: 1px solid transparent; }
 .alias-pill:hover { background: #333; color: #e8e8e8; }
