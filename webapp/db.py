@@ -394,6 +394,14 @@ def delete_alias(conn: sqlite3.Connection, alias_id: int) -> None:
     conn.commit()
 
 
+def edit_alias(conn: sqlite3.Connection, alias_id: int, pattern: str, match_type: str) -> None:
+    conn.execute(
+        "UPDATE tag_aliases SET pattern = ?, match_type = ? WHERE id = ?",
+        (pattern.strip(), match_type, alias_id),
+    )
+    conn.commit()
+
+
 def retroactive_apply(conn: sqlite3.Connection, alias_rule_id: Optional[int] = None) -> int:
     """Apply alias rules to all existing videos. Returns number of new associations created."""
     if alias_rule_id is not None:

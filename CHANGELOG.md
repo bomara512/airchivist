@@ -400,6 +400,21 @@ Each normal suggestion card has an editable canonical name field (pre-filled, au
 
 ## 2026-06-04
 
+### Alias pills with right-click context menu on canonical tags admin page
+
+Replaced the flat `<ul>` alias list in each canonical tag card with a flex-wrap pill row. Right-clicking any pill shows a floating context menu (vanilla JS, single shared `<div>`, no library) with Edit and Delete actions.
+
+- **Edit**: replaces the pill inline with an `<input>` + match-type `<select>` + Save/Cancel. Cancel restores the original pill without a round-trip. Save POSTs to the new `POST /tags/<tag_id>/alias/<alias_id>/edit` route, which calls `edit_alias` (UPDATE tag_aliases) and runs `retroactive_apply` for the modified alias only.
+- **Delete**: submits a hidden form POST to the existing delete route.
+
+Pill visual conventions: no border = exact (default), solid border = prefix, dashed border = contains. Context menu dismisses on click-outside or Escape.
+
+**Implications**
+- **+** Alias list is visually compact — cards with 100+ aliases are now scannable instead of a wall of list items
+- **+** Edit is in-place; no navigation to a separate page
+- **−** Page reloads to the top after Save/Delete (consistent with existing form-POST pattern throughout the admin page); no scroll-position restoration
+- **−** Right-click is not discoverable on mobile or for users who don't expect it; there is no hover affordance indicating the pills are actionable
+
 ### Tag distillation take 2: `is_noise` schema + CLI categorization tool (Phase 5a–5d)
 
 Rethought the bulk categorization workflow after the web-based manual pool and LLM suggestion cards proved intractable at 28K unclassified tags. Key insight: 82% of tags appear on exactly one video (long-tail publisher noise) and only ~630 tags appear on 5+ videos (the real vocabulary). The new approach tiers the work accordingly.

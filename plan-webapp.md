@@ -226,6 +226,27 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 |---|---|---|
 | GET | `/` | Main view: card grid with filter controls; returns `_video_container.html` partial when `HX-Request` header is present |
 | GET | `/visit/<video_id>` | Record a view, redirect to YouTube URL |
+| GET/POST | `/tags` | Canonical tags admin: create canonical, view/manage aliases, unclassified tag pool, LLM suggestions |
+| POST | `/tags/<tag_id>/alias` | Add alias rule to a canonical; runs retroactive apply for that alias only |
+| POST | `/tags/<tag_id>/alias/<alias_id>/delete` | Delete an alias rule |
+| POST | `/tags/<tag_id>/alias/<alias_id>/edit` | Update alias pattern/match_type; runs retroactive apply for the updated alias |
+| POST | `/tags/retroactive` | Re-apply all alias rules to all videos |
+| POST | `/tags/suggest/confirm` | Accept LLM suggestion group: create canonical, add aliases, retroactive apply |
+| POST | `/tags/llm/suggest` | Trigger LLM suggestion generation |
+| POST | `/tags/llm/suggest/<id>/dismiss` | Dismiss a single LLM suggestion card |
+
+### Tags Admin Page (`tags.html`)
+
+**Canonical tag cards** — each card shows the canonical name, video count, and all alias rules rendered as pills. Alias pills use a right-click context menu (vanilla JS, single shared `<div id="alias-context-menu">`) with two actions:
+
+- **Edit** — replaces the pill inline with an `<input>` + match-type `<select>` + Save/Cancel. Save POSTs to `/tags/<tag_id>/alias/<alias_id>/edit`; page reloads and returns to the top of the canonical list. Cancel restores the pill without a request.
+- **Delete** — submits a hidden form POST to `/tags/<tag_id>/alias/<alias_id>/delete`.
+
+Alias pill visual conventions: solid border = prefix match; dashed border = contains match; no border = exact match (most common). Context menu is dismissed on click-outside or Escape.
+
+**Unclassified tag pool** — tags used on 2+ videos that have no canonical assignment and no alias rule. Rendered as checkbox pills; selecting one or more and typing a canonical name in the assign bar posts to `/tags/suggest/confirm` to create/update the canonical with those aliases.
+
+**LLM suggestions (Smart Suggest)** — grouped suggestion cards above the pool. Each card shows a proposed canonical name (editable) and member tags as checkboxes. Accept posts to `/tags/suggest/confirm`. The unclassified pool's `min_videos` default is 2, hiding the 23K single-video long tail.
 
 ---
 

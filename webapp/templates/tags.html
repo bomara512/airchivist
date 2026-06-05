@@ -121,17 +121,16 @@
       </div>
 
       {% if tag.aliases %}
-      <ul class="alias-list">
+      <div class="alias-pills">
         {% for alias in tag.aliases %}
-        <li>
-          <span class="alias-pattern">{{ alias.pattern }}</span>
-          <span class="alias-type">{{ alias.match_type }}</span>
-          <form method="post" action="{{ url_for('main.tag_delete_alias', tag_id=tag.id, alias_id=alias.id) }}" class="inline-form">
-            <button type="submit" class="alias-delete-btn" title="Remove alias">×</button>
-          </form>
-        </li>
+        <span class="alias-pill"
+              data-alias-id="{{ alias.id }}"
+              data-tag-id="{{ tag.id }}"
+              data-pattern="{{ alias.pattern | e }}"
+              data-match-type="{{ alias.match_type }}"
+              title="{{ alias.match_type }}">{{ alias.pattern }}</span>
         {% endfor %}
-      </ul>
+      </div>
       {% else %}
       <p class="no-aliases">No aliases yet.</p>
       {% endif %}
@@ -152,4 +151,97 @@
 {% else %}
 <p class="empty">No canonical tags yet. Create one above or assign from the pool.</p>
 {% endif %}
+
+<div id="alias-context-menu" class="alias-context-menu">
+  <button id="ctx-edit">✏ Edit</button>
+  <button id="ctx-delete">✕ Delete</button>
+</div>
+
+<script>
+(function () {
+  const menu = document.getElementById('alias-context-menu');
+  let activePill = null;
+
+  function hideMenu() {
+    menu.style.display = 'none';
+    activePill = null;
+  }
+
+  document.addEventListener('contextmenu', function (e) {
+    const pill = e.target.closest('.alias-pill');
+    if (!pill) { hideMenu(); return; }
+    e.preventDefault();
+    activePill = pill;
+    menu.style.display = 'block';
+    const x = Math.min(e.clientX, window.innerWidth - menu.offsetWidth - 8);
+    const y = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 8);
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!menu.contains(e.target)) hideMenu();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') hideMenu();
+  });
+
+  document.getElementById('ctx-delete').addEventListener('click', function () {
+    if (!activePill) return;
+    const { aliasId, tagId } = activePill.dataset;
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = `/tags/${tagId}/alias/${aliasId}/delete`;
+    document.body.appendChild(form);
+    hideMenu();
+    form.submit();
+  });
+
+  document.getElementById('ctx-edit').addEventListener('click', function () {
+    if (!activePill) return;
+    const pill = activePill;
+    const { aliasId, tagId, pattern, matchType } = pill.dataset;
+    hideMenu();
+
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = `/tags/${tagId}/alias/${aliasId}/edit`;
+    form.style.cssText = 'display:inline-flex;align-items:center;gap:0.3rem;';
+
+    const input = document.createElement('input');
+    input.className = 'alias-edit-input';
+    input.name = 'pattern';
+    input.value = pattern;
+    input.required = true;
+    input.autocomplete = 'off';
+
+    const select = document.createElement('select');
+    select.className = 'alias-edit-select';
+    select.name = 'match_type';
+    ['exact', 'prefix', 'contains'].forEach(function (t) {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      opt.selected = t === matchType;
+      select.appendChild(opt);
+    });
+
+    const save = document.createElement('button');
+    save.type = 'submit';
+    save.className = 'alias-edit-save';
+    save.textContent = 'Save';
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'alias-edit-cancel';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', function () { form.replaceWith(pill); });
+
+    form.append(input, select, save, cancel);
+    pill.replaceWith(form);
+    input.select();
+  });
+})();
+</script>
 {% endblock %}

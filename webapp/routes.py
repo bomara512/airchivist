@@ -204,6 +204,16 @@ def tag_delete_alias(tag_id, alias_id):
     return redirect(url_for("main.tags"))
 
 
+@bp.route("/tags/<int:tag_id>/alias/<int:alias_id>/edit", methods=["POST"])
+def tag_edit_alias(tag_id, alias_id):
+    pattern = request.form.get("pattern", "").strip()
+    match_type = request.form.get("match_type", "exact")
+    if pattern and match_type in ("exact", "prefix", "contains"):
+        _db.edit_alias(g.db, alias_id, pattern, match_type)
+        _db.retroactive_apply(g.db, alias_id)
+    return redirect(url_for("main.tags"))
+
+
 @bp.route("/tags/retroactive", methods=["POST"])
 def tags_retroactive():
     count = _db.retroactive_apply(g.db)
