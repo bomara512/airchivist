@@ -92,6 +92,22 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 .canonical-tag-name { font-weight: 700; font-size: 1.05rem; }
 .canonical-tag-count { color: #666; font-size: 0.85rem; }
 
+/* Tag groups */
+.tag-groups-section { margin-bottom: 2rem; }
+.tag-groups-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
+.tag-groups-header h2 { margin: 0; }
+.tag-group-card { background: #1a1a1a; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; max-width: 640px; }
+.tag-group-header { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.75rem; }
+.tag-group-name { font-weight: 700; font-size: 1.05rem; }
+.tag-group-delete-btn { background: none; border: none; color: #444; font-size: 0.8rem; cursor: pointer; padding: 0; }
+.tag-group-delete-btn:hover { color: #cc0000; }
+.group-member-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+.group-member-pill { display: inline-flex; align-items: center; gap: 0.25rem; background: #252525; color: #bbb; padding: 0.2rem 0.5rem 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; }
+.group-member-remove { background: none; border: none; color: transparent; cursor: pointer; font-size: 0.9rem; padding: 0; line-height: 1; transition: color 0.1s; }
+.group-member-pill:hover { background: #303030; color: #e8e8e8; }
+.group-member-pill:hover .group-member-remove { color: #666; }
+.group-member-pill:hover .group-member-remove:hover { color: #cc0000; }
+
 .alias-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
 .alias-pill { display: inline-flex; align-items: center; background: #252525; color: #bbb; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-family: monospace; cursor: context-menu; user-select: none; border: 1px solid transparent; }
 .alias-pill:hover { background: #333; color: #e8e8e8; }

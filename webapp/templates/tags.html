@@ -109,6 +109,52 @@
 </section>
 {% endif %}
 
+<section class="tag-groups-section">
+  <div class="tag-groups-header">
+    <h2>Tag Groups <span class="pool-count-badge">{{ tag_groups | length }}</span></h2>
+    <form method="post" action="{{ url_for('main.tag_group_create') }}" class="inline-form">
+      <input name="name" placeholder="New group name…" autocomplete="off" required>
+      <button type="submit">Create</button>
+    </form>
+  </div>
+
+  {% for group in tag_groups %}
+  <div class="tag-group-card">
+    <div class="tag-group-header">
+      <span class="tag-group-name">{{ group.name }}</span>
+      <form method="post" action="{{ url_for('main.tag_group_delete', group_id=group.id) }}" class="inline-form">
+        <button type="submit" class="tag-group-delete-btn" title="Delete group"
+                onclick="return confirm('Delete group "{{ group.name }}"?')">Delete</button>
+      </form>
+    </div>
+    <div class="group-member-pills">
+      {% for member in group.members %}
+      <span class="group-member-pill">
+        {{ member.name }}
+        <form method="post" action="{{ url_for('main.tag_group_remove_member', group_id=group.id, tag_id=member.id) }}" style="display:contents;">
+          <button type="submit" class="group-member-remove" title="Remove from group">×</button>
+        </form>
+      </span>
+      {% endfor %}
+      {% if not group.members %}<span class="no-aliases">No members yet.</span>{% endif %}
+    </div>
+    <form method="post" action="{{ url_for('main.tag_group_add_member', group_id=group.id) }}" class="add-alias-form">
+      <select name="canonical_tag_id" required>
+        <option value="">Add canonical…</option>
+        {% for tag in canonical_tags %}
+        <option value="{{ tag.id }}">{{ tag.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Add</button>
+    </form>
+  </div>
+  {% endfor %}
+
+  {% if not tag_groups %}
+  <p class="no-aliases">No groups yet. Create one to organize the tag filter.</p>
+  {% endif %}
+</section>
+
 {% if canonical_tags %}
 <section>
   <h2>Canonical Tags <span class="pool-count-badge">{{ canonical_tags | length }}</span></h2>

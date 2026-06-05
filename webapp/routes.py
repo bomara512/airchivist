@@ -44,7 +44,7 @@ def index():
         return url_for("main.index", **args)
 
     channels = _db.get_all_channels(g.db)
-    canonical_tags = _db.get_canonical_tags_for_filter(g.db)
+    canonical_tags = _db.get_canonical_tags_for_filter_grouped(g.db)
 
     groups = None
     if group == "channel":
@@ -172,6 +172,7 @@ def tags():
             _db.create_canonical_tag(g.db, name)
         return redirect(url_for("main.tags"))
     canonical = _db.get_canonical_tags(g.db)
+    tag_groups = _db.get_tag_groups(g.db)
     unclassified, total_unclassified = _db.get_unclassified_tags(g.db)
     pool_hash = _llm.compute_pool_hash(unclassified)
     llm_stale = _db.is_llm_suggestion_cache_stale(g.db, pool_hash)
@@ -179,6 +180,7 @@ def tags():
     return render_template(
         "tags.html",
         canonical_tags=canonical,
+        tag_groups=tag_groups,
         unclassified_tags=unclassified,
         total_unclassified=total_unclassified,
         llm_available=_llm.is_available(),
@@ -211,6 +213,34 @@ def tag_edit_alias(tag_id, alias_id):
     if pattern and match_type in ("exact", "prefix", "contains"):
         _db.edit_alias(g.db, alias_id, pattern, match_type)
         _db.retroactive_apply(g.db, alias_id)
+    return redirect(url_for("main.tags"))
+
+
+@bp.route("/tags/groups", methods=["POST"])
+def tag_group_create():
+    name = request.form.get("name", "").strip()
+    if name:
+        _db.create_tag_group(g.db, name)
+    return redirect(url_for("main.tags"))
+
+
+@bp.route("/tags/groups/<int:group_id>/delete", methods=["POST"])
+def tag_group_delete(group_id):
+    _db.delete_tag_group(g.db, group_id)
+    return redirect(url_for("main.tags"))
+
+
+@bp.route("/tags/groups/<int:group_id>/members", methods=["POST"])
+def tag_group_add_member(group_id):
+    canonical_tag_id = request.form.get("canonical_tag_id", type=int)
+    if canonical_tag_id:
+        _db.add_canonical_to_group(g.db, group_id, canonical_tag_id)
+    return redirect(url_for("main.tags"))
+
+
+@bp.route("/tags/groups/<int:group_id>/members/<int:tag_id>/delete", methods=["POST"])
+def tag_group_remove_member(group_id, tag_id):
+    _db.remove_canonical_from_group(g.db, group_id, tag_id)
     return redirect(url_for("main.tags"))
 
 

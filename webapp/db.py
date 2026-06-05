@@ -125,6 +125,81 @@ def get_canonical_tags_for_filter(conn: sqlite3.Connection) -> list[str]:
     return [r[0] for r in rows]
 
 
+def get_canonical_tags_for_filter_grouped(conn: sqlite3.Connection) -> list[dict]:
+    """Returns [{name, tags}] for optgroup rendering. Last entry has name=None for ungrouped tags."""
+    all_canonical = conn.execute("""
+        SELECT t.id, t.name
+        FROM tags t
+        JOIN video_tags vt ON vt.tag_id_fk = t.id
+        WHERE t.is_canonical = 1
+        GROUP BY t.id, t.name
+        ORDER BY t.name
+    """).fetchall()
+    id_to_name = {r["id"]: r["name"] for r in all_canonical}
+    all_ids = set(id_to_name)
+
+    groups = get_tag_groups(conn)
+    grouped_ids: set[int] = set()
+    result = []
+    for g in groups:
+        tag_names = []
+        for m in g["members"]:
+            if m["id"] in all_ids:
+                tag_names.append(m["name"])
+                grouped_ids.add(m["id"])
+        if tag_names:
+            result.append({"name": g["name"], "tags": sorted(tag_names)})
+
+    ungrouped = sorted(id_to_name[tid] for tid in all_ids if tid not in grouped_ids)
+    if ungrouped:
+        result.append({"name": None, "tags": ungrouped})
+    return result
+
+
+def get_tag_groups(conn: sqlite3.Connection) -> list[dict]:
+    groups = conn.execute(
+        "SELECT id, name FROM tag_groups ORDER BY sort_order, name"
+    ).fetchall()
+    result = []
+    for g in groups:
+        members = conn.execute("""
+            SELECT t.id, t.name
+            FROM tags t
+            JOIN tag_group_members tgm ON tgm.canonical_tag_id = t.id
+            WHERE tgm.group_id = ?
+            ORDER BY t.name
+        """, (g["id"],)).fetchall()
+        result.append({"id": g["id"], "name": g["name"], "members": [dict(m) for m in members]})
+    return result
+
+
+def create_tag_group(conn: sqlite3.Connection, name: str) -> int:
+    conn.execute("INSERT OR IGNORE INTO tag_groups (name) VALUES (?)", (name.strip(),))
+    conn.commit()
+    return conn.execute("SELECT id FROM tag_groups WHERE name = ?", (name.strip(),)).fetchone()[0]
+
+
+def delete_tag_group(conn: sqlite3.Connection, group_id: int) -> None:
+    conn.execute("DELETE FROM tag_groups WHERE id = ?", (group_id,))
+    conn.commit()
+
+
+def add_canonical_to_group(conn: sqlite3.Connection, group_id: int, canonical_tag_id: int) -> None:
+    conn.execute(
+        "INSERT OR IGNORE INTO tag_group_members (group_id, canonical_tag_id) VALUES (?, ?)",
+        (group_id, canonical_tag_id),
+    )
+    conn.commit()
+
+
+def remove_canonical_from_group(conn: sqlite3.Connection, group_id: int, canonical_tag_id: int) -> None:
+    conn.execute(
+        "DELETE FROM tag_group_members WHERE group_id = ? AND canonical_tag_id = ?",
+        (group_id, canonical_tag_id),
+    )
+    conn.commit()
+
+
 def get_all_tags(conn: sqlite3.Connection) -> list:
     rows = conn.execute("""
         SELECT t.id, t.name, COUNT(vt.video_id_fk) as video_count
@@ -568,6 +643,16 @@ def init_webapp_tables(db_path: str) -> None:
             is_noise   BOOLEAN NOT NULL DEFAULT 0,
             created_at TEXT    NOT NULL,
             pool_hash  TEXT    NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS tag_groups (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            name       TEXT    NOT NULL UNIQUE,
+            sort_order INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS tag_group_members (
+            group_id         INTEGER NOT NULL REFERENCES tag_groups(id) ON DELETE CASCADE,
+            canonical_tag_id INTEGER NOT NULL REFERENCES tags(id)       ON DELETE CASCADE,
+            PRIMARY KEY (group_id, canonical_tag_id)
         );
     """)
     for col, ddl in [

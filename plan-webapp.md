@@ -235,6 +235,18 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 | POST | `/tags/llm/suggest` | Trigger LLM suggestion generation |
 | POST | `/tags/llm/suggest/<id>/dismiss` | Dismiss a single LLM suggestion card |
 
+### Tag Groups
+
+A display-only organizational layer stored in `tag_groups` (id, name, sort_order) and `tag_group_members` (group_id, canonical_tag_id). Groups have no effect on video-tag associations or filtering logic — they control only how the canonical tag `<select>` is rendered on the main page.
+
+`get_canonical_tags_for_filter_grouped(conn)` replaces `get_canonical_tags_for_filter` in the index route. It returns `[{name, tags}]` where the last entry has `name=None` for ungrouped canonicals. The index template renders `<optgroup label="…">` for named groups and flat `<option>` elements for the ungrouped tail.
+
+Group management routes (all redirect to `/tags`):
+- `POST /tags/groups` — create group
+- `POST /tags/groups/<id>/delete` — delete group (cascades to members)
+- `POST /tags/groups/<id>/members` — add canonical to group by `canonical_tag_id`
+- `POST /tags/groups/<id>/members/<tag_id>/delete` — remove canonical from group
+
 ### Tags Admin Page (`tags.html`)
 
 **Canonical tag cards** — each card shows the canonical name, video count, and all alias rules rendered as pills. Alias pills use a right-click context menu (vanilla JS, single shared `<div id="alias-context-menu">`) with two actions:
@@ -243,6 +255,8 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 - **Delete** — submits a hidden form POST to `/tags/<tag_id>/alias/<alias_id>/delete`.
 
 Alias pill visual conventions: solid border = prefix match; dashed border = contains match; no border = exact match (most common). Context menu is dismissed on click-outside or Escape.
+
+**Tag groups section** (above canonical tag cards) — create/delete groups; each group card shows member canonical pills with a hover-× remove button and a `<select>` to add a canonical.
 
 **Unclassified tag pool** — tags used on 2+ videos that have no canonical assignment and no alias rule. Rendered as checkbox pills; selecting one or more and typing a canonical name in the assign bar posts to `/tags/suggest/confirm` to create/update the canonical with those aliases.
 

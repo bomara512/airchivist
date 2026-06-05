@@ -56,6 +56,16 @@ CREATE TABLE llm_suggestions (
     created_at TEXT    NOT NULL,
     pool_hash  TEXT    NOT NULL
 );
+CREATE TABLE tag_groups (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT    NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE tag_group_members (
+    group_id         INTEGER NOT NULL REFERENCES tag_groups(id) ON DELETE CASCADE,
+    canonical_tag_id INTEGER NOT NULL REFERENCES tags(id)       ON DELETE CASCADE,
+    PRIMARY KEY (group_id, canonical_tag_id)
+);
 """
 
 SEED_SQL = """

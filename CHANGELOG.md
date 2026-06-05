@@ -400,6 +400,21 @@ Each normal suggestion card has an editable canonical name field (pre-filled, au
 
 ## 2026-06-04
 
+### Tag groups + merge cooking / cooking recipes
+
+**Merge**: folded "cooking recipes" (743 aliases) into "cooking", giving a single canonical with 1,117 aliases and 832 videos. The "cooking recipes" canonical is demoted (raw tag preserved); the distinction between recipe and technique content was not useful for filtering.
+
+**Tag groups** (`tag_groups` + `tag_group_members` tables): a display-only organizational layer over canonical tags. Groups appear as `<optgroup>` sections in the main tag filter select — no changes to the underlying filtering logic or video-tag associations. Ungrouped canonicals continue to appear as flat options at the end of the select.
+
+Admin UI (new section on `/tags` page): create/delete groups, add/remove canonical members via hover-× pills. Four new routes: `POST /tags/groups`, `POST /tags/groups/<id>/delete`, `POST /tags/groups/<id>/members`, `POST /tags/groups/<id>/members/<tag_id>/delete`.
+
+**Implications**
+- **+** Tag select goes from a flat 67-item list to labelled sections once groups are defined — much faster to navigate
+- **+** No query changes: filtering by a canonical tag works identically; groups are pure presentation
+- **+** Canonicals can belong to zero or multiple groups (edge case, but possible)
+- **−** Page reloads to the top after each group edit (consistent with the rest of the admin page)
+- **−** Group membership isn't shown on the canonical tag cards — need to go to the group card to see/edit membership
+
 ### Alias pills with right-click context menu on canonical tags admin page
 
 Replaced the flat `<ul>` alias list in each canonical tag card with a flex-wrap pill row. Right-clicking any pill shows a floating context menu (vanilla JS, single shared `<div>`, no library) with Edit and Delete actions.

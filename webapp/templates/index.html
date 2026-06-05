@@ -22,8 +22,18 @@
     {% if canonical_tags %}
     <select name="tag">
       <option value="">All tags</option>
-      {% for ct in canonical_tags %}
-      <option value="{{ ct }}" {% if ct == current_tag %}selected{% endif %}>{{ ct }}</option>
+      {% for group in canonical_tags %}
+        {% if group.name %}
+        <optgroup label="{{ group.name }}">
+          {% for tag_name in group.tags %}
+          <option value="{{ tag_name }}" {% if tag_name == current_tag %}selected{% endif %}>{{ tag_name }}</option>
+          {% endfor %}
+        </optgroup>
+        {% else %}
+        {% for tag_name in group.tags %}
+        <option value="{{ tag_name }}" {% if tag_name == current_tag %}selected{% endif %}>{{ tag_name }}</option>
+        {% endfor %}
+        {% endif %}
       {% endfor %}
     </select>
     {% endif %}
