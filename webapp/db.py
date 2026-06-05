@@ -611,7 +611,7 @@ def get_unclassified_tags(
     rows = conn.execute("""
         SELECT t.name, COUNT(vt.video_id_fk) as video_count
     """ + base + """
-        ORDER BY video_count DESC, t.name ASC
+        ORDER BY t.name COLLATE NOCASE ASC, video_count DESC
         LIMIT ?
     """, (min_videos, max_tags)).fetchall()
     return [{"name": r[0], "video_count": r[1]} for r in rows], total
