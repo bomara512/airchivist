@@ -400,6 +400,14 @@ Each normal suggestion card has an editable canonical name field (pre-filled, au
 
 ## 2026-06-04
 
+## 2026-06-05
+
+### Right-click to remove a canonical tag from a video card
+
+Right-clicking any tag pill on a video card shows a "Remove from video" context menu. The removal is optimistic — the pill disappears from the DOM immediately via `fetch()` with no page reload. The route (`POST /videos/<video_id>/tags/remove`) deletes the specific `video_tags` row; it does not touch the alias rules, so the tag can be re-applied by "Re-apply all rules" if removed by mistake.
+
+Note: if the association was created by an alias rule, removing it here only removes the one video's association — the alias rule itself is unchanged and will re-associate on the next retroactive apply. This is intentional: removal on the video card is a per-video override, not a rule edit.
+
 ### Fix: bookmarklet-added videos now get canonical tags immediately
 
 `/api/add` now calls `retroactive_apply(video_id=<new_video_db_id>)` after a successful fetch. Previously, bookmarked videos only received canonical tag assignments after a manual "Re-apply all rules" click on the admin page.

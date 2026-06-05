@@ -93,6 +93,16 @@ def index():
     return render_template("index.html", **template_vars)
 
 
+@bp.route("/videos/<video_id>/tags/remove", methods=["POST"])
+def video_remove_tag(video_id):
+    tag_name = request.form.get("tag_name", "").strip()
+    if tag_name:
+        tag_row = g.db.execute("SELECT id FROM tags WHERE name = ?", (tag_name,)).fetchone()
+        if tag_row:
+            _db.remove_video_tag(g.db, video_id, tag_row["id"])
+    return "", 204
+
+
 @bp.route("/visit/<video_id>")
 def visit(video_id):
     row = _db.get_video_by_id(g.db, video_id)

@@ -66,4 +66,56 @@
 <div id="video-container">
   {% include "_video_container.html" %}
 </div>
+
+<div id="tag-pill-menu" class="alias-context-menu">
+  <button id="tag-pill-remove">✕ Remove from video</button>
+</div>
+
+<script>
+(function () {
+  const menu = document.getElementById('tag-pill-menu');
+  let activePill = null;
+
+  function hideMenu() {
+    menu.style.display = 'none';
+    activePill = null;
+  }
+
+  document.addEventListener('contextmenu', function (e) {
+    const pill = e.target.closest('.tag-pill');
+    if (!pill) { hideMenu(); return; }
+    e.preventDefault();
+    activePill = pill;
+    menu.style.display = 'block';
+    const x = Math.min(e.clientX, window.innerWidth - menu.offsetWidth - 8);
+    const y = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 8);
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!menu.contains(e.target)) hideMenu();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') hideMenu();
+  });
+
+  document.getElementById('tag-pill-remove').addEventListener('click', function () {
+    if (!activePill) return;
+    const tagName = activePill.dataset.tagName;
+    const videoId = activePill.closest('.video-tags').dataset.videoId;
+    const pill = activePill;
+    hideMenu();
+
+    const body = new URLSearchParams({ tag_name: tagName });
+    fetch(`/videos/${videoId}/tags/remove`, { method: 'POST', body })
+      .then(function (r) {
+        if (r.ok) {
+          pill.remove();
+        }
+      });
+  });
+})();
+</script>
 {% endblock %}
