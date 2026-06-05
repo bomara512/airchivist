@@ -1,23 +1,34 @@
-from datetime import datetime
+from datetime import datetime, date as _date
 
 
 def format_view_count(value):
     if value is None:
         return "—"
     if value >= 1_000_000:
-        return f"{value / 1_000_000:.1f}M"
+        s = f"{value / 1_000_000:.2f}".rstrip('0').rstrip('.')
+        return s + 'M'
     if value >= 1_000:
-        return f"{value:,}"
+        s = f"{value / 1_000:.2f}".rstrip('0').rstrip('.')
+        return '1M' if s == '1000' else s + 'K'
     return str(value)
 
 
-def format_date(value):
+def format_date(value, _today=None):
     if value is None:
         return "—"
     try:
-        return datetime.strptime(str(value)[:10], "%Y-%m-%d").strftime("%b %d, %Y")
+        d = datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
     except ValueError:
         return str(value)
+    today = _today or _date.today()
+    days = (today - d).days
+    if days <= 0:
+        return "today"
+    if days < 30:
+        return f"{days}d"
+    if days < 365:
+        return f"{days // 30}mo"
+    return f"{days // 365}yr"
 
 
 def format_duration(seconds):

@@ -441,33 +441,41 @@ def retroactive_apply(conn: sqlite3.Connection, alias_rule_id: Optional[int] = N
     return total
 
 
-def get_unclassified_tags(conn: sqlite3.Connection, max_tags: int = 500) -> tuple[list, int]:
-    """Return (tags, total_count) for non-canonical, non-aliased tags ordered by usage."""
+def get_unclassified_tags(
+    conn: sqlite3.Connection,
+    max_tags: int = 500,
+    min_videos: int = 2,
+) -> tuple[list, int]:
+    """Return (tags, total_count) for non-canonical, non-aliased, non-noise tags ordered by usage."""
     base = """
         FROM tags t
         JOIN video_tags vt ON vt.tag_id_fk = t.id
         WHERE t.is_canonical = 0
+          AND t.is_noise = 0
           AND t.name NOT IN (SELECT pattern FROM tag_aliases)
+        GROUP BY t.id, t.name
+        HAVING COUNT(vt.video_id_fk) >= ?
     """
-    total = conn.execute("SELECT COUNT(DISTINCT t.id) " + base).fetchone()[0]
+    total = conn.execute("SELECT COUNT(*) FROM (" + "SELECT t.id " + base + ")", (min_videos,)).fetchone()[0]
     rows = conn.execute("""
         SELECT t.name, COUNT(vt.video_id_fk) as video_count
     """ + base + """
-        GROUP BY t.id, t.name
         ORDER BY video_count DESC, t.name ASC
         LIMIT ?
-    """, (max_tags,)).fetchall()
+    """, (min_videos, max_tags)).fetchall()
     return [{"name": r[0], "video_count": r[1]} for r in rows], total
 
 
 def confirm_suggestion(conn: sqlite3.Connection, canonical_name: str, member_names: list[str]) -> int:
     """Create a canonical tag, add exact aliases for all members, and retroactively apply."""
     tag_id = create_canonical_tag(conn, canonical_name)
+    total = 0
     for name in member_names:
         name = name.strip()
         if name:
-            add_alias(conn, tag_id, name, "exact")
-    return retroactive_apply(conn)
+            alias_id = add_alias(conn, tag_id, name, "exact")
+            total += retroactive_apply(conn, alias_id)
+    return total
 
 
 def save_llm_suggestions(conn: sqlite3.Connection, suggestions: list[dict], pool_hash: str) -> None:
@@ -554,10 +562,14 @@ def init_webapp_tables(db_path: str) -> None:
             pool_hash  TEXT    NOT NULL
         );
     """)
-    try:
-        conn.execute("ALTER TABLE tags ADD COLUMN is_canonical BOOLEAN NOT NULL DEFAULT 0")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass  # column already exists
+    for col, ddl in [
+        ("is_canonical", "ALTER TABLE tags ADD COLUMN is_canonical BOOLEAN NOT NULL DEFAULT 0"),
+        ("is_noise",     "ALTER TABLE tags ADD COLUMN is_noise     BOOLEAN NOT NULL DEFAULT 0"),
+    ]:
+        try:
+            conn.execute(ddl)
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
     conn.commit()
     conn.close()

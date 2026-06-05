@@ -205,8 +205,8 @@ def create_app(db_path: str) -> Flask:
         return {"stats": get_stats(db)}
 
     from .filters import format_view_count, format_date, format_duration
-    app.jinja_env.filters['view_count'] = format_view_count
-    app.jinja_env.filters['date'] = format_date
+    app.jinja_env.filters['view_count'] = format_view_count  # compact: 1.5K, 7.65M
+    app.jinja_env.filters['date'] = format_date              # compact time-ago: 5d, 2mo, 3yr
     app.jinja_env.filters['duration'] = format_duration
 
     return app

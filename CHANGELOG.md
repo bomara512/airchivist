@@ -351,6 +351,20 @@ Documents the path to hosted/multi-user deployment: WSGI, auth, database migrati
 
 ## 2026-05-29
 
+### Compact metadata display: time-ago dates and K/M view counts
+
+`format_date` now returns time-ago strings (`5d`, `2mo`, `3yr`, `today`) instead of `Jan 15, 2024`. `format_view_count` now uses suffix notation with up to 2 significant decimal places (`1.5K`, `12.35K`, `7.65M`) instead of comma-separated full numbers. The `_today` parameter on `format_date` allows tests to inject a fixed reference date rather than mocking `datetime.date.today`.
+
+Boundary cases handled: values 999,500–999,999 that round K to `1000` are promoted to `1M`; dates 360–364 days ago display as `12mo` rather than `0yr`.
+
+**Implications**
+- **+** Metadata row is more scannable — dates and counts take less horizontal space
+- **+** Time-ago is more useful than an absolute date for a personal library (you see recency at a glance)
+- **−** Absolute dates are no longer visible without hovering or inspecting — could add a `title` tooltip for exact dates if needed
+- **−** `12.35K` has four digits before the suffix — slightly longer than the common `12.3K` style, though accurate
+
+---
+
 ### Phase 4b: LLM suggestion cards UI
 
 The Tags page Unclassified section now shows LLM suggestion cards above the manual pool. A "Smart Suggest" button triggers the LLM run; it reads "Refresh Suggestions" when a fresh cache exists. If `ANTHROPIC_API_KEY` is not set or the `anthropic` package is absent, a notice replaces the button. API errors are shown inline as a red banner.
@@ -381,3 +395,40 @@ Each normal suggestion card has an editable canonical name field (pre-filled, au
 - **+** Staleness detection prevents stale suggestions from showing after new videos are added
 - **−** UI for suggestion cards not yet built (Phase 4b) — backend is wired but the Tags page doesn't render suggestions yet
 - **−** `anthropic` is not yet in `requirements.txt` (optional dependency, needs a comment or separate requirements file)
+
+---
+
+## 2026-06-04
+
+### Tag distillation take 2: `is_noise` schema + CLI categorization tool (Phase 5a–5d)
+
+Rethought the bulk categorization workflow after the web-based manual pool and LLM suggestion cards proved intractable at 28K unclassified tags. Key insight: 82% of tags appear on exactly one video (long-tail publisher noise) and only ~630 tags appear on 5+ videos (the real vocabulary). The new approach tiers the work accordingly.
+
+**Schema change**: `is_noise BOOLEAN NOT NULL DEFAULT 0` added to `tags` in both `crawler/datastore.py` `_SCHEMA` and via `ALTER TABLE` migration in `init_webapp_tables`. Noise tags keep all `video_tags` associations (preserving data) but are excluded from the unclassified pool (`get_unclassified_tags` now filters `AND t.is_noise = 0`). This replaces the previous `_noise` canonical approach — no special-cased canonical pollutes the canonical tag list.
+
+**CLI tool** (`tools/tag_categorizer.py`) with five subcommands:
+- `stats` — tag counts broken down by frequency bucket
+- `noise [--dry-run]` — pattern-based auto-marking of YouTube category strings, year numbers, hashtags, quality/format descriptors, and generic filler; zero user interaction
+- `suggest [--min-videos N] [--batch-size N] [--model M]` — LLM categorization pass with video-context enrichment: each candidate tag is sent with titles of the videos it appears on, giving the LLM substantially better signal than tag names alone; outputs `proposals.json`
+- `review PROPOSALS_FILE` — interactive terminal loop: per-proposal approve / rename / edit members / skip; outputs `approved.json`
+- `apply APPROVED_FILE [--db PATH]` — writes canonical tags, alias rules, and noise flags to DB; runs retroactive apply; defaults to `viewtube-test.db` so the live DB is never touched accidentally
+
+`plan-tag-distillation-v2.md` created documenting the new strategy, frequency tier analysis, and rationale for CLI-over-webapp approach.
+
+**Implications**
+- **+** Reviewing ~30–60 proposed canonical concepts is tractable; reviewing 630 individual tags was not
+- **+** Video title context in the LLM prompt dramatically improves assignment accuracy vs. tag-name-only prompts
+- **+** Default DB is `viewtube-test.db` — no path to accidentally writing the live DB without `--db viewtube.db`
+- **+** Auto-noise pass requires zero review and immediately handles YouTube category strings appearing on hundreds of videos
+- **+** Existing webapp manual pool and Smart Suggest remain intact for ongoing maintenance as new videos arrive
+- **−** Single-video long-tail tags (23K) are left unclassified — intentional for now; browseable on demand but not processed
+- **−** The `_noise` canonical approach (used in llm_tagger.py) is now superseded but the `_noise` canonical and `llm_suggestions` table still exist; should be cleaned up in a future pass
+
+### Unclassified tag pool: minimum video threshold
+
+`get_unclassified_tags` gained a `min_videos: int = 2` parameter. The single-video long-tail (23K tags) is now excluded from the webapp pool entirely — only tags used on 2+ videos appear. Previously the pool showed up to 500 of the top tags by count, which after the categorization pass still surfaced hundreds of 2-4 video tags as an overwhelming checkbox cloud.
+
+**Implications**
+- **+** Pool is scoped to tags actually worth reviewing (2+ videos = appears across multiple pieces of content)
+- **+** 23K single-video publisher tags are hidden without being deleted — still queryable directly if needed
+- **−** Tags that appear on only one video are no longer reachable via the webapp pool; must be handled via the CLI `suggest --min-videos 1` or direct DB query

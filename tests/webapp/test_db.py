@@ -379,7 +379,8 @@ class TestGetUnclassifiedTags:
         db_conn.commit()
 
     def test_returns_non_canonical_non_aliased_tags(self, db_conn):
-        self._seed_raw_tag(db_conn, "meal prep")
+        self._seed_raw_tag(db_conn, "meal prep", video_fk=1)
+        self._seed_raw_tag(db_conn, "meal prep", video_fk=2)
         tags, _ = get_unclassified_tags(db_conn)
         names = [t["name"] for t in tags]
         assert "meal prep" in names
@@ -415,7 +416,8 @@ class TestGetUnclassifiedTags:
 
     def test_respects_max_tags(self, db_conn):
         for i in range(10):
-            self._seed_raw_tag(db_conn, f"tag-{i:03d}")
+            self._seed_raw_tag(db_conn, f"tag-{i:03d}", video_fk=1)
+            self._seed_raw_tag(db_conn, f"tag-{i:03d}", video_fk=2)
         tags, total = get_unclassified_tags(db_conn, max_tags=3)
         assert len(tags) == 3
         assert total > 3

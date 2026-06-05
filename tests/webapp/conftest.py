@@ -26,7 +26,8 @@ CREATE TABLE videos (
 CREATE TABLE tags (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     name         TEXT    NOT NULL UNIQUE,
-    is_canonical BOOLEAN NOT NULL DEFAULT 0
+    is_canonical BOOLEAN NOT NULL DEFAULT 0,
+    is_noise     BOOLEAN NOT NULL DEFAULT 0
 );
 CREATE TABLE video_tags (
     video_id_fk INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
