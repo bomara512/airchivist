@@ -400,6 +400,14 @@ Each normal suggestion card has an editable canonical name field (pre-filled, au
 
 ## 2026-06-04
 
+### Right-click "Mark as noise" on unclassified pool tags
+
+Right-clicking any pill in the unclassified tag pool shows a context menu with a single "Mark as noise" option. This sets `is_noise = 1` on the tag, removing it from the pool immediately and permanently — including across future re-crawls (the crawler uses `INSERT OR IGNORE`, so the existing row with `is_noise=1` is preserved). The `video_tags` associations are kept intact; the tag is hidden, not deleted.
+
+Hard delete was not implemented: the crawler would re-add a hard-deleted tag on the next crawl, making the operation pointless. Noise-marking is the durable solution.
+
+New route: `POST /tags/noise` with `tag_name`. New DB function: `mark_tag_noise`.
+
 ### Canonical tag merges: stand-up comedy, dog, quick meals
 
 - `stand-up comedy` → `comedy`: stand-up comedy was a near-duplicate (comedy already had "stand up"/"standup" aliases covering the same content); comedy gains 24 aliases, 54 total

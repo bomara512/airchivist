@@ -99,7 +99,7 @@
     </div>
     <div class="tag-pool">
       {% for tag in unclassified_tags %}
-      <label class="pool-tag">
+      <label class="pool-tag" data-tag-name="{{ tag.name | e }}">
         <input type="checkbox" name="member" value="{{ tag.name }}">
         {{ tag.name }}{% if tag.video_count > 1 %}<span class="pool-tag-count">{{ tag.video_count }}</span>{% endif %}
       </label>
@@ -198,6 +198,10 @@
 <p class="empty">No canonical tags yet. Create one above or assign from the pool.</p>
 {% endif %}
 
+<div id="pool-context-menu" class="alias-context-menu">
+  <button id="pool-ctx-noise">⊘ Mark as noise</button>
+</div>
+
 <div id="alias-context-menu" class="alias-context-menu">
   <button id="ctx-edit">✏ Edit</button>
   <button id="ctx-delete">✕ Delete</button>
@@ -287,6 +291,54 @@
     form.append(input, select, save, cancel);
     pill.replaceWith(form);
     input.select();
+  });
+})();
+</script>
+
+<script>
+(function () {
+  const menu = document.getElementById('pool-context-menu');
+  let activeLabel = null;
+
+  function hideMenu() {
+    menu.style.display = 'none';
+    activeLabel = null;
+  }
+
+  document.addEventListener('contextmenu', function (e) {
+    const label = e.target.closest('.pool-tag');
+    if (!label) { hideMenu(); return; }
+    e.preventDefault();
+    activeLabel = label;
+    menu.style.display = 'block';
+    const x = Math.min(e.clientX, window.innerWidth - menu.offsetWidth - 8);
+    const y = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 8);
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!menu.contains(e.target)) hideMenu();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') hideMenu();
+  });
+
+  document.getElementById('pool-ctx-noise').addEventListener('click', function () {
+    if (!activeLabel) return;
+    const tagName = activeLabel.dataset.tagName;
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '{{ url_for("main.tag_mark_noise") }}';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'tag_name';
+    input.value = tagName;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    hideMenu();
+    form.submit();
   });
 })();
 </script>

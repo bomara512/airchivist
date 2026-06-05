@@ -587,9 +587,14 @@ def retroactive_apply(conn: sqlite3.Connection, alias_rule_id: Optional[int] = N
     return total
 
 
+def mark_tag_noise(conn: sqlite3.Connection, tag_name: str) -> None:
+    conn.execute("UPDATE tags SET is_noise = 1 WHERE name = ?", (tag_name,))
+    conn.commit()
+
+
 def get_unclassified_tags(
     conn: sqlite3.Connection,
-    max_tags: int = 500,
+    max_tags: int = 1000,
     min_videos: int = 2,
 ) -> tuple[list, int]:
     """Return (tags, total_count) for non-canonical, non-aliased, non-noise tags ordered by usage."""

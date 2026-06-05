@@ -216,6 +216,14 @@ def tag_edit_alias(tag_id, alias_id):
     return redirect(url_for("main.tags"))
 
 
+@bp.route("/tags/noise", methods=["POST"])
+def tag_mark_noise():
+    tag_name = request.form.get("tag_name", "").strip()
+    if tag_name:
+        _db.mark_tag_noise(g.db, tag_name)
+    return redirect(url_for("main.tags"))
+
+
 @bp.route("/tags/groups", methods=["POST"])
 def tag_group_create():
     name = request.form.get("name", "").strip()
