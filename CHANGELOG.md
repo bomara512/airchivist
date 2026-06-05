@@ -400,6 +400,14 @@ Each normal suggestion card has an editable canonical name field (pre-filled, au
 
 ## 2026-06-04
 
+### Canonical tag merges: stand-up comedy, dog, quick meals
+
+- `stand-up comedy` → `comedy`: stand-up comedy was a near-duplicate (comedy already had "stand up"/"standup" aliases covering the same content); comedy gains 24 aliases, 54 total
+- `dog` → `dog training`: dog was a 2-alias stub; all content is already covered by dog training
+- `quick meals` → `budget cooking`: quick meals is a cooking-angle subset of the same goal; budget cooking gains 12 aliases and grows to 39 videos
+
+64 → 61 canonical tags. Removed demoted tags from their tag groups (Cooking & Food, Comedy & Entertainment).
+
 ### Alias delete now cleans up video associations
 
 `delete_alias_with_cleanup` replaces the bare `delete_alias` call in the alias delete route. When an alias pill is deleted, the function: (1) finds all videos that matched that alias pattern, (2) deletes the alias rule, (3) checks which of those videos are still covered by any remaining alias for the same canonical, and (4) removes `video_tags` rows for videos that are no longer covered by anything. Videos that also match another alias for the same canonical are unaffected.
