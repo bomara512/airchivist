@@ -400,6 +400,14 @@ Each normal suggestion card has an editable canonical name field (pre-filled, au
 
 ## 2026-06-04
 
+### Fix: bookmarklet-added videos now get canonical tags immediately
+
+`/api/add` now calls `retroactive_apply(video_id=<new_video_db_id>)` after a successful fetch. Previously, bookmarked videos only received canonical tag assignments after a manual "Re-apply all rules" click on the admin page.
+
+The call is scoped to the single new video (all 3,200 alias rules run, but only against the one video's tags) rather than a full library-wide pass, so the bookmarklet response time is negligible.
+
+`retroactive_apply` gained an optional `video_id` parameter for this scoping; the existing full-pass and single-alias-rule modes are unchanged.
+
 ### Co-occurrence suggestions when selecting unclassified tags
 
 Checking any pill in the unclassified pool fires an HTMX request to `GET /tags/related?tag=<name>`, which returns the top 20 unclassified tags that most frequently appear on the same videos. Results render in a green-tinted suggestion strip above the pool, pre-checked so they're included in the next "Assign selected" submission. Checking a different pill replaces the strip with suggestions for the new tag.

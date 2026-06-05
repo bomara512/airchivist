@@ -153,6 +153,9 @@ def api_add():
         resp.headers.update(cors_headers)
         return resp, 200
 
+    video_row = _db.get_video_by_id(g.db, video_id)
+    if video_row:
+        _db.retroactive_apply(g.db, video_id=video_row["id"])
     _db.record_visit(g.db, video_id)
     resp = jsonify({"status": "added", "title": meta.title})
     resp.headers.update(cors_headers)

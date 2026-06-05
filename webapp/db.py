@@ -540,8 +540,17 @@ def edit_alias(conn: sqlite3.Connection, alias_id: int, pattern: str, match_type
     conn.commit()
 
 
-def retroactive_apply(conn: sqlite3.Connection, alias_rule_id: Optional[int] = None) -> int:
-    """Apply alias rules to all existing videos. Returns number of new associations created."""
+def retroactive_apply(
+    conn: sqlite3.Connection,
+    alias_rule_id: Optional[int] = None,
+    video_id: Optional[int] = None,
+) -> int:
+    """Apply alias rules to existing videos. Returns number of new associations created.
+
+    alias_rule_id — scope to a single alias rule (used after adding/editing an alias)
+    video_id      — scope to a single video row id (used after adding a new video)
+    Both None     — full pass over all rules and all videos
+    """
     if alias_rule_id is not None:
         rules = conn.execute(
             "SELECT ta.pattern, ta.match_type, ta.canonical_tag_id "
@@ -555,31 +564,33 @@ def retroactive_apply(conn: sqlite3.Connection, alias_rule_id: Optional[int] = N
             "FROM tag_aliases ta JOIN tags t ON t.id = ta.canonical_tag_id"
         ).fetchall()
 
+    video_filter = "AND vt.video_id_fk = ? " if video_id is not None else ""
     total = 0
     for pattern, match_type, canonical_tag_id in rules:
         p = pattern.lower()
         esc = p.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
+        extra = (video_id,) if video_id is not None else ()
         if match_type == "exact":
-            cur = conn.execute("""
+            cur = conn.execute(f"""
                 INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
                 SELECT DISTINCT vt.video_id_fk, ?
                 FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
-                WHERE LOWER(t.name) = ?
-            """, (canonical_tag_id, p))
+                WHERE LOWER(t.name) = ? {video_filter}
+            """, (canonical_tag_id, p, *extra))
         elif match_type == "prefix":
-            cur = conn.execute("""
+            cur = conn.execute(f"""
                 INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
                 SELECT DISTINCT vt.video_id_fk, ?
                 FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
-                WHERE LOWER(t.name) LIKE ? ESCAPE '\\'
-            """, (canonical_tag_id, esc + "%"))
+                WHERE LOWER(t.name) LIKE ? ESCAPE '\\' {video_filter}
+            """, (canonical_tag_id, esc + "%", *extra))
         elif match_type == "contains":
-            cur = conn.execute("""
+            cur = conn.execute(f"""
                 INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
                 SELECT DISTINCT vt.video_id_fk, ?
                 FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
-                WHERE LOWER(t.name) LIKE ? ESCAPE '\\'
-            """, (canonical_tag_id, "%" + esc + "%"))
+                WHERE LOWER(t.name) LIKE ? ESCAPE '\\' {video_filter}
+            """, (canonical_tag_id, "%" + esc + "%", *extra))
         else:
             continue
         total += cur.rowcount
