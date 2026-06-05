@@ -532,3 +532,23 @@ Result: 72 → 67 canonical tags.
 - **+** Pool is scoped to tags actually worth reviewing (2+ videos = appears across multiple pieces of content)
 - **+** 23K single-video publisher tags are hidden without being deleted — still queryable directly if needed
 - **−** Tags that appear on only one video are no longer reachable via the webapp pool; must be handled via the CLI `suggest --min-videos 1` or direct DB query
+
+---
+
+### False positive cleanup: `vintage cameras` + new `watch repair` canonical
+
+**Problem**: `vintage cameras` had 11 generic aliases (`Tutorial`, `Amazing`, `Trick`, `Tricks`, `trick`, `tricks`, `Revealed`, `revealed`, `control`, `secret`, `film`) that matched 174 unrelated videos — cooking tutorials, dog training, guitar lessons, board game videos, etc. Additionally, watch-repair videos belonged to a conceptually separate cluster inside the same canonical.
+
+**Changes made to the live DB**:
+- Deleted 11 generic aliases that caused false positives
+- Moved 5 watch-repair aliases (`watches`, `watch repair`, `watch fixing`, `serviced`, `horology`) to a new `watch repair` canonical
+- Cleaned up 174 orphaned `video_tags` rows that were no longer covered by any remaining alias for `vintage cameras`
+- Ran `retroactive_apply` — 3 watch-repair videos correctly assigned to `watch repair`; vintage cameras dropped from 188 to 15 videos
+
+The cleanup was done via direct SQL (bulk alias deletion) rather than the admin UI, so the standard `delete_alias_with_cleanup` route was not called. The orphan cleanup was performed manually with a `WITH covered_videos AS (...)` CTE.
+
+**Implications**
+- **+** `vintage cameras` is now a precise canonical (15 videos, all camera-related content)
+- **+** Watch-repair content has its own canonical — browseable independently via the tag filter
+- **−** Watch-repair aliases were moved, not copied — any alias still in `vintage cameras` will not match watch-repair content (which is correct)
+- **−** Bulk SQL alias deletion bypasses `delete_alias_with_cleanup`; future bulk cleanups need a matching manual orphan-cleanup query or a dedicated bulk-delete script
