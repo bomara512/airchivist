@@ -186,6 +186,8 @@ def tags():
         return redirect(url_for("main.tags"))
     canonical = _db.get_canonical_tags(g.db)
     tag_groups = _db.get_tag_groups(g.db)
+    grouped_ids = {m["id"] for grp in tag_groups for m in grp["members"]}
+    ungrouped_count = sum(1 for t in canonical if t["id"] not in grouped_ids)
     unclassified, total_unclassified = _db.get_unclassified_tags(g.db)
     pool_hash = _llm.compute_pool_hash(unclassified)
     llm_stale = _db.is_llm_suggestion_cache_stale(g.db, pool_hash)
@@ -194,12 +196,14 @@ def tags():
         "tags.html",
         canonical_tags=canonical,
         tag_groups=tag_groups,
+        ungrouped_count=ungrouped_count,
         unclassified_tags=unclassified,
         total_unclassified=total_unclassified,
         llm_available=_llm.is_available(),
         llm_stale=llm_stale,
         llm_suggestions=llm_suggestions,
         llm_error=request.args.get("llm_error"),
+        assigned_groups=request.args.get("assigned_groups", type=int),
     )
 
 
@@ -281,6 +285,25 @@ def tag_group_add_member(group_id):
 def tag_group_remove_member(group_id, tag_id):
     _db.remove_canonical_from_group(g.db, group_id, tag_id)
     return redirect(url_for("main.tags"))
+
+
+@bp.route("/tags/groups/auto-assign", methods=["POST"])
+def tag_groups_auto_assign():
+    ungrouped = _db.get_ungrouped_canonicals(g.db)
+    if not ungrouped:
+        return redirect(url_for("main.tags"))
+    groups = _db.get_tag_groups(g.db)
+    try:
+        assignments = _llm.suggest_group_assignments(ungrouped, groups)
+    except EnvironmentError as e:
+        return redirect(url_for("main.tags", llm_error=str(e)))
+    except ImportError:
+        return redirect(url_for("main.tags", llm_error="anthropic package not installed"))
+    except Exception as e:
+        return redirect(url_for("main.tags", llm_error=f"Auto-assign failed: {e}"))
+    for item in assignments:
+        _db.add_canonical_to_group(g.db, item["group_id"], item["canonical_id"])
+    return redirect(url_for("main.tags", assigned_groups=len(assignments)))
 
 
 @bp.route("/tags/retroactive", methods=["POST"])

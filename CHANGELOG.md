@@ -535,6 +535,21 @@ Result: 72 → 67 canonical tags.
 
 ---
 
+### Auto-assign ungrouped canonicals to tag groups
+
+"Auto-assign N ungrouped" button appears in the Tag Groups section header whenever there are canonical tags not in any group and `ANTHROPIC_API_KEY` is set. Clicking it makes a single LLM call (Haiku) with the full list of ungrouped canonicals (name, video count, top 5 aliases) and all existing groups (with their current members shown as examples). The LLM assigns each canonical to a group or leaves it ungrouped. Assignments are applied immediately; a success notice shows how many were placed.
+
+New `GET /tags/groups/auto-assign` route, `get_ungrouped_canonicals` db function, and `suggest_group_assignments` in `llm_tagger.py`. The tags route now computes and passes `ungrouped_count` and `assigned_groups` to the template.
+
+**Implications**
+- **+** After every `tag_categorizer.py apply` run or manual canonical creation, one click cleans up the group backlog
+- **+** LLM sees existing group members as examples, so it infers group theme correctly even for ambiguously named groups
+- **+** Wrong auto-assignments are trivially corrected via the existing remove button on each group card
+- **−** Button is hidden when `ANTHROPIC_API_KEY` is absent — no fallback heuristic for offline use
+- **−** No review step — assignments apply directly; deliberate given low stakes of group membership
+
+---
+
 ### Related tags section: additive across multiple selections, clears on deselect
 
 Replaced the HTMX-based "Related to" suggestions with a JS accumulator. Previous behavior: each checkbox check replaced the entire suggestions strip with results for only that tag; unchecking did nothing.

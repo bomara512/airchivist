@@ -96,6 +96,7 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 .tag-groups-section { margin-bottom: 2rem; }
 .tag-groups-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
 .tag-groups-header h2 { margin: 0; }
+.tag-groups-actions { display: flex; align-items: center; gap: 0.5rem; }
 .tag-group-card { background: #1a1a1a; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; max-width: 640px; }
 .tag-group-header { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.75rem; }
 .tag-group-name { font-weight: 700; font-size: 1.05rem; }

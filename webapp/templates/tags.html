@@ -113,11 +113,21 @@
 <section class="tag-groups-section">
   <div class="tag-groups-header">
     <h2>Tag Groups <span class="pool-count-badge">{{ tag_groups | length }}</span></h2>
-    <form method="post" action="{{ url_for('main.tag_group_create') }}" class="inline-form">
-      <input name="name" placeholder="New group name…" autocomplete="off" required>
-      <button type="submit">Create</button>
-    </form>
+    <div class="tag-groups-actions">
+      {% if llm_available and ungrouped_count > 0 %}
+      <form method="post" action="{{ url_for('main.tag_groups_auto_assign') }}" class="inline-form">
+        <button type="submit" class="secondary-btn">Auto-assign {{ ungrouped_count }} ungrouped</button>
+      </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('main.tag_group_create') }}" class="inline-form">
+        <input name="name" placeholder="New group name…" autocomplete="off" required>
+        <button type="submit">Create</button>
+      </form>
+    </div>
   </div>
+  {% if assigned_groups %}
+  <p class="applied-notice">{{ assigned_groups }} canonical tag{{ 's' if assigned_groups != 1 }} assigned to groups.</p>
+  {% endif %}
 
   {% for group in tag_groups %}
   <div class="tag-group-card">
