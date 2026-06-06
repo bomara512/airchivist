@@ -535,6 +535,16 @@ Result: 72 → 67 canonical tags.
 
 ---
 
+### Group assignment pass: 15 canonicals placed
+
+First run of the auto-assign feature. LLM proposed 9 assignments; `darts → Comedy & Entertainment` was rejected (wrong category). 7 additional obvious placements were applied manually that the LLM left ungrouped due to conservative confidence.
+
+Final placements: angular, keyboard shortcuts, mac, password manager, productivity, Testing, virtual team, network attached storage (nas) → Programming & Tech; calligraphy, dog training, security camera → DIY & Making; country → Music; steak, sous vide → Cooking & Food; The Cardinal Hour → Bands & Artists.
+
+4 canonicals intentionally left ungrouped: `chess`, `darts`, `trivia`, `stargazing` — no existing group fits cleanly.
+
+---
+
 ### Auto-assign ungrouped canonicals to tag groups
 
 "Auto-assign N ungrouped" button appears in the Tag Groups section header whenever there are canonical tags not in any group and `ANTHROPIC_API_KEY` is set. Clicking it makes a single LLM call (Haiku) with the full list of ungrouped canonicals (name, video count, top 5 aliases) and all existing groups (with their current members shown as examples). The LLM assigns each canonical to a group or leaves it ungrouped. Assignments are applied immediately; a success notice shows how many were placed.
