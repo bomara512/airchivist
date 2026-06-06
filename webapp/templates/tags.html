@@ -204,7 +204,8 @@
 <p class="empty">No canonical tags yet. Create one above or assign from the pool.</p>
 {% endif %}
 
-<div id="pool-context-menu" class="alias-context-menu">
+<div id="pool-context-menu" class="alias-context-menu pool-context-menu">
+  <div id="pool-ctx-titles" class="pool-ctx-titles"></div>
   <button id="pool-ctx-noise">⊘ Mark as noise</button>
 </div>
 
@@ -304,6 +305,7 @@
 <script>
 (function () {
   const menu = document.getElementById('pool-context-menu');
+  const titlesDiv = document.getElementById('pool-ctx-titles');
   let activeLabel = null;
 
   function hideMenu() {
@@ -311,16 +313,38 @@
     activeLabel = null;
   }
 
+  function positionMenu(clientX, clientY) {
+    menu.style.left = '0';
+    menu.style.top = '0';
+    menu.style.display = 'block';
+    const x = Math.min(clientX, window.innerWidth - menu.offsetWidth - 8);
+    const y = Math.min(clientY, window.innerHeight - menu.offsetHeight - 8);
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+  }
+
   document.addEventListener('contextmenu', function (e) {
     const label = e.target.closest('.pool-tag');
     if (!label) { hideMenu(); return; }
     e.preventDefault();
     activeLabel = label;
-    menu.style.display = 'block';
-    const x = Math.min(e.clientX, window.innerWidth - menu.offsetWidth - 8);
-    const y = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 8);
-    menu.style.left = x + 'px';
-    menu.style.top = y + 'px';
+    const tagName = label.dataset.tagName;
+
+    titlesDiv.innerHTML = '<span class="pool-ctx-loading">Loading…</span>';
+    positionMenu(e.clientX, e.clientY);
+
+    fetch('/tags/pool-videos?tag=' + encodeURIComponent(tagName))
+      .then(function (r) { return r.json(); })
+      .then(function (titles) {
+        if (!titles.length) {
+          titlesDiv.innerHTML = '<span class="pool-ctx-loading">No titles found.</span>';
+          return;
+        }
+        titlesDiv.innerHTML = titles.map(function (t) {
+          return '<div class="pool-ctx-title">' + t.replace(/</g, '&lt;') + '</div>';
+        }).join('');
+        positionMenu(e.clientX, e.clientY);
+      });
   });
 
   document.addEventListener('click', function (e) {

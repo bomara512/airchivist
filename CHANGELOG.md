@@ -535,6 +535,19 @@ Result: 72 → 67 canonical tags.
 
 ---
 
+### Right-click pool tag shows associated video titles
+
+Right-clicking a pill in the unclassified tag pool now shows the top 10 video titles (by YT view count) for that tag in the context menu, above the "Mark as noise" button. Titles are fetched via `GET /tags/pool-videos?tag=<name>` on demand — nothing is pre-loaded. A "Loading…" placeholder appears while the fetch resolves; the menu repositions after titles render to stay on screen.
+
+New db function: `get_video_titles_for_tag`. New route: `GET /tags/pool-videos` (returns JSON). Pool context menu widens to 260–360 px; title list scrolls at 200 px max-height.
+
+**Implications**
+- **+** Solves the core categorization problem: ambiguous tag names (e.g. `garageband`, `aurora`, `alternative`) can now be evaluated without leaving the page
+- **+** On-demand fetch keeps the page fast regardless of pool size
+- **−** Titles truncated to one line (ellipsis) — very long titles need a hover tooltip if precision matters
+
+---
+
 ### Tag categorization pass: 338 new aliases, 2 new canonicals, 5 noise
 
 Ran `suggest → review → apply` pipeline against the 634 unclassified tags with 2+ videos. Results after apply + retroactive pass:

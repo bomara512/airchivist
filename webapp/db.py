@@ -603,6 +603,23 @@ def mark_tag_noise(conn: sqlite3.Connection, tag_name: str) -> None:
     conn.commit()
 
 
+def get_video_titles_for_tag(
+    conn: sqlite3.Connection,
+    tag_name: str,
+    limit: int = 10,
+) -> list[str]:
+    rows = conn.execute("""
+        SELECT v.title
+        FROM videos v
+        JOIN video_tags vt ON vt.video_id_fk = v.id
+        JOIN tags t ON t.id = vt.tag_id_fk
+        WHERE t.name = ? AND v.title IS NOT NULL
+        ORDER BY v.yt_view_count DESC
+        LIMIT ?
+    """, (tag_name, limit)).fetchall()
+    return [r[0] for r in rows]
+
+
 def get_related_unclassified_tags(
     conn: sqlite3.Connection,
     tag_name: str,

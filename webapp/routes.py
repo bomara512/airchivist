@@ -237,6 +237,15 @@ def tag_mark_noise():
     return redirect(url_for("main.tags"))
 
 
+@bp.route("/tags/pool-videos")
+def tag_pool_videos():
+    tag_name = request.args.get("tag", "").strip()
+    if not tag_name:
+        return jsonify([])
+    titles = _db.get_video_titles_for_tag(g.db, tag_name)
+    return jsonify(titles)
+
+
 @bp.route("/tags/related")
 def tag_related():
     tag_name = request.args.get("tag", "").strip()
