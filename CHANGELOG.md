@@ -535,6 +535,24 @@ Result: 72 → 67 canonical tags.
 
 ---
 
+### Tag categorization pass: 338 new aliases, 2 new canonicals, 5 noise
+
+Ran `suggest → review → apply` pipeline against the 634 unclassified tags with 2+ videos. Results after apply + retroactive pass:
+
+- **338 alias rules** added across existing canonicals (object oriented → software engineering, acoustic cover → guitar, etc.)
+- **2 new canonicals** created: `the cardinal hour` (added to Bands & Artists group) and `garageband` (added to Music group); both promoted from existing raw tags
+- **5 noise tags** marked: `trick`, `tricks`, `Tricks`, `Tutorial`, `Revealed` — too generic to assign anywhere, remnants of the vintage cameras alias cleanup
+- **177 new video associations** from the main batch; 21 additional from the cleanup fixes
+- Unclassified 2-4 video pool: 620 → 286; 5+ video pool: 14 → 2 (remaining: `science` and `weeds and sardines`, both deleted-canonical remnants)
+
+**Implications**
+- **+** `object oriented`, `SOLID`, `design patterns`, and similar programming tags now resolve to `software engineering / clean code`
+- **+** Acoustic covers, session recordings, and alternate artist name spellings now resolve to existing music/guitar canonicals
+- **+** Tag filter and video card pills are meaningfully richer for recently added videos
+- **−** 286 tags at 2-4 videos still unclassified — a follow-up suggest pass with `--min-videos 2` will close the gap further as the library grows
+
+---
+
 ### False positive cleanup: `vintage cameras` + new `watch repair` canonical
 
 **Problem**: `vintage cameras` had 11 generic aliases (`Tutorial`, `Amazing`, `Trick`, `Tricks`, `trick`, `tricks`, `Revealed`, `revealed`, `control`, `secret`, `film`) that matched 174 unrelated videos — cooking tutorials, dog training, guitar lessons, board game videos, etc. Additionally, watch-repair videos belonged to a conceptually separate cluster inside the same canonical.
