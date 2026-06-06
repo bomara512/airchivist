@@ -118,6 +118,8 @@
       <form method="post" action="{{ url_for('main.tag_groups_auto_assign') }}" class="inline-form">
         <button type="submit" class="secondary-btn">Auto-assign {{ ungrouped_count }} ungrouped</button>
       </form>
+      {% elif ungrouped_count > 0 %}
+      <span class="llm-unavailable-notice">{{ ungrouped_count }} ungrouped — set ANTHROPIC_API_KEY to auto-assign</span>
       {% endif %}
       <form method="post" action="{{ url_for('main.tag_group_create') }}" class="inline-form">
         <input name="name" placeholder="New group name…" autocomplete="off" required>
