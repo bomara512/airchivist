@@ -218,8 +218,8 @@ class TestAutoTagging:
         with Datastore(tmp_path / "test.db") as ds:
             ds.upsert_video(meta, _make_bookmark())
             tags = ds.get_tags_for_video("abc12345678")
-        assert "Music" in tags
-        assert "Education" in tags
+        assert "music" in tags
+        assert "education" in tags
 
     def test_upsert_creates_tags_from_yt_tags(self, tmp_path):
         meta = _make_metadata(yt_tags=["guitar", "tutorial", "fingerstyle"])
@@ -235,7 +235,7 @@ class TestAutoTagging:
         with Datastore(tmp_path / "test.db") as ds:
             ds.upsert_video(meta, _make_bookmark())
             tags = ds.get_tags_for_video("abc12345678")
-        assert set(tags) == {"Music", "pop", "80s"}
+        assert set(tags) == {"music", "pop", "80s"}
 
     def test_upsert_auto_tagging_is_idempotent_on_rerun(self, tmp_path):
         meta = _make_metadata(yt_categories=["Music"], yt_tags=["pop"])

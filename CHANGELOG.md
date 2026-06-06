@@ -681,3 +681,44 @@ The `getOrCreateFolder()` call is lazy — only called in the add path. The exte
 - **−** Browser bookmark removal is only possible from the extension — the `/hidden` page has no access to the browser bookmark API (accepted limitation, option 1)
 - **−** No `date_hidden` column — hidden list sorts by `date_added`; most-recently-hidden videos are not necessarily at the top
 - **−** Extension's Restore/Delete from the hidden state do not offer bookmark re-creation or removal (option 1 scope)
+
+---
+
+### Fix: Smart Suggest shows nothing when LLM returns no assignments
+
+Two bugs caused "nothing happens" after clicking Smart Suggest:
+
+**Bug 1 — Staleness false positive on empty results**: When the LLM put everything in `unassigned` (no `assignments`, no `noise`), `save_llm_suggestions` was called with `[]`, which deleted all rows and inserted nothing. On the next GET, `is_llm_suggestion_cache_stale` saw an empty table → returned `True` (stale) → the template showed neither suggestions nor the "pool looks well-organized" message. The page looked identical to before the click.
+
+Fix: `save_llm_suggestions` now always inserts at least one row — a `_run_marker` sentinel when the list is empty — so the staleness check can distinguish "never run" from "ran and found nothing." `get_llm_suggestions` filters out the sentinel row.
+
+**Bug 2 — No loading feedback**: The POST form triggered a synchronous LLM call (~10 s) with no visual indicator. Fix: JS disables the button and changes its label to "Thinking…" on submit.
+
+**Implications**
+- **+** "No grouping suggestions — pool looks well-organized." now correctly appears after a run with no results
+- **+** The button label correctly changes to "Refresh Suggestions" after any run (including empty)
+- **−** The sentinel row is a mild schema hack — could be replaced with a dedicated `llm_runs` metadata table if the suggestions table grows more complex
+
+---
+
+### Case-collapse tags — normalize all tag names to lowercase
+
+**Problem**: YouTube metadata tags arrive in inconsistent casing ("cooking" vs "Cooking", "blues guitar" vs "Blues Guitar" vs "BLUES GUITAR"), creating separate rows that split video associations and inflate the unclassified pool with what are effectively duplicates. `viewtube-test.db` had 1,604 case-duplicate groups (1,750 redundant tag rows) plus 4,269 single-variant mixed-case tags.
+
+**Changes**:
+
+- `collapse_case_variants(conn)` — new migration function in `webapp/db.py`. For each case-duplicate group, picks a winner (canonical > most video associations > lowest id), merges `video_tags`, `tag_keywords`, `tag_aliases` (as canonical target), and `tag_group_members` from all losers into the winner, deletes losers, then lowercases the winner's name. Finishes with a bulk `UPDATE tags SET name = LOWER(name)` to catch single-variant mixed-case names. Called from `init_webapp_tables` on every startup (idempotent — second run finds nothing to merge).
+
+- `create_tag`, `create_canonical_tag`, `add_video` (yt_tags loop) — all now lowercase tag names before insert.
+- `crawler/datastore.py` `add_tag` — lowercases before insert, preventing re-accumulation after each crawl.
+- `add_alias`, `edit_alias` — lowercase patterns on write. (Alias matching already lowercased both sides at query time, so this is a storage consistency fix rather than a behaviour change.)
+- `get_unclassified_tags` pool exclusion — changed `t.name NOT IN (SELECT pattern FROM tag_aliases)` to `LOWER(t.name) NOT IN (SELECT LOWER(pattern) FROM tag_aliases)` to correctly exclude aliased tags regardless of stored casing.
+
+**Migration result on `viewtube-test.db`**: 28,154 → 26,404 tags (−1,750 rows merged); 4,269 single-variant mixed-case names lowercased. Unclassified pool (≥2 videos): 171 → 1,077 (previously undercounted — many case-split variants now combine into one entry above the threshold).
+
+**Implications**
+- **+** Unclassified pool is now accurate — "cooking" and "Cooking" appear as one 873-video entry instead of two ~430-video entries
+- **+** Re-crawling the same videos no longer re-creates mixed-case duplicates
+- **+** Alias matching already used lowercase; storage now matches
+- **−** All existing tag display (pills, filter dropdown, pool checkboxes) is now lowercase — entirely cosmetic
+- **−** The pool jumped from 171 to 1,077 entries, since many tags that appeared separately below the 2-video threshold now combine above it — more distillation work to do

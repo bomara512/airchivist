@@ -27,11 +27,18 @@
       </span>
     </h2>
     {% if llm_available %}
-    <form method="post" action="{{ url_for('main.tags_llm_suggest') }}" class="inline-form">
-      <button type="submit" class="secondary-btn">
+    <form method="post" action="{{ url_for('main.tags_llm_suggest') }}" class="inline-form" id="llm-suggest-form">
+      <button type="submit" class="secondary-btn" id="llm-suggest-btn">
         {%- if not llm_stale and llm_suggestions %}Refresh Suggestions{% else %}Smart Suggest{% endif -%}
       </button>
     </form>
+    <script>
+      document.getElementById('llm-suggest-form').addEventListener('submit', function () {
+        var btn = document.getElementById('llm-suggest-btn');
+        btn.textContent = 'Thinking…';
+        btn.disabled = true;
+      });
+    </script>
     {% else %}
     <span class="llm-unavailable-notice">Set ANTHROPIC_API_KEY to enable smart tag suggestions</span>
     {% endif %}

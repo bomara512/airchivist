@@ -125,6 +125,7 @@ class Datastore:
         return [dict(r) for r in rows]
 
     def add_tag(self, name: str) -> int:
+        name = name.strip().lower()
         self._conn.execute(
             "INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,)
         )

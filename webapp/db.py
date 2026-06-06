@@ -297,6 +297,7 @@ def record_visit(conn: sqlite3.Connection, video_id: str) -> None:
 
 
 def create_tag(conn: sqlite3.Connection, name: str) -> int:
+    name = name.strip().lower()
     existing = conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()
     if existing:
         return existing[0]
@@ -392,7 +393,7 @@ def add_video(
     video_row = conn.execute("SELECT id FROM videos WHERE video_id = ?", (video_id,)).fetchone()
     if video_row and yt_tags:
         for name in yt_tags:
-            name = name.strip()
+            name = name.strip().lower()
             if not name:
                 continue
             conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
@@ -473,7 +474,7 @@ def get_canonical_tags(conn: sqlite3.Connection) -> list:
 
 
 def create_canonical_tag(conn: sqlite3.Connection, name: str) -> int:
-    name = name.strip()
+    name = name.strip().lower()
     existing = conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()
     if existing:
         conn.execute("UPDATE tags SET is_canonical = 1 WHERE id = ?", (existing[0],))
@@ -485,14 +486,15 @@ def create_canonical_tag(conn: sqlite3.Connection, name: str) -> int:
 
 
 def add_alias(conn: sqlite3.Connection, tag_id: int, pattern: str, match_type: str = "exact") -> int:
+    pattern = pattern.strip().lower()
     conn.execute(
         "INSERT OR IGNORE INTO tag_aliases (pattern, match_type, canonical_tag_id) VALUES (?, ?, ?)",
-        (pattern.strip(), match_type, tag_id),
+        (pattern, match_type, tag_id),
     )
     conn.commit()
     row = conn.execute(
         "SELECT id FROM tag_aliases WHERE pattern = ? AND match_type = ? AND canonical_tag_id = ?",
-        (pattern.strip(), match_type, tag_id),
+        (pattern, match_type, tag_id),
     ).fetchone()
     return row[0]
 
@@ -568,7 +570,7 @@ def delete_alias_with_cleanup(conn: sqlite3.Connection, alias_id: int) -> int:
 def edit_alias(conn: sqlite3.Connection, alias_id: int, pattern: str, match_type: str) -> None:
     conn.execute(
         "UPDATE tag_aliases SET pattern = ?, match_type = ? WHERE id = ?",
-        (pattern.strip(), match_type, alias_id),
+        (pattern.strip().lower(), match_type, alias_id),
     )
     conn.commit()
 
@@ -688,7 +690,7 @@ def get_unclassified_tags(
         JOIN video_tags vt ON vt.tag_id_fk = t.id
         WHERE t.is_canonical = 0
           AND t.is_noise = 0
-          AND t.name NOT IN (SELECT pattern FROM tag_aliases)
+          AND LOWER(t.name) NOT IN (SELECT LOWER(pattern) FROM tag_aliases)
         GROUP BY t.id, t.name
         HAVING COUNT(vt.video_id_fk) >= ?
     """
@@ -715,7 +717,12 @@ def confirm_suggestion(conn: sqlite3.Connection, canonical_name: str, member_nam
 
 
 def save_llm_suggestions(conn: sqlite3.Connection, suggestions: list[dict], pool_hash: str) -> None:
-    """Replace stored LLM suggestions with a fresh batch."""
+    """Replace stored LLM suggestions with a fresh batch.
+
+    Always inserts at least one row (a _run_marker sentinel when suggestions is empty)
+    so is_llm_suggestion_cache_stale can distinguish "run happened, nothing to show"
+    from "never run".
+    """
     conn.execute("DELETE FROM llm_suggestions")
     now = datetime.now(timezone.utc).isoformat()
     for s in suggestions:
@@ -731,13 +738,19 @@ def save_llm_suggestions(conn: sqlite3.Connection, suggestions: list[dict], pool
                 pool_hash,
             ),
         )
+    if not suggestions:
+        conn.execute(
+            "INSERT INTO llm_suggestions (canonical, members, confidence, is_noise, created_at, pool_hash) "
+            "VALUES ('_run_marker', '[]', 'high', 0, ?, ?)",
+            (now, pool_hash),
+        )
     conn.commit()
 
 
 def get_llm_suggestions(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute(
         "SELECT id, canonical, members, confidence, is_noise "
-        "FROM llm_suggestions ORDER BY is_noise ASC, id ASC"
+        "FROM llm_suggestions WHERE canonical != '_run_marker' ORDER BY is_noise ASC, id ASC"
     ).fetchall()
     return [
         {
@@ -821,6 +834,67 @@ def count_hidden_videos(conn: sqlite3.Connection) -> int:
     return conn.execute("SELECT COUNT(*) FROM videos WHERE is_hidden = 1").fetchone()[0]
 
 
+def collapse_case_variants(conn: sqlite3.Connection) -> int:
+    """Merge tag rows that differ only in case into a single lowercase row.
+
+    Winner selection per group: canonical tag > most video associations > lowest id.
+    Returns the number of tag rows deleted.
+    """
+    groups = conn.execute("""
+        SELECT LOWER(name) AS low, GROUP_CONCAT(id) AS id_list
+        FROM tags
+        GROUP BY LOWER(name)
+        HAVING COUNT(*) > 1
+    """).fetchall()
+
+    if not groups:
+        return 0
+
+    deleted = 0
+    for group in groups:
+        low = group[0]
+        ids = [int(x) for x in group[1].split(",")]
+
+        candidates = conn.execute("""
+            SELECT t.id, COUNT(vt.video_id_fk) AS vc
+            FROM tags t
+            LEFT JOIN video_tags vt ON vt.tag_id_fk = t.id
+            WHERE t.id IN ({ph})
+            GROUP BY t.id
+            ORDER BY t.is_canonical DESC, vc DESC, t.id ASC
+        """.format(ph=",".join("?" * len(ids))), ids).fetchall()
+
+        winner_id = candidates[0][0]
+        loser_ids = [c[0] for c in candidates[1:]]
+
+        for loser_id in loser_ids:
+            conn.execute("""
+                INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
+                SELECT video_id_fk, ? FROM video_tags WHERE tag_id_fk = ?
+            """, (winner_id, loser_id))
+            conn.execute("""
+                INSERT OR IGNORE INTO tag_keywords (tag_id, keyword)
+                SELECT ?, keyword FROM tag_keywords WHERE tag_id = ?
+            """, (winner_id, loser_id))
+            conn.execute("""
+                UPDATE OR IGNORE tag_aliases SET canonical_tag_id = ?
+                WHERE canonical_tag_id = ?
+            """, (winner_id, loser_id))
+            conn.execute("""
+                INSERT OR IGNORE INTO tag_group_members (group_id, canonical_tag_id)
+                SELECT group_id, ? FROM tag_group_members WHERE canonical_tag_id = ?
+            """, (winner_id, loser_id))
+            conn.execute("DELETE FROM tags WHERE id = ?", (loser_id,))
+            deleted += 1
+
+        conn.execute("UPDATE tags SET name = ? WHERE id = ?", (low, winner_id))
+
+    # Lowercase any remaining single-variant mixed-case names (safe after dedup above)
+    conn.execute("UPDATE tags SET name = LOWER(name) WHERE name != LOWER(name)")
+    conn.commit()
+    return deleted
+
+
 def init_webapp_tables(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON")
@@ -874,4 +948,6 @@ def init_webapp_tables(db_path: str) -> None:
         except sqlite3.OperationalError:
             pass  # column already exists
     conn.commit()
+    conn.row_factory = sqlite3.Row
+    collapse_case_variants(conn)
     conn.close()
