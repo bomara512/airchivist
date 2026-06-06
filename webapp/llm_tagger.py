@@ -5,7 +5,7 @@ import os
 from typing import Optional
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
-MAX_TAGS = 200
+MAX_TAGS = 500
 
 _SYSTEM_PROMPT = """You are organizing tags from a personal YouTube video library into canonical categories.
 
@@ -119,7 +119,7 @@ def get_suggestions(
     client = anthropic.Anthropic(api_key=api_key)
     response = client.messages.create(
         model=model,
-        max_tokens=1024,
+        max_tokens=4096,
         system=_SYSTEM_PROMPT,
         tools=[_TOOL],
         tool_choice={"type": "tool", "name": "categorize_tags"},

@@ -722,3 +722,22 @@ Fix: `save_llm_suggestions` now always inserts at least one row — a `_run_mark
 - **+** Alias matching already used lowercase; storage now matches
 - **−** All existing tag display (pills, filter dropdown, pool checkboxes) is now lowercase — entirely cosmetic
 - **−** The pool jumped from 171 to 1,077 entries, since many tags that appeared separately below the 2-video threshold now combine above it — more distillation work to do
+
+---
+
+### Fix: Smart Suggest ignores most of the pool due to ordering and cap
+
+**Root cause**: The unclassified pool was sorted alphabetically and capped at 200 tags sent to the LLM. With 1,077 tags in the pool post-case-collapse, tags at positions 201+ (including all guitar-related tags at ~position 419) were never sent to the model. The LLM saw only alphabetically-early tags (numbers, A–C), declared the pool well-organized, and returned nothing.
+
+**Changes**:
+- `get_unclassified_tags` ordering changed from `name ASC` to `video_count DESC, name ASC` — highest-impact tags appear first in both the UI pool display and the LLM prompt.
+- `MAX_TAGS` raised 200 → 500 in `llm_tagger.py`.
+- `max_tokens` raised 1024 → 4096 to accommodate larger structured responses.
+
+**Also fixed**: `the cardinal hour` and `garageband` were `is_canonical=0` with no aliases in `viewtube-test.db` — canonical work from earlier sessions had been applied to a different database file. Corrected directly.
+
+**Implications**
+- **+** Smart Suggest now sees the 500 most-used unclassified tags — far more representative of what's worth classifying
+- **+** Pool UI shows highest-count tags first, matching the order the LLM prioritizes
+- **−** With 1,077 tags, even 500 doesn't cover everything; a second run will cover the next 500 (cached results cleared when pool changes after accepting suggestions)
+- **−** Larger prompts mean slightly higher per-run cost (Haiku is cheap, so negligible in practice)
