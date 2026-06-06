@@ -535,6 +535,25 @@ Result: 72 → 67 canonical tags.
 
 ---
 
+### Related tags section: additive across multiple selections, clears on deselect
+
+Replaced the HTMX-based "Related to" suggestions with a JS accumulator. Previous behavior: each checkbox check replaced the entire suggestions strip with results for only that tag; unchecking did nothing.
+
+New behavior:
+- **Deselect clears**: unchecking a pool tag removes its contribution from the suggestions; if no tags remain checked, the strip disappears
+- **Additive**: checking a second tag merges its related tags into the existing strip — union of all checked tags' co-occurrences, deduped (highest shared count wins). Label updates to "Related to N selected tags:"
+- **Dismissals persist within the session**: a tag dismissed with × is excluded from future recomputes until the page reloads, even if more pool tags are checked
+- **Cached per tag**: results are fetched once per page load and reused on subsequent check/uncheck
+
+`/tags/related` now returns JSON (`[{name, shared}]`) instead of an HTML partial; `_tag_related.html` is no longer rendered. All suggestion rendering is client-side.
+
+**Implications**
+- **+** Checking a cluster of related tags (e.g. "garageband", "GarageBand", "Logic Pro") shows their combined co-occurrence neighborhood in one strip
+- **+** Deselecting a mistaken check immediately trims suggestions without a reload
+- **−** `_tag_related.html` is now dead code (route still exists but returns JSON); file should be deleted in a cleanup pass
+
+---
+
 ### Right-click pool tag shows associated video titles
 
 Right-clicking a pill in the unclassified tag pool now shows the top 10 video titles (by YT view count) for that tag in the context menu, above the "Mark as noise" button. Titles are fetched via `GET /tags/pool-videos?tag=<name>` on demand — nothing is pre-loaded. A "Loading…" placeholder appears while the fetch resolves; the menu repositions after titles render to stay on screen.

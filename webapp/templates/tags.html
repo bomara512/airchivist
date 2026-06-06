@@ -101,12 +101,7 @@
     <div class="tag-pool">
       {% for tag in unclassified_tags %}
       <label class="pool-tag" data-tag-name="{{ tag.name | e }}">
-        <input type="checkbox" name="member" value="{{ tag.name }}"
-               hx-get="{{ url_for('main.tag_related') }}"
-               hx-vals='{"tag": "{{ tag.name | e }}"}'
-               hx-trigger="change[this.checked]"
-               hx-target="#tag-suggestions"
-               hx-swap="innerHTML">
+        <input type="checkbox" name="member" value="{{ tag.name }}">
         {{ tag.name }}{% if tag.video_count > 1 %}<span class="pool-tag-count">{{ tag.video_count }}</span>{% endif %}
       </label>
       {% endfor %}
@@ -369,6 +364,104 @@
     document.body.appendChild(form);
     hideMenu();
     form.submit();
+  });
+})();
+</script>
+
+<script>
+(function () {
+  const pool = document.querySelector('.tag-pool');
+  const suggestionsDiv = document.getElementById('tag-suggestions');
+  if (!pool || !suggestionsDiv) return;
+
+  const checkedTags = new Set();
+  const fetchCache = new Map();   // tagName → [{name, shared}]
+  const dismissed = new Set();    // manually dismissed related tag names
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  async function fetchRelated(tagName) {
+    if (fetchCache.has(tagName)) return fetchCache.get(tagName);
+    const resp = await fetch('/tags/related?tag=' + encodeURIComponent(tagName));
+    const data = await resp.json();
+    fetchCache.set(tagName, data);
+    return data;
+  }
+
+  async function recompute() {
+    if (checkedTags.size === 0) {
+      suggestionsDiv.innerHTML = '';
+      return;
+    }
+
+    await Promise.all([...checkedTags].map(fetchRelated));
+
+    // Merge union: highest shared count wins for each related tag name
+    const merged = new Map();
+    for (const tagName of checkedTags) {
+      for (const item of (fetchCache.get(tagName) || [])) {
+        if (!dismissed.has(item.name)) {
+          merged.set(item.name, Math.max(merged.get(item.name) || 0, item.shared));
+        }
+      }
+    }
+
+    if (merged.size === 0) {
+      suggestionsDiv.innerHTML = '';
+      return;
+    }
+
+    const label = checkedTags.size === 1
+      ? 'Related to &ldquo;' + esc([...checkedTags][0]) + '&rdquo;:'
+      : 'Related to ' + checkedTags.size + ' selected tags:';
+
+    const sorted = [...merged.entries()].sort(function (a, b) {
+      return b[1] - a[1] || a[0].localeCompare(b[0]);
+    });
+
+    const pillsHtml = sorted.map(function (entry) {
+      const name = entry[0], count = entry[1];
+      const e = esc(name);
+      return '<label class="pool-tag pool-tag-related" data-tag-name="' + e + '">'
+        + '<input type="checkbox" name="member" value="' + e + '" checked>'
+        + e + '<span class="pool-tag-count">' + count + '</span>'
+        + '<button type="button" class="related-dismiss" title="Dismiss">×</button>'
+        + '</label>';
+    }).join('');
+
+    suggestionsDiv.innerHTML = '<div class="tag-related">'
+      + '<span class="tag-related-label">' + label + '</span>'
+      + '<div class="tag-related-pills">' + pillsHtml + '</div>'
+      + '</div>';
+  }
+
+  pool.addEventListener('change', function (e) {
+    const cb = e.target;
+    if (cb.type !== 'checkbox' || cb.name !== 'member') return;
+    const label = cb.closest('[data-tag-name]');
+    if (!label) return;
+    const tagName = label.dataset.tagName;
+    if (cb.checked) {
+      checkedTags.add(tagName);
+    } else {
+      checkedTags.delete(tagName);
+    }
+    recompute();
+  });
+
+  suggestionsDiv.addEventListener('click', function (e) {
+    const btn = e.target.closest('.related-dismiss');
+    if (!btn) return;
+    e.preventDefault();
+    const pill = btn.closest('.pool-tag-related');
+    if (!pill) return;
+    dismissed.add(pill.dataset.tagName);
+    pill.remove();
+    if (!suggestionsDiv.querySelector('.pool-tag-related')) {
+      suggestionsDiv.innerHTML = '';
+    }
   });
 })();
 </script>

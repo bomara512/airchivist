@@ -250,9 +250,9 @@ def tag_pool_videos():
 def tag_related():
     tag_name = request.args.get("tag", "").strip()
     if not tag_name:
-        return ""
+        return jsonify([])
     related = _db.get_related_unclassified_tags(g.db, tag_name)
-    return render_template("_tag_related.html", source_tag=tag_name, related=related)
+    return jsonify(related)
 
 
 @bp.route("/tags/groups", methods=["POST"])
