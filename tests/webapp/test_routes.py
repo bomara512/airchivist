@@ -55,3 +55,135 @@ class TestVisitRoute:
         assert resp.status_code == 404
 
 
+class TestHideRoute:
+    def test_hide_returns_204(self, client):
+        resp = client.post("/videos/aaaaaaaaaa1/hide")
+        assert resp.status_code == 204
+
+    def test_hide_removes_video_from_index(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        resp = client.get("/")
+        assert b"Guitar Lesson 1" not in resp.data
+
+    def test_unhide_restores_video(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        client.post("/videos/aaaaaaaaaa1/unhide")
+        resp = client.get("/")
+        assert b"Guitar Lesson 1" in resp.data
+
+    def test_unhide_redirects_to_hidden(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        resp = client.post("/videos/aaaaaaaaaa1/unhide")
+        assert resp.status_code == 302
+        assert "/hidden" in resp.headers["Location"]
+
+    def test_delete_removes_video_permanently(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        client.post("/videos/aaaaaaaaaa1/delete")
+        resp = client.get("/")
+        assert b"Guitar Lesson 1" not in resp.data
+
+    def test_delete_redirects_to_hidden(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        resp = client.post("/videos/aaaaaaaaaa1/delete")
+        assert resp.status_code == 302
+        assert "/hidden" in resp.headers["Location"]
+
+
+class TestHiddenPage:
+    def test_returns_200(self, client):
+        resp = client.get("/hidden")
+        assert resp.status_code == 200
+
+    def test_shows_hidden_videos(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        resp = client.get("/hidden")
+        assert b"Guitar Lesson 1" in resp.data
+
+    def test_hidden_video_absent_from_main(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        resp = client.get("/")
+        assert b"Guitar Lesson 1" not in resp.data
+
+    def test_empty_state(self, client):
+        resp = client.get("/hidden")
+        assert b"No hidden videos" in resp.data
+
+    def test_restore_action(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        client.post("/videos/aaaaaaaaaa1/unhide")
+        resp = client.get("/hidden")
+        assert b"Guitar Lesson 1" not in resp.data
+
+    def test_nav_hidden_link_appears(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        resp = client.get("/")
+        assert b"Hidden (1)" in resp.data
+
+    def test_nav_hidden_link_absent_when_none(self, client):
+        resp = client.get("/")
+        assert b"Hidden" not in resp.data
+
+
+class TestApiStatus:
+    def test_not_found(self, client):
+        resp = client.get("/api/status?url=https://www.youtube.com/watch?v=XXXXXXXXXXX")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "not_found"
+
+    def test_exists(self, client):
+        resp = client.get("/api/status?url=https://www.youtube.com/watch?v=aaaaaaaaaa1")
+        data = resp.get_json()
+        assert data["status"] == "exists"
+        assert data["title"] == "Guitar Lesson 1"
+
+    def test_hidden(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        resp = client.get("/api/status?url=https://www.youtube.com/watch?v=aaaaaaaaaa1")
+        data = resp.get_json()
+        assert data["status"] == "hidden"
+        assert data["video_id"] == "aaaaaaaaaa1"
+
+    def test_invalid_url(self, client):
+        resp = client.get("/api/status?url=https://example.com/not-youtube")
+        assert resp.status_code == 400
+        assert resp.get_json()["status"] == "error"
+
+
+class TestApiHide:
+    def test_hides_video(self, client):
+        resp = client.post("/api/hide", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "hidden"
+        assert data["title"] == "Guitar Lesson 1"
+
+    def test_unknown_video_returns_error(self, client):
+        resp = client.post("/api/hide", json={"url": "https://www.youtube.com/watch?v=XXXXXXXXXXX"})
+        assert resp.status_code == 404
+        assert resp.get_json()["status"] == "error"
+
+    def test_invalid_url_returns_error(self, client):
+        resp = client.post("/api/hide", json={"url": "https://example.com"})
+        assert resp.status_code == 400
+        assert resp.get_json()["status"] == "error"
+
+    def test_cors_header_present(self, client):
+        resp = client.post("/api/hide", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+    def test_options_preflight(self, client):
+        resp = client.options("/api/hide")
+        assert resp.status_code == 204
+
+
+class TestApiAddHiddenVideo:
+    def test_hidden_video_returns_hidden_status(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        resp = client.post("/api/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["status"] == "hidden"
+        assert data["title"] == "Guitar Lesson 1"
+
+

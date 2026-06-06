@@ -208,16 +208,29 @@ class TestGetTagsForVideo:
 
 class TestGetStats:
     def test_returns_total_videos(self, db_conn):
+        # counts only fetch_status='ok' AND is_hidden=0 (seed: 4 ok, 1 error)
         stats = get_stats(db_conn)
-        assert stats["total_videos"] == 5
+        assert stats["total_videos"] == 4
 
     def test_returns_total_channels(self, db_conn):
+        # counts channels with at least one visible video (GuitarChannel + ThaiCooking)
         stats = get_stats(db_conn)
-        assert stats["total_channels"] == 3
+        assert stats["total_channels"] == 2
 
     def test_returns_fetch_errors(self, db_conn):
         stats = get_stats(db_conn)
         assert stats["fetch_errors"] == 1
+
+    def test_hidden_video_excluded_from_totals(self, db_conn):
+        from webapp.db import hide_video
+        hide_video(db_conn, "aaaaaaaaaa1")
+        stats = get_stats(db_conn)
+        assert stats["total_videos"] == 3
+        assert stats["hidden_count"] == 1
+
+    def test_hidden_count_zero_by_default(self, db_conn):
+        stats = get_stats(db_conn)
+        assert stats["hidden_count"] == 0
 
 
 class TestRecordVisit:
@@ -654,3 +667,60 @@ class TestLLMSuggestions:
 
     def test_dismiss_unknown_id_is_noop(self, db_conn):
         dismiss_llm_suggestion(db_conn, 9999)  # must not raise
+
+
+class TestHideVideo:
+    def test_hide_video_sets_flag(self, db_conn):
+        from webapp.db import hide_video
+        hide_video(db_conn, "aaaaaaaaaa1")
+        row = db_conn.execute(
+            "SELECT is_hidden FROM videos WHERE video_id = ?", ("aaaaaaaaaa1",)
+        ).fetchone()
+        assert row["is_hidden"] == 1
+
+    def test_hidden_video_excluded_from_get_all_videos(self, db_conn):
+        from webapp.db import hide_video, get_all_videos
+        hide_video(db_conn, "aaaaaaaaaa1")
+        videos = get_all_videos(db_conn)
+        ids = [v["video_id"] for v in videos]
+        assert "aaaaaaaaaa1" not in ids
+
+    def test_unhide_video_restores_to_index(self, db_conn):
+        from webapp.db import hide_video, unhide_video, get_all_videos
+        hide_video(db_conn, "aaaaaaaaaa1")
+        unhide_video(db_conn, "aaaaaaaaaa1")
+        videos = get_all_videos(db_conn)
+        ids = [v["video_id"] for v in videos]
+        assert "aaaaaaaaaa1" in ids
+
+    def test_delete_video_removes_row(self, db_conn):
+        from webapp.db import delete_video
+        delete_video(db_conn, "aaaaaaaaaa1")
+        row = db_conn.execute(
+            "SELECT id FROM videos WHERE video_id = ?", ("aaaaaaaaaa1",)
+        ).fetchone()
+        assert row is None
+
+    def test_delete_video_cascades_video_tags(self, db_conn):
+        from webapp.db import delete_video
+        vid_id = db_conn.execute(
+            "SELECT id FROM videos WHERE video_id = ?", ("aaaaaaaaaa1",)
+        ).fetchone()["id"]
+        delete_video(db_conn, "aaaaaaaaaa1")
+        rows = db_conn.execute(
+            "SELECT * FROM video_tags WHERE video_id_fk = ?", (vid_id,)
+        ).fetchall()
+        assert rows == []
+
+    def test_get_hidden_videos_returns_hidden(self, db_conn):
+        from webapp.db import hide_video, get_hidden_videos
+        hide_video(db_conn, "aaaaaaaaaa1")
+        hidden = get_hidden_videos(db_conn)
+        assert len(hidden) == 1
+        assert hidden[0]["video_id"] == "aaaaaaaaaa1"
+
+    def test_count_hidden_videos(self, db_conn):
+        from webapp.db import hide_video, count_hidden_videos
+        assert count_hidden_videos(db_conn) == 0
+        hide_video(db_conn, "aaaaaaaaaa1")
+        assert count_hidden_videos(db_conn) == 1

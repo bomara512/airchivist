@@ -1,17 +1,16 @@
-// Matches standard watch URLs and youtu.be short links
 const YT_ID_RE = /(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/;
 const DEFAULT_URL = 'http://localhost:8080';
 const URL_KEY = 'viewtubeUrl';
 const FOLDER_KEY = 'bookmarkFolderId';
 const FOLDER_NAME = 'ViewTube';
 
-function setStatus(el, html, cls) {
-  el.innerHTML = html;
-  el.className = `status ${cls}`;
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
-// Returns the ID of the "ViewTube" bookmark folder, creating it if needed.
-// Caches the ID in storage so subsequent opens are instant.
 async function getOrCreateFolder() {
   const stored = await browser.storage.local.get(FOLDER_KEY);
   if (stored[FOLDER_KEY]) {
@@ -19,87 +18,160 @@ async function getOrCreateFolder() {
       await browser.bookmarks.get(stored[FOLDER_KEY]);
       return stored[FOLDER_KEY];
     } catch {
-      // Folder was deleted; fall through to create a new one
+      // Folder was deleted; fall through to create
     }
   }
-
   const results = await browser.bookmarks.search({ title: FOLDER_NAME });
-  const existing = results.find(r => !r.url); // folders have no url
+  const existing = results.find(r => !r.url);
   if (existing) {
     await browser.storage.local.set({ [FOLDER_KEY]: existing.id });
     return existing.id;
   }
-
   const folder = await browser.bookmarks.create({ title: FOLDER_NAME });
   await browser.storage.local.set({ [FOLDER_KEY]: folder.id });
   return folder.id;
 }
 
-async function run() {
-  const statusEl = document.getElementById('status');
+async function checkStatus(viewtubeUrl, tabUrl) {
+  const resp = await fetch(`${viewtubeUrl}/api/status?url=${encodeURIComponent(tabUrl)}`);
+  return resp.json();
+}
 
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-
-  if (!tab?.url || !YT_ID_RE.test(tab.url)) {
-    setStatus(statusEl, 'Not a YouTube video.', 'error');
-    return;
-  }
-
-  // Load folder and settings in parallel
-  const [folderId, settings] = await Promise.all([
-    getOrCreateFolder(),
-    browser.storage.local.get(URL_KEY),
-  ]);
-  const viewtubeUrl = settings[URL_KEY] || DEFAULT_URL;
-
-  // Create bookmark and add to ViewTube in parallel
-  const [bookmarkResult, viewtubeResult] = await Promise.allSettled([
-    browser.bookmarks.create({
-      title: tab.title,
-      url: tab.url,
-      parentId: folderId,
-    }),
+async function doAdd(viewtubeUrl, tabUrl, tabTitle) {
+  const root = document.getElementById('root');
+  root.innerHTML = '<div class="status">Adding…</div>';
+  const [bookmarkResult, vtResult] = await Promise.allSettled([
+    getOrCreateFolder().then(id =>
+      browser.bookmarks.create({ title: tabTitle, url: tabUrl, parentId: id })
+    ),
     fetch(`${viewtubeUrl}/api/add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: tab.url }),
+      body: JSON.stringify({ url: tabUrl }),
     }).then(r => r.json()),
   ]);
-
   const bookmarkOk = bookmarkResult.status === 'fulfilled';
-  const vtData = viewtubeResult.status === 'fulfilled' ? viewtubeResult.value : null;
+  const vtData = vtResult.status === 'fulfilled' ? vtResult.value : null;
   const viewtubeOk = vtData && ['added', 'exists'].includes(vtData.status);
-
   if (bookmarkOk && viewtubeOk) {
-    setStatus(statusEl, `&#10003; ${vtData.title || tab.title}`, 'success');
+    root.innerHTML = `<div class="status success">&#10003; ${esc(vtData.title || tabTitle)}</div>`;
     setTimeout(() => window.close(), 1500);
     return;
   }
-
-  // Partial or full failure — show per-action status
   const lines = [];
-
-  if (bookmarkOk) {
-    lines.push('&#10003; Bookmarked in Firefox');
-  } else {
-    const msg = bookmarkResult.reason?.message || 'unknown error';
-    lines.push(`&#10007; Bookmark failed: ${msg}`);
-  }
-
-  if (viewtubeOk) {
-    lines.push('&#10003; Added to ViewTube');
-  } else if (viewtubeResult.status === 'rejected') {
-    lines.push(`&#10007; ViewTube unreachable<br><small>Is it running at ${viewtubeUrl}?</small>`);
-  } else {
-    const msg = vtData?.error || 'unknown error';
-    lines.push(`&#10007; ViewTube: ${msg}`);
-  }
-
+  if (bookmarkOk) lines.push('&#10003; Bookmarked in Firefox');
+  else lines.push(`&#10007; Bookmark failed: ${esc(bookmarkResult.reason?.message || 'unknown')}`);
+  if (viewtubeOk) lines.push('&#10003; Added to ViewTube');
+  else if (vtResult.status === 'rejected') lines.push(`&#10007; ViewTube unreachable`);
+  else lines.push(`&#10007; ViewTube: ${esc(vtData?.error || 'unknown error')}`);
   const cls = (bookmarkOk || viewtubeOk) ? 'partial' : 'error';
-  setStatus(statusEl, lines.map(l => `<div>${l}</div>`).join(''), cls);
+  root.innerHTML = `<div class="status ${cls}">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
+}
+
+async function doHide(viewtubeUrl, tabUrl, alsoUnbookmark) {
+  const root = document.getElementById('root');
+  root.innerHTML = '<div class="status">Hiding…</div>';
+  let data;
+  try {
+    const resp = await fetch(`${viewtubeUrl}/api/hide`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: tabUrl }),
+    });
+    data = await resp.json();
+  } catch {
+    root.innerHTML = '<div class="status error">&#10007; ViewTube unreachable</div>';
+    return;
+  }
+  if (data.status !== 'hidden') {
+    root.innerHTML = `<div class="status error">&#10007; ${esc(data.error || 'Hide failed')}</div>`;
+    return;
+  }
+  if (alsoUnbookmark) {
+    const matches = await browser.bookmarks.search({ url: tabUrl });
+    await Promise.all(matches.map(b => browser.bookmarks.remove(b.id)));
+  }
+  root.innerHTML = `<div class="status success">Hidden: ${esc(data.title)}</div>`;
+}
+
+async function doRestore(viewtubeUrl, videoId) {
+  const root = document.getElementById('root');
+  root.innerHTML = '<div class="status">Restoring…</div>';
+  await fetch(`${viewtubeUrl}/videos/${videoId}/unhide`, { method: 'POST' });
+  root.innerHTML = '<div class="status success">&#10003; Restored</div>';
+  setTimeout(() => window.close(), 1500);
+}
+
+async function doDelete(viewtubeUrl, videoId) {
+  const root = document.getElementById('root');
+  root.innerHTML = '<div class="status">Deleting…</div>';
+  await fetch(`${viewtubeUrl}/videos/${videoId}/delete`, { method: 'POST' });
+  root.innerHTML = '<div class="status success">&#10003; Deleted</div>';
+  setTimeout(() => window.close(), 1500);
+}
+
+function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
+  if (data.status === 'not_found') {
+    root.innerHTML = `<button id="btn-add" class="action-btn">Add to ViewTube</button>`;
+    document.getElementById('btn-add').addEventListener('click', () => doAdd(viewtubeUrl, tabUrl, tabTitle));
+    return;
+  }
+
+  if (data.status === 'exists') {
+    root.innerHTML = `
+      <div class="status success" style="margin-bottom:0.5rem">&#10003; ${esc(data.title)}</div>
+      <button id="btn-hide" class="action-btn action-btn--danger">Hide from ViewTube</button>
+      <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
+        <input type="checkbox" id="chk-unbookmark" style="margin-right:0.3rem">
+        Also remove browser bookmark
+      </label>
+    `;
+    document.getElementById('btn-hide').addEventListener('click', () => {
+      const alsoUnbookmark = document.getElementById('chk-unbookmark').checked;
+      doHide(viewtubeUrl, tabUrl, alsoUnbookmark);
+    });
+    return;
+  }
+
+  if (data.status === 'hidden') {
+    root.innerHTML = `
+      <div class="status error" style="margin-bottom:0.5rem">&#8856; Hidden: ${esc(data.title)}</div>
+      <button id="btn-restore" class="action-btn">Restore to ViewTube</button>
+      <button id="btn-delete" class="action-btn action-btn--danger" style="margin-top:0.25rem">Delete permanently</button>
+    `;
+    document.getElementById('btn-restore').addEventListener('click', () => doRestore(viewtubeUrl, data.video_id));
+    document.getElementById('btn-delete').addEventListener('click', () => doDelete(viewtubeUrl, data.video_id));
+    return;
+  }
+
+  root.innerHTML = `<div class="status error">&#10007; ${esc(data.error || 'Unknown error')}</div>`;
+}
+
+async function run() {
+  const root = document.getElementById('root');
+  root.innerHTML = '<div class="status">Checking…</div>';
+
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.url || !YT_ID_RE.test(tab.url)) {
+    root.innerHTML = '<div class="status error">Not a YouTube video.</div>';
+    return;
+  }
+
+  const settings = await browser.storage.local.get(URL_KEY);
+  const viewtubeUrl = settings[URL_KEY] || DEFAULT_URL;
+
+  let data;
+  try {
+    data = await checkStatus(viewtubeUrl, tab.url);
+  } catch {
+    root.innerHTML = `<div class="status error">&#10007; ViewTube unreachable<br><small>Is it running at ${esc(viewtubeUrl)}?</small></div>`;
+    return;
+  }
+
+  renderState(root, viewtubeUrl, tab.url, tab.title || '', data);
 }
 
 run().catch(err => {
-  const statusEl = document.getElementById('status');
-  setStatus(statusEl, `Error: ${err.message}`, 'error');
+  const root = document.getElementById('root');
+  root.innerHTML = `<div class="status error">Error: ${esc(err.message)}</div>`;
 });

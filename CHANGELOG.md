@@ -627,3 +627,57 @@ The cleanup was done via direct SQL (bulk alias deletion) rather than the admin 
 - **+** Watch-repair content has its own canonical — browseable independently via the tag filter
 - **−** Watch-repair aliases were moved, not copied — any alias still in `vintage cameras` will not match watch-repair content (which is correct)
 - **−** Bulk SQL alias deletion bypasses `delete_alias_with_cleanup`; future bulk cleanups need a matching manual orphan-cleanup query or a dedicated bulk-delete script
+
+---
+
+## 2026-06-06
+
+### Hide / Delete Video Feature (all 4 phases)
+
+Full hide-and-delete workflow across the webapp, API, and Firefox extension.
+
+**Phase 1 — Schema + DB layer**
+
+Added `is_hidden BOOLEAN NOT NULL DEFAULT 0` to the `videos` table (crawler schema + webapp migration). New DB functions: `hide_video`, `unhide_video`, `delete_video`, `get_hidden_videos`, `count_hidden_videos`. `_build_where` now includes `AND v.is_hidden = 0` so hidden videos are invisible in all index views. `get_stats` counts only visible videos for `total_videos`/`total_channels` and adds `hidden_count`. The crawler's `ON CONFLICT DO UPDATE SET` does not touch `is_hidden` — the flag survives re-crawls safely.
+
+**Phase 2 — Routes + hidden management page**
+
+New routes:
+- `POST /videos/<id>/hide` → 204 (used by right-click JS and extension)
+- `POST /videos/<id>/unhide` → redirect to `/hidden`
+- `POST /videos/<id>/delete` → redirect to `/hidden`
+- `GET /hidden` — paginated management page with Restore and Delete buttons per card
+- `GET /api/status?url=` — returns `{status: not_found|exists|hidden, video_id, title}`; CORS-enabled
+- `POST /api/hide` — hides by URL, CORS-enabled; used by extension
+
+`POST /api/add` now returns `{status: "hidden"}` when the video already exists in a hidden state, so the extension can show the correct UI without a separate status check.
+
+A shared `_CORS_HEADERS` constant replaces per-route dicts for the API endpoints.
+
+`base.html` nav shows a "Hidden (N)" link (amber colour) when `stats.hidden_count > 0` — the only persistent signal that hidden videos exist.
+
+**Phase 3 — Right-click card menu**
+
+`_video_card.html` gains `data-video-id` on `.video-card`. `index.html` adds `#video-card-menu` alongside the existing `#tag-pill-menu`. The single `contextmenu` listener now handles both menus: tag-pill right-clicks take priority; falling through to the card only if no pill ancestor exists. Hiding a card via the menu sends `POST /videos/<id>/hide` and removes the card from the DOM optimistically.
+
+**Phase 4 — Extension popup redesign**
+
+`popup.html` reduces to `<div id="root">`. `popup.js` is a full rewrite: on open it calls `GET /api/status` first, then renders one of three states:
+- **not_found** — single "Add to ViewTube" button (parallel bookmark + api/add, auto-close on success)
+- **exists** — title confirmation, "Hide from ViewTube" button, opt-in "Also remove browser bookmark" checkbox
+- **hidden** — "⊘ Hidden: title", "Restore to ViewTube" + "Delete permanently" buttons
+
+The `getOrCreateFolder()` call is lazy — only called in the add path. The extension no longer auto-adds on open; hide/restore/delete are now explicit user actions.
+
+**CSS additions** (webapp): `.hidden-actions`, `.btn-restore`, `.btn-delete`, `.empty-state`, `.nav-hidden`. Extension popup: `.action-btn`, `.action-btn--danger`.
+
+**Test count**: 310 → 333 (+23 new route tests across `TestHideRoute`, `TestHiddenPage`, `TestApiStatus`, `TestApiHide`, `TestApiAddHiddenVideo`).
+
+**Implications**
+- **+** Videos can be soft-deleted without losing tags, view history, or channel data — reversible from `/hidden`
+- **+** Hard delete is a second deliberate step from a dedicated management page; no accidental losses
+- **+** Extension shows the actual video state before acting — no more silent re-adds of already-saved videos
+- **+** "Also remove browser bookmark" is opt-in; leaving it unchecked preserves the Firefox bookmark even when hiding from ViewTube
+- **−** Browser bookmark removal is only possible from the extension — the `/hidden` page has no access to the browser bookmark API (accepted limitation, option 1)
+- **−** No `date_hidden` column — hidden list sorts by `date_added`; most-recently-hidden videos are not necessarily at the top
+- **−** Extension's Restore/Delete from the hidden state do not offer bookmark re-creation or removal (option 1 scope)

@@ -21,7 +21,8 @@ CREATE TABLE videos (
     date_published      TEXT,
     fetch_status        TEXT DEFAULT 'pending',
     fetch_error         TEXT,
-    last_fetched_at     TEXT
+    last_fetched_at     TEXT,
+    is_hidden           BOOLEAN NOT NULL DEFAULT 0
 );
 CREATE TABLE tags (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,

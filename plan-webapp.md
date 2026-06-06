@@ -83,7 +83,7 @@ def get_tags_with_keywords(conn) -> list[dict]
 
 def get_tags_for_video(conn, video_id: str) -> list[str]
 
-def get_stats(conn) -> dict                    # total_videos, total_channels, fetch_errors
+def get_stats(conn) -> dict                    # total_videos, total_channels, fetch_errors, hidden_count
 
 # Write functions
 def record_visit(conn, video_id: str) -> None  # increments personal_view_count, sets date_last_viewed
@@ -98,10 +98,16 @@ def add_video_tag(conn, video_id: str, tag_id: int) -> None
 
 def remove_video_tag(conn, video_id: str, tag_id: int) -> None
 
-def init_webapp_tables(db_path: str) -> None   # creates tag_keywords and video_tags if missing
+def hide_video(conn, video_id: str) -> None
+def unhide_video(conn, video_id: str) -> None
+def delete_video(conn, video_id: str) -> None        # hard delete; video_tags cascade
+def get_hidden_videos(conn, sort_by, sort_dir, page, page_size) -> list[dict]
+def count_hidden_videos(conn) -> int
+
+def init_webapp_tables(db_path: str) -> None   # creates tag_keywords and video_tags if missing; applies is_hidden migration
 ```
 
-`get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments. `fetch_status = 'ok'` is always applied as a base condition — videos with any other status (error, pending, private, deleted) are never shown. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
+`get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments. `fetch_status = 'ok'` and `is_hidden = 0` are always applied as base conditions — hidden videos and videos with any other status are never shown in the main index. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
 
 The `search` filter matches against four sources, all using word-prefix regex (`\bterm`, case-insensitive):
 1. `v.title`
@@ -234,6 +240,12 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 | POST | `/tags/suggest/confirm` | Accept LLM suggestion group: create canonical, add aliases, retroactive apply |
 | POST | `/tags/llm/suggest` | Trigger LLM suggestion generation |
 | POST | `/tags/llm/suggest/<id>/dismiss` | Dismiss a single LLM suggestion card |
+| POST | `/videos/<id>/hide` | Soft-delete: set `is_hidden = 1`; returns 204 (used by right-click JS and extension) |
+| POST | `/videos/<id>/unhide` | Restore hidden video; redirects to `/hidden` |
+| POST | `/videos/<id>/delete` | Hard delete; `video_tags` rows cascade; redirects to `/hidden` |
+| GET | `/hidden` | Hidden videos management page — Restore and Delete permanently per card |
+| GET | `/api/status` | CORS. `?url=<yt_url>` → `{status: not_found\|exists\|hidden, video_id, title}` |
+| POST | `/api/hide` | CORS. `{url}` → hides by URL → `{status: "hidden", title}` |
 
 ### Tag Groups
 
@@ -311,7 +323,7 @@ A canonical tag `<select name="tag">` is rendered between the channel dropdown a
 
 Both modes produce a list of `{"tag": {"name": label}, "videos": [...]}` dicts consumed by the same `_video_container.html` partial. Pagination is applied at the video level before grouping, so a group may span pages if the library is large.
 
-**Bookmarklet / quick-add**: `POST /api/add` accepts `{"url": "<youtube-url>"}` from any origin (CORS headers included). It extracts the video ID via the same `_YT_ID_RE` regex used by the crawler, checks for an existing `fetch_status='ok'` record, then calls `fetch_metadata(video_id, delay=0)` and persists the result via `add_video` in `webapp/db.py`. Returns `{"status": "added"|"exists"|"error", "title": "..."}`. `add_video` uses `ON CONFLICT(video_id) DO UPDATE` but does not overwrite `date_added`, `personal_view_count`, or `date_last_viewed`. `GET /install` renders `install.html`, which shows the bookmarklet as a draggable `<a href="javascript:...">` link. The bookmarklet shows a toast notification on the YouTube page while the fetch runs, then updates it with the result.
+**Bookmarklet / quick-add**: `POST /api/add` accepts `{"url": "<youtube-url>"}` from any origin (CORS headers included). It extracts the video ID via the same `_YT_ID_RE` regex used by the crawler, checks for an existing `fetch_status='ok'` record, then calls `fetch_metadata(video_id, delay=0)` and persists the result via `add_video` in `webapp/db.py`. Returns `{"status": "added"|"exists"|"hidden"|"error", "title": "..."}`. When the video exists but is hidden, returns `"hidden"` — the extension uses this to show the hidden-state UI without a separate status check. `add_video` uses `ON CONFLICT(video_id) DO UPDATE` but does not overwrite `date_added`, `personal_view_count`, or `date_last_viewed`. `GET /install` renders `install.html`, which shows the bookmarklet as a draggable `<a href="javascript:...">` link. The bookmarklet shows a toast notification on the YouTube page while the fetch runs, then updates it with the result.
 
 **Pagination / Load more**: `PAGE_SIZE = 100`. Flat view uses a "Load more" button; grouped view uses Prev/Next links (appending across channel sections is awkward with HTMX).
 
@@ -324,10 +336,11 @@ Both modes produce a list of `{"tag": {"name": label}, "videos": [...]}` dicts c
 
 | File | Purpose |
 |---|---|
-| `base.html` | Shared layout, nav (includes video/channel count via context processor), CSS/HTMX script tags |
-| `index.html` | Filter toolbar + `#video-container` shell |
+| `base.html` | Shared layout, nav (includes video/channel count; shows "Hidden (N)" link when hidden_count > 0) |
+| `index.html` | Filter toolbar + `#video-container` shell + `#video-card-menu` right-click context menu |
 | `_video_container.html` | Swapped by HTMX; renders flat grid or grouped sections |
-| `_video_card.html` | Single card included by `_video_container.html` |
+| `_video_card.html` | Single card; carries `data-video-id` for right-click hide |
+| `hidden.html` | Hidden videos management page |
 
 ### Accessibility and Usability Notes
 

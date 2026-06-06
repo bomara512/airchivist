@@ -18,6 +18,7 @@ header nav a { color: #e8e8e8; text-decoration: none; font-weight: 600; font-siz
 header nav a:hover { color: #ff4444; }
 .nav-stats { color: #666; font-size: 0.85rem; font-weight: 400; }
 .nav-install { margin-left: auto; font-size: 0.85rem !important; font-weight: 400 !important; color: #888 !important; }
+.nav-hidden { font-size: 0.85rem !important; font-weight: 400 !important; color: #cc6600 !important; }
 
 .bookmarklet-link { display: inline-block; background: #cc0000; color: #fff; text-decoration: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: grab; margin: 1rem 0; }
 .bookmarklet-link:hover { background: #ee0000; }
@@ -74,6 +75,14 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 .page-btn:hover { background: #cc0000; }
 .page-btn--disabled { color: #444; cursor: default; }
 .page-info { color: #888; font-size: 0.9rem; }
+
+/* Hidden page */
+.hidden-actions { margin-top: 0.6rem; display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.btn-restore { background: #1a1a1a; color: #e8e8e8; border: 1px solid #444; padding: 0.3rem 0.7rem; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
+.btn-restore:hover { border-color: #4caf50; color: #4caf50; }
+.btn-delete { background: #1a1a1a; color: #888; border: 1px solid #444; padding: 0.3rem 0.7rem; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
+.btn-delete:hover { border-color: #cc0000; color: #cc0000; }
+.empty-state { color: #666; text-align: center; margin-top: 4rem; font-size: 1rem; }
 
 /* Group headings */
 .group h2 { margin: 1.5rem 0 0.75rem; color: #e8e8e8; border-bottom: 1px solid #333; padding-bottom: 0.4rem; }

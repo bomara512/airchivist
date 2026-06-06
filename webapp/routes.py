@@ -134,6 +134,10 @@ def api_add():
     video_id = m.group(1)
     existing = _db.get_video_by_id(g.db, video_id)
     if existing and existing.get("fetch_status") == "ok":
+        if existing.get("is_hidden"):
+            resp = jsonify({"status": "hidden", "title": existing.get("title")})
+            resp.headers.update(cors_headers)
+            return resp
         _db.record_visit(g.db, video_id)
         resp = jsonify({"status": "exists", "title": existing.get("title")})
         resp.headers.update(cors_headers)
@@ -342,5 +346,109 @@ def tags_llm_suggest():
 def tags_llm_suggest_dismiss(suggestion_id):
     _db.dismiss_llm_suggestion(g.db, suggestion_id)
     return redirect(url_for("main.tags"))
+
+
+@bp.route("/videos/<video_id>/hide", methods=["POST"])
+def video_hide(video_id):
+    _db.hide_video(g.db, video_id)
+    return "", 204
+
+
+@bp.route("/videos/<video_id>/unhide", methods=["POST"])
+def video_unhide(video_id):
+    _db.unhide_video(g.db, video_id)
+    return redirect(url_for("main.hidden"))
+
+
+@bp.route("/videos/<video_id>/delete", methods=["POST"])
+def video_delete(video_id):
+    _db.delete_video(g.db, video_id)
+    return redirect(url_for("main.hidden"))
+
+
+@bp.route("/hidden")
+def hidden():
+    sort_by = request.args.get("sort_by", "date_added")
+    sort_dir = request.args.get("sort_dir", "desc")
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except ValueError:
+        page = 1
+    total = _db.count_hidden_videos(g.db)
+    try:
+        videos = _db.get_hidden_videos(g.db, sort_by=sort_by, sort_dir=sort_dir, page=page, page_size=PAGE_SIZE)
+    except ValueError:
+        abort(400)
+    total_pages = max(1, math.ceil(total / PAGE_SIZE))
+    page = min(page, total_pages)
+
+    def page_url(p):
+        args = {k: v for k, v in request.args.to_dict().items() if k != "page"}
+        args["page"] = p
+        return url_for("main.hidden", **args)
+
+    return render_template(
+        "hidden.html",
+        videos=videos,
+        total=total,
+        page=page,
+        total_pages=total_pages,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        prev_url=page_url(page - 1) if page > 1 else None,
+        next_url=page_url(page + 1) if page < total_pages else None,
+    )
+
+
+_CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST",
+    "Access-Control-Allow-Headers": "Content-Type",
+}
+
+
+@bp.route("/api/status", methods=["GET", "OPTIONS"])
+def api_status():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+    url = (request.args.get("url") or "").strip()
+    m = _YT_ID_RE.search(url)
+    if not m:
+        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 400
+    video_id = m.group(1)
+    video = _db.get_video_by_id(g.db, video_id)
+    if video is None:
+        resp = jsonify({"status": "not_found"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp
+    status = "hidden" if video.get("is_hidden") else "exists"
+    resp = jsonify({"status": status, "video_id": video_id, "title": video.get("title")})
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+
+@bp.route("/api/hide", methods=["POST", "OPTIONS"])
+def api_hide():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    m = _YT_ID_RE.search(url)
+    if not m:
+        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 400
+    video_id = m.group(1)
+    video = _db.get_video_by_id(g.db, video_id)
+    if not video:
+        resp = jsonify({"status": "error", "error": "Video not found"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 404
+    _db.hide_video(g.db, video_id)
+    resp = jsonify({"status": "hidden", "title": video.get("title")})
+    resp.headers.update(_CORS_HEADERS)
+    return resp
 
 

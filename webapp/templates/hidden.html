@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}ViewTube — Hidden Videos{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <h2 style="font-size:1.1rem;font-weight:600;color:#aaa">Hidden Videos ({{ total }})</h2>
+  <form id="sort-form" method="get" action="{{ url_for('main.hidden') }}" style="display:flex;gap:0.5rem;align-items:center">
+    <select name="sort_by" onchange="this.form.submit()">
+      <option value="date_added"    {% if sort_by == 'date_added'    %}selected{% endif %}>Date Added</option>
+      <option value="title"         {% if sort_by == 'title'         %}selected{% endif %}>Title</option>
+      <option value="yt_view_count" {% if sort_by == 'yt_view_count' %}selected{% endif %}>YouTube Views</option>
+    </select>
+    <select name="sort_dir" onchange="this.form.submit()">
+      <option value="desc" {% if sort_dir == 'desc' %}selected{% endif %}>Desc</option>
+      <option value="asc"  {% if sort_dir == 'asc'  %}selected{% endif %}>Asc</option>
+    </select>
+  </form>
+</div>
+
+{% if videos %}
+<div class="video-grid">
+  {% for video in videos %}
+  <div class="video-card">
+    <a href="{{ video.url }}" class="thumb-link" target="_blank" rel="noopener noreferrer">
+      {% if video.thumbnail_url %}
+      <img src="{{ video.thumbnail_url }}" alt="{{ video.title }}" loading="lazy">
+      {% else %}
+      <div class="no-thumb"></div>
+      {% endif %}
+      {% if video.duration_seconds %}
+      <span class="duration-overlay">{{ video.duration_seconds | duration }}</span>
+      {% endif %}
+    </a>
+    <div class="video-info">
+      <a href="{{ video.url }}" class="video-title" target="_blank" rel="noopener noreferrer">
+        {{ video.title or video.video_id }}
+      </a>
+      <div class="video-channel">
+        <span>{{ video.channel_name or '—' }}</span>
+      </div>
+      <div class="video-meta">
+        <span>{{ video.yt_view_count | view_count }} views</span>
+        <span>{{ video.date_added | date }}</span>
+      </div>
+      <div class="hidden-actions">
+        <form action="{{ url_for('main.video_unhide', video_id=video.video_id) }}" method="post" style="display:inline">
+          <button type="submit" class="btn-restore">Restore</button>
+        </form>
+        <form action="{{ url_for('main.video_delete', video_id=video.video_id) }}" method="post" style="display:inline"
+              onsubmit="return confirm('Permanently delete this video?')">
+          <button type="submit" class="btn-delete">Delete permanently</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if total_pages > 1 %}
+<nav class="pagination">
+  {% if prev_url %}<a href="{{ prev_url }}" class="page-btn">← Prev</a>{% endif %}
+  <span class="page-info">{{ page }} / {{ total_pages }}</span>
+  {% if next_url %}<a href="{{ next_url }}" class="page-btn">Next →</a>{% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<p class="empty-state">No hidden videos.</p>
+{% endif %}
+{% endblock %}

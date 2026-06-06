@@ -71,34 +71,61 @@
   <button id="tag-pill-remove">✕ Remove from video</button>
 </div>
 
+<div id="video-card-menu" class="alias-context-menu">
+  <button id="video-card-hide">Hide video</button>
+</div>
+
 <script>
 (function () {
-  const menu = document.getElementById('tag-pill-menu');
+  const pillMenu = document.getElementById('tag-pill-menu');
   let activePill = null;
 
-  function hideMenu() {
-    menu.style.display = 'none';
+  function hidePillMenu() {
+    pillMenu.style.display = 'none';
     activePill = null;
   }
 
+  const cardMenu = document.getElementById('video-card-menu');
+  let activeCard = null;
+
+  function hideCardMenu() {
+    cardMenu.style.display = 'none';
+    activeCard = null;
+  }
+
   document.addEventListener('contextmenu', function (e) {
-    const pill = e.target.closest('.tag-pill');
-    if (!pill) { hideMenu(); return; }
+    if (e.target.closest('.tag-pill')) {
+      hideCardMenu();
+      const pill = e.target.closest('.tag-pill');
+      e.preventDefault();
+      activePill = pill;
+      pillMenu.style.display = 'block';
+      const x = Math.min(e.clientX, window.innerWidth - pillMenu.offsetWidth - 8);
+      const y = Math.min(e.clientY, window.innerHeight - pillMenu.offsetHeight - 8);
+      pillMenu.style.left = x + 'px';
+      pillMenu.style.top = y + 'px';
+      return;
+    }
+    hidePillMenu();
+
+    const card = e.target.closest('.video-card');
+    if (!card) { hideCardMenu(); return; }
     e.preventDefault();
-    activePill = pill;
-    menu.style.display = 'block';
-    const x = Math.min(e.clientX, window.innerWidth - menu.offsetWidth - 8);
-    const y = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 8);
-    menu.style.left = x + 'px';
-    menu.style.top = y + 'px';
+    activeCard = card;
+    cardMenu.style.display = 'block';
+    const x = Math.min(e.clientX, window.innerWidth - cardMenu.offsetWidth - 8);
+    const y = Math.min(e.clientY, window.innerHeight - cardMenu.offsetHeight - 8);
+    cardMenu.style.left = x + 'px';
+    cardMenu.style.top = y + 'px';
   });
 
   document.addEventListener('click', function (e) {
-    if (!menu.contains(e.target)) hideMenu();
+    if (!pillMenu.contains(e.target)) hidePillMenu();
+    if (!cardMenu.contains(e.target)) hideCardMenu();
   });
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') hideMenu();
+    if (e.key === 'Escape') { hidePillMenu(); hideCardMenu(); }
   });
 
   document.getElementById('tag-pill-remove').addEventListener('click', function () {
@@ -106,15 +133,19 @@
     const tagName = activePill.dataset.tagName;
     const videoId = activePill.closest('.video-tags').dataset.videoId;
     const pill = activePill;
-    hideMenu();
-
+    hidePillMenu();
     const body = new URLSearchParams({ tag_name: tagName });
     fetch(`/videos/${videoId}/tags/remove`, { method: 'POST', body })
-      .then(function (r) {
-        if (r.ok) {
-          pill.remove();
-        }
-      });
+      .then(function (r) { if (r.ok) pill.remove(); });
+  });
+
+  document.getElementById('video-card-hide').addEventListener('click', function () {
+    if (!activeCard) return;
+    const videoId = activeCard.dataset.videoId;
+    const card = activeCard;
+    hideCardMenu();
+    fetch(`/videos/${videoId}/hide`, { method: 'POST' })
+      .then(function (r) { if (r.ok) card.remove(); });
   });
 })();
 </script>

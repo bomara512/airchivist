@@ -13,7 +13,7 @@ ALLOWED_SORT_DIRS = frozenset({'asc', 'desc'})
 
 def _build_where(channel, tag, search):
     params = []
-    clauses = ["v.fetch_status = 'ok'"]
+    clauses = ["v.fetch_status = 'ok'", "v.is_hidden = 0"]
     if channel:
         clauses.append("v.channel_name = ?")
         params.append(channel)
@@ -255,17 +255,24 @@ def get_tag_keywords(conn: sqlite3.Connection, tag_id: int) -> list[str]:
 
 
 def get_stats(conn: sqlite3.Connection) -> dict:
-    total_videos = conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
+    total_videos = conn.execute(
+        "SELECT COUNT(*) FROM videos WHERE fetch_status = 'ok' AND is_hidden = 0"
+    ).fetchone()[0]
     total_channels = conn.execute(
-        "SELECT COUNT(DISTINCT channel_name) FROM videos WHERE channel_name IS NOT NULL"
+        "SELECT COUNT(DISTINCT channel_name) FROM videos "
+        "WHERE channel_name IS NOT NULL AND fetch_status = 'ok' AND is_hidden = 0"
     ).fetchone()[0]
     fetch_errors = conn.execute(
         "SELECT COUNT(*) FROM videos WHERE fetch_status = 'error'"
+    ).fetchone()[0]
+    hidden_count = conn.execute(
+        "SELECT COUNT(*) FROM videos WHERE is_hidden = 1"
     ).fetchone()[0]
     return {
         "total_videos": total_videos,
         "total_channels": total_channels,
         "fetch_errors": fetch_errors,
+        "hidden_count": hidden_count,
     }
 
 
@@ -759,6 +766,61 @@ def is_llm_suggestion_cache_stale(conn: sqlite3.Connection, current_hash: str) -
     return row["pool_hash"] != current_hash
 
 
+def hide_video(conn: sqlite3.Connection, video_id: str) -> None:
+    conn.execute("UPDATE videos SET is_hidden = 1 WHERE video_id = ?", (video_id,))
+    conn.commit()
+
+
+def unhide_video(conn: sqlite3.Connection, video_id: str) -> None:
+    conn.execute("UPDATE videos SET is_hidden = 0 WHERE video_id = ?", (video_id,))
+    conn.commit()
+
+
+def delete_video(conn: sqlite3.Connection, video_id: str) -> None:
+    conn.execute("DELETE FROM videos WHERE video_id = ?", (video_id,))
+    conn.commit()
+
+
+def get_hidden_videos(
+    conn: sqlite3.Connection,
+    sort_by: str = 'date_added',
+    sort_dir: str = 'desc',
+    page: int = 1,
+    page_size: Optional[int] = None,
+) -> list:
+    if sort_by not in ALLOWED_SORT_COLUMNS:
+        raise ValueError(f"Invalid sort_by: {sort_by!r}")
+    if sort_dir not in ALLOWED_SORT_DIRS:
+        raise ValueError(f"Invalid sort_dir: {sort_dir!r}")
+    limit_sql = ""
+    params: list = []
+    if page_size is not None:
+        limit_sql = "LIMIT ? OFFSET ?"
+        params = [page_size, (page - 1) * page_size]
+    sql = f"""
+        SELECT v.*, GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END) as tags
+        FROM videos v
+        LEFT JOIN video_tags vt ON vt.video_id_fk = v.id
+        LEFT JOIN tags t ON t.id = vt.tag_id_fk
+        WHERE v.is_hidden = 1
+        GROUP BY v.id
+        ORDER BY v.{sort_by} {sort_dir}
+        {limit_sql}
+    """
+    rows = conn.execute(sql, params).fetchall()
+    result = []
+    for row in rows:
+        d = dict(row)
+        if d.get("tags") is None:
+            d["tags"] = ""
+        result.append(d)
+    return result
+
+
+def count_hidden_videos(conn: sqlite3.Connection) -> int:
+    return conn.execute("SELECT COUNT(*) FROM videos WHERE is_hidden = 1").fetchone()[0]
+
+
 def init_webapp_tables(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON")
@@ -802,8 +864,9 @@ def init_webapp_tables(db_path: str) -> None:
         );
     """)
     for col, ddl in [
-        ("is_canonical", "ALTER TABLE tags ADD COLUMN is_canonical BOOLEAN NOT NULL DEFAULT 0"),
-        ("is_noise",     "ALTER TABLE tags ADD COLUMN is_noise     BOOLEAN NOT NULL DEFAULT 0"),
+        ("is_canonical", "ALTER TABLE tags    ADD COLUMN is_canonical BOOLEAN NOT NULL DEFAULT 0"),
+        ("is_noise",     "ALTER TABLE tags    ADD COLUMN is_noise     BOOLEAN NOT NULL DEFAULT 0"),
+        ("is_hidden",    "ALTER TABLE videos  ADD COLUMN is_hidden    BOOLEAN NOT NULL DEFAULT 0"),
     ]:
         try:
             conn.execute(ddl)
