@@ -217,7 +217,8 @@ def tag_add_alias(tag_id):
     match_type = request.form.get("match_type", "exact")
     if pattern and match_type in ("exact", "prefix", "contains"):
         alias_id = _db.add_alias(g.db, tag_id, pattern, match_type)
-        _db.retroactive_apply(g.db, alias_id)
+        if alias_id is not None:
+            _db.retroactive_apply(g.db, alias_id)
     return redirect(url_for("main.tags"))
 
 

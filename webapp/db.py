@@ -485,18 +485,20 @@ def create_canonical_tag(conn: sqlite3.Connection, name: str) -> int:
     return cursor.lastrowid
 
 
-def add_alias(conn: sqlite3.Connection, tag_id: int, pattern: str, match_type: str = "exact") -> int:
+def add_alias(conn: sqlite3.Connection, tag_id: int, pattern: str, match_type: str = "exact") -> Optional[int]:
     pattern = pattern.strip().lower()
     conn.execute(
         "INSERT OR IGNORE INTO tag_aliases (pattern, match_type, canonical_tag_id) VALUES (?, ?, ?)",
         (pattern, match_type, tag_id),
     )
     conn.commit()
+    # UNIQUE constraint is on (pattern, match_type) only — if another canonical already owns
+    # this pattern, the INSERT is ignored and the row belongs to the other canonical.
     row = conn.execute(
-        "SELECT id FROM tag_aliases WHERE pattern = ? AND match_type = ? AND canonical_tag_id = ?",
-        (pattern, match_type, tag_id),
+        "SELECT id FROM tag_aliases WHERE pattern = ? AND match_type = ?",
+        (pattern, match_type),
     ).fetchone()
-    return row[0]
+    return row[0] if row else None
 
 
 def delete_alias(conn: sqlite3.Connection, alias_id: int) -> None:
@@ -712,7 +714,8 @@ def confirm_suggestion(conn: sqlite3.Connection, canonical_name: str, member_nam
         name = name.strip()
         if name:
             alias_id = add_alias(conn, tag_id, name, "exact")
-            total += retroactive_apply(conn, alias_id)
+            if alias_id is not None:
+                total += retroactive_apply(conn, alias_id)
     return total
 
 

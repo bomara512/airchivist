@@ -741,3 +741,18 @@ Fix: `save_llm_suggestions` now always inserts at least one row — a `_run_mark
 - **+** Pool UI shows highest-count tags first, matching the order the LLM prioritizes
 - **−** With 1,077 tags, even 500 doesn't cover everything; a second run will cover the next 500 (cached results cleared when pool changes after accepting suggestions)
 - **−** Larger prompts mean slightly higher per-run cost (Haiku is cheap, so negligible in practice)
+
+---
+
+### Fix: `add_alias` crash when pattern already owned by another canonical
+
+**Root cause**: `tag_aliases` has a UNIQUE constraint on `(pattern, match_type)` only — not including `canonical_tag_id`. When Smart Suggest calls `confirm_suggestion`, it calls `add_alias` for each member tag. If a member's name was previously added as an alias for a *different* canonical, the `INSERT OR IGNORE` is silently skipped, but the subsequent `SELECT ... AND canonical_tag_id = ?` finds nothing and returns `None`, causing `row[0]` to crash with `TypeError: 'NoneType' object is not subscriptable`.
+
+**Changes**:
+- `add_alias`: removed `AND canonical_tag_id = ?` from the SELECT — queries by `(pattern, match_type)` only, which is what the UNIQUE constraint actually enforces.
+- `add_alias`: return type changed `int` → `Optional[int]`; returns `None` when row unexpectedly missing.
+- `confirm_suggestion` and `tag_add_alias` route: guard `retroactive_apply` call with `if alias_id is not None`.
+
+**Implications**
+- **+** Accepting a Smart Suggest grouping no longer crashes when a member overlaps with an existing alias
+- **−** If a pattern belongs to a different canonical, `retroactive_apply` is silently skipped for that member — the alias already exists and points to the other canonical, so no action is taken (correct behavior)
