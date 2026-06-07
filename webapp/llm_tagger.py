@@ -2,10 +2,68 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from typing import Optional
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
-MAX_TAGS = 500
+MAX_ANCHOR_TAGS = 300   # top tags by video count, always sent
+MAX_TAGS = 500          # total cap including keyword-expanded satellites
+
+# Words too generic to use as expansion signals — domain terms are kept.
+_EXPANSION_STOP_WORDS = frozenset({
+    # Function / filler words
+    "a", "an", "the", "for", "in", "on", "at", "to", "of", "and", "or",
+    "is", "it", "its", "how", "what", "why", "when", "with", "from", "by",
+    "my", "your", "our", "this", "that", "these", "those", "not", "but",
+    "get", "got", "let", "all", "just", "more", "most",
+    # Generic YouTube / content words
+    "video", "videos", "watch", "channel", "playlist",
+    "tutorial", "tutorials", "guide", "guides", "lesson", "lessons",
+    "part", "episode", "series", "vol", "season",
+    "new", "best", "top", "great", "good", "official",
+    "full", "complete", "easy", "simple", "quick", "fast", "free",
+    "tips", "tricks", "basics", "beginner", "beginners", "advanced",
+    "learn", "learning", "teach", "teaching",
+    "make", "making", "build", "building", "create", "creating",
+    "use", "using", "work", "working",
+    "day", "year", "time", "way", "thing", "things",
+})
+
+
+def _tokenize_for_expansion(name: str) -> frozenset[str]:
+    words = re.findall(r'[a-z0-9]+', name.lower())
+    return frozenset(w for w in words if len(w) > 2 and w not in _EXPANSION_STOP_WORDS)
+
+
+def _select_for_llm(unclassified: list[dict]) -> list[dict]:
+    """
+    Select tags to send to the LLM using keyword expansion.
+
+    Takes the top MAX_ANCHOR_TAGS by video count, extracts significant words
+    from them, then pulls in additional tags from the rest of the pool that
+    share those words — up to MAX_TAGS total.
+
+    Example: "garageband tutorial" (rank 4) generates the expansion word
+    "garageband", pulling in "garageband for beginners" (rank 1075) and
+    "garageband noob" (rank 1075) as satellites.
+    """
+    if len(unclassified) <= MAX_TAGS:
+        return unclassified
+
+    anchors = unclassified[:MAX_ANCHOR_TAGS]
+    remaining = unclassified[MAX_ANCHOR_TAGS:]
+
+    anchor_words: set[str] = set()
+    for tag in anchors:
+        anchor_words.update(_tokenize_for_expansion(tag["name"]))
+
+    satellite_slots = MAX_TAGS - MAX_ANCHOR_TAGS
+    satellites = [
+        tag for tag in remaining
+        if _tokenize_for_expansion(tag["name"]) & anchor_words
+    ]
+
+    return anchors + satellites[:satellite_slots]
 
 _SYSTEM_PROMPT = """You are organizing tags from a personal YouTube video library into canonical categories.
 
@@ -65,6 +123,7 @@ def _build_user_message(
     canonical_tags: list[dict],
     unclassified_tags: list[dict],
 ) -> str:
+    selected = _select_for_llm(unclassified_tags)
     lines = []
     if canonical_tags:
         lines.append("Existing canonical tags:")
@@ -73,8 +132,13 @@ def _build_user_message(
     else:
         lines.append("No canonical tags yet.")
     lines.append("")
-    lines.append(f"Unclassified tags to categorize ({len(unclassified_tags)} total):")
-    for t in unclassified_tags[:MAX_TAGS]:
+    pool_size = len(unclassified_tags)
+    shown = len(selected)
+    if shown < pool_size:
+        lines.append(f"Unclassified tags to categorize ({shown} of {pool_size} shown):")
+    else:
+        lines.append(f"Unclassified tags to categorize ({shown} total):")
+    for t in selected:
         count = t.get("video_count", 1)
         lines.append(f"  \"{t['name']}\" ({count} video{'s' if count != 1 else ''})")
     return "\n".join(lines)
@@ -139,11 +203,14 @@ def get_suggestions(
     suggestions: list[dict] = []
 
     for item in result.get("assignments", []):
+        canonical = item.get("canonical", "").strip()
+        if not canonical:
+            continue
         members = [m.strip() for m in item.get("members", []) if m and m.strip()]
         if not members:
             continue
         suggestions.append({
-            "canonical": item["canonical"].strip(),
+            "canonical": canonical,
             "members": members,
             "confidence": item.get("confidence", "medium"),
             "is_noise": False,

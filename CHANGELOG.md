@@ -778,3 +778,28 @@ Each member pill in a Smart Suggest card now shows a `×` button on hover. Click
 **Implications**
 - **+** Users can trim bad members from a suggestion without dismissing the whole card
 - **−** Removal is not reversible within the card — dismiss and re-run Smart Suggest to get the original suggestion back
+
+---
+
+### Fix: Smart Suggest crashes with `LLM error: 'canonical'`
+
+`get_suggestions` accessed `item["canonical"]` directly, raising `KeyError: 'canonical'` when the LLM returned an assignment object missing that field (despite it being declared `required` in the tool schema — the model occasionally omits it). Changed to `item.get("canonical", "").strip()` and skip the item if empty.
+
+**Implications**
+- **+** A partial LLM response no longer aborts the entire suggestion run — valid assignments are still saved
+- **−** Any assignment without a canonical name is silently dropped (the correct behavior — there's nothing to do with it)
+
+---
+
+### Smart Suggest: keyword-expansion pool selection
+
+Previously the LLM received the top 500 unclassified tags by video count. Tags like "garageband for beginners" (rank 1,075, 2 videos) were never seen even though "garageband tutorial" (rank 4, 7 videos) was, making it impossible for the LLM to group them.
+
+New strategy: take the top 300 tags as anchors, extract significant words from their names (filtering out generic terms like "tutorial", "guide", "beginner"), then fill the remaining 200 slots with tags from anywhere in the pool that share those words. `_EXPANSION_STOP_WORDS` prevents generic words from creating spurious connections.
+
+Example: "garageband tutorial" (anchor, rank 4) yields the expansion word `garageband`, which pulls in all 50+ garageband-prefixed tags regardless of individual video count.
+
+**Implications**
+- **+** Related tag families now appear together in the LLM prompt, enabling better grouping suggestions
+- **+** "garageband for beginners" and "garageband noob" (rank 1,075) are now included when "garageband tutorial" is an anchor
+- **−** Satellite selection is first-come-first-served within the 200 remaining slots; if many families share words with anchors, some satellites are excluded (but they'll be captured on a subsequent run as the pool shrinks)
