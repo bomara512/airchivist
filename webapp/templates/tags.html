@@ -29,7 +29,7 @@
     {% if llm_available %}
     <form method="post" action="{{ url_for('main.tags_llm_suggest') }}" class="inline-form" id="llm-suggest-form">
       <button type="submit" class="secondary-btn" id="llm-suggest-btn">
-        {%- if not llm_stale and llm_suggestions %}Refresh Suggestions{% else %}Smart Suggest{% endif -%}
+        {%- if llm_suggestions %}Refresh Suggestions{% else %}Smart Suggest{% endif -%}
       </button>
     </form>
     <script>
@@ -49,6 +49,9 @@
   {% endif %}
 
   {% if llm_suggestions %}
+  {% if llm_stale %}
+  <p class="llm-stale-notice">Results from a previous analysis — pool has changed since this run. Accept remaining suggestions or click Refresh.</p>
+  {% endif %}
   <div class="llm-suggestions">
     {% for s in llm_suggestions %}
     {% if s.is_noise %}
@@ -92,6 +95,7 @@
   {% elif not llm_stale %}
   <p class="llm-empty-notice">No grouping suggestions — pool looks well-organized.</p>
   {% endif %}
+
 
   <form method="post" action="{{ url_for('main.tag_suggest_confirm') }}">
     <div class="pool-assign-bar">

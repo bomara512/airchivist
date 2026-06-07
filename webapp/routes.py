@@ -195,7 +195,7 @@ def tags():
     unclassified, total_unclassified = _db.get_unclassified_tags(g.db)
     pool_hash = _llm.compute_pool_hash(unclassified)
     llm_stale = _db.is_llm_suggestion_cache_stale(g.db, pool_hash)
-    llm_suggestions = [] if llm_stale else _db.get_llm_suggestions(g.db)
+    llm_suggestions = _db.get_llm_suggestions(g.db)
     return render_template(
         "tags.html",
         canonical_tags=canonical,
