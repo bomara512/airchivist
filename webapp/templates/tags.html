@@ -74,6 +74,7 @@
         <button type="submit" class="suggestion-dismiss-btn" title="Dismiss">×</button>
       </form>
       <form method="post" action="{{ url_for('main.tag_suggest_confirm') }}" class="llm-accept-form">
+        <input type="hidden" name="suggestion_id" value="{{ s.id }}">
         <div class="llm-suggestion-header">
           <input name="canonical_name" value="{{ s.canonical }}" class="llm-canonical-input" autocomplete="off" list="canonical-datalist" required>
           <span class="llm-confidence-badge llm-confidence-{{ s.confidence }}">{{ s.confidence }}</span>

@@ -320,8 +320,11 @@ def tags_retroactive():
 def tag_suggest_confirm():
     canonical_name = request.form.get("canonical_name", "").strip()
     members = [m for m in request.form.getlist("member") if m.strip()]
+    suggestion_id = request.form.get("suggestion_id", type=int)
     if canonical_name and members:
         _db.confirm_suggestion(g.db, canonical_name, members)
+    if suggestion_id:
+        _db.dismiss_llm_suggestion(g.db, suggestion_id)
     return redirect(url_for("main.tags"))
 
 
