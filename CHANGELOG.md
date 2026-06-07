@@ -756,3 +756,25 @@ Fix: `save_llm_suggestions` now always inserts at least one row — a `_run_mark
 **Implications**
 - **+** Accepting a Smart Suggest grouping no longer crashes when a member overlaps with an existing alias
 - **−** If a pattern belongs to a different canonical, `retroactive_apply` is silently skipped for that member — the alias already exists and points to the other canonical, so no action is taken (correct behavior)
+
+---
+
+### Fix: Smart Suggest member tags show "No titles found" on right-click
+
+The LLM suggestion cards rendered member tags as `<label class="pool-tag">` without a `data-tag-name` attribute. The right-click context menu handler reads `label.dataset.tagName` to construct the `/tags/pool-videos?tag=` fetch — without the attribute the value is `undefined`, returning no results.
+
+Added `data-tag-name="{{ m | e }}"` to suggestion member labels to match the pool section.
+
+**Implications**
+- **+** Right-click on Smart Suggest members now shows associated video titles, matching pool tag behavior
+- **−** None
+
+---
+
+### Smart Suggest: removable member pills before accepting
+
+Each member pill in a Smart Suggest card now shows a `×` button on hover. Clicking it removes the pill from the card (unchecking the underlying checkbox), so only the remaining members are submitted when Accept is clicked.
+
+**Implications**
+- **+** Users can trim bad members from a suggestion without dismissing the whole card
+- **−** Removal is not reversible within the card — dismiss and re-run Smart Suggest to get the original suggestion back

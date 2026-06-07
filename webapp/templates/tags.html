@@ -82,9 +82,10 @@
         </div>
         <div class="tag-pool llm-member-pool">
           {% for m in s.members %}
-          <label class="pool-tag">
+          <label class="pool-tag" data-tag-name="{{ m | e }}">
             <input type="checkbox" name="member" value="{{ m }}" checked>
             {{ m }}
+            <button type="button" class="suggestion-member-remove" title="Remove">×</button>
           </label>
           {% endfor %}
         </div>
@@ -488,5 +489,16 @@
     }
   });
 })();
+</script>
+
+<script>
+document.querySelectorAll('.llm-member-pool').forEach(function (pool) {
+  pool.addEventListener('click', function (e) {
+    const btn = e.target.closest('.suggestion-member-remove');
+    if (!btn) return;
+    e.preventDefault();
+    btn.closest('.pool-tag').remove();
+  });
+});
 </script>
 {% endblock %}
