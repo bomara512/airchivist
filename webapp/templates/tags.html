@@ -23,7 +23,7 @@
   <div class="pool-section-header">
     <h2>Unclassified Tags
       <span class="pool-count-badge">
-        {{ unclassified_tags | length }}{% if total_unclassified > (unclassified_tags | length) %} of {{ total_unclassified }}{% endif %}
+        {{ total_unclassified }}{% if unclassified_tags | length < total_unclassified %} (showing {{ unclassified_tags | length }}){% endif %}
       </span>
     </h2>
     {% if llm_available %}
