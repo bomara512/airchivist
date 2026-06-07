@@ -815,3 +815,7 @@ Added a "Mark all as noise" button to the noise card header. Accepting it marks 
 **Implications**
 - **+** One click clears an entire noise batch from the pool
 - **−** No undo — marking as noise is currently irreversible through the UI
+
+**2026-06-07 update**: Fixed two issues with the noise card:
+- "Mark all as noise" button was crowding the × dismiss button — fixed with `margin-right: 1.8rem` pushing it clear of the absolute-positioned ×
+- Pills are now removable before accepting: each pill has a hover-reveal × button that removes it (and its hidden form input) so only remaining pills are submitted

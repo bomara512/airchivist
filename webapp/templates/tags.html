@@ -59,20 +59,21 @@
       <form method="post" action="{{ url_for('main.tags_llm_suggest_dismiss', suggestion_id=s.id) }}" class="llm-dismiss-form">
         <button type="submit" class="suggestion-dismiss-btn" title="Dismiss">×</button>
       </form>
-      <div class="llm-suggestion-header">
-        <span class="llm-suggestion-label">Suggested noise — not worth canonicalizing</span>
-        <form method="post" action="{{ url_for('main.tags_llm_suggest_accept_noise', suggestion_id=s.id) }}" class="llm-accept-noise-form">
-          {% for m in s.members %}
-          <input type="hidden" name="member" value="{{ m }}">
-          {% endfor %}
+      <form method="post" action="{{ url_for('main.tags_llm_suggest_accept_noise', suggestion_id=s.id) }}">
+        <div class="llm-suggestion-header">
+          <span class="llm-suggestion-label">Suggested noise — not worth canonicalizing</span>
           <button type="submit" class="llm-accept-noise-btn">Mark all as noise</button>
-        </form>
-      </div>
-      <div class="llm-noise-tags">
-        {% for m in s.members %}
-        <span class="pool-tag">{{ m }}</span>
-        {% endfor %}
-      </div>
+        </div>
+        <div class="llm-noise-tags">
+          {% for m in s.members %}
+          <span class="pool-tag noise-pill" data-tag-name="{{ m | e }}">
+            {{ m }}
+            <button type="button" class="noise-member-remove" title="Remove">×</button>
+            <input type="hidden" name="member" value="{{ m }}">
+          </span>
+          {% endfor %}
+        </div>
+      </form>
     </div>
     {% else %}
     <div class="llm-suggestion-card">
@@ -504,6 +505,14 @@ document.querySelectorAll('.llm-member-pool').forEach(function (pool) {
     if (!btn) return;
     e.preventDefault();
     btn.closest('.pool-tag').remove();
+  });
+});
+document.querySelectorAll('.llm-noise-tags').forEach(function (tags) {
+  tags.addEventListener('click', function (e) {
+    const btn = e.target.closest('.noise-member-remove');
+    if (!btn) return;
+    e.preventDefault();
+    btn.closest('.noise-pill').remove();
   });
 });
 </script>
