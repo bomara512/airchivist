@@ -803,3 +803,15 @@ Example: "garageband tutorial" (anchor, rank 4) yields the expansion word `garag
 - **+** Related tag families now appear together in the LLM prompt, enabling better grouping suggestions
 - **+** "garageband for beginners" and "garageband noob" (rank 1,075) are now included when "garageband tutorial" is an anchor
 - **−** Satellite selection is first-come-first-served within the 200 remaining slots; if many families share words with anchors, some satellites are excluded (but they'll be captured on a subsequent run as the pool shrinks)
+
+---
+
+### Smart Suggest noise cards: "Mark all as noise" button
+
+The noise suggestion card previously only offered a dismiss (×) button, which removed the card but left the tags in the unclassified pool. To actually mark them as noise required right-clicking each tag individually.
+
+Added a "Mark all as noise" button to the noise card header. Accepting it marks every member tag as `is_noise = 1` in one bulk UPDATE and dismisses the suggestion.
+
+**Implications**
+- **+** One click clears an entire noise batch from the pool
+- **−** No undo — marking as noise is currently irreversible through the UI

@@ -640,6 +640,15 @@ def mark_tag_noise(conn: sqlite3.Connection, tag_name: str) -> None:
     conn.commit()
 
 
+def mark_tags_noise_bulk(conn: sqlite3.Connection, tag_names: list[str]) -> int:
+    if not tag_names:
+        return 0
+    ph = ",".join("?" * len(tag_names))
+    cur = conn.execute(f"UPDATE tags SET is_noise = 1 WHERE name IN ({ph})", tag_names)
+    conn.commit()
+    return cur.rowcount
+
+
 def get_video_titles_for_tag(
     conn: sqlite3.Connection,
     tag_name: str,

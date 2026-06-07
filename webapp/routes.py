@@ -352,6 +352,15 @@ def tags_llm_suggest_dismiss(suggestion_id):
     return redirect(url_for("main.tags"))
 
 
+@bp.route("/tags/llm-suggest/<int:suggestion_id>/accept-noise", methods=["POST"])
+def tags_llm_suggest_accept_noise(suggestion_id):
+    members = [m.strip() for m in request.form.getlist("member") if m.strip()]
+    if members:
+        _db.mark_tags_noise_bulk(g.db, members)
+    _db.dismiss_llm_suggestion(g.db, suggestion_id)
+    return redirect(url_for("main.tags"))
+
+
 @bp.route("/videos/<video_id>/hide", methods=["POST"])
 def video_hide(video_id):
     _db.hide_video(g.db, video_id)

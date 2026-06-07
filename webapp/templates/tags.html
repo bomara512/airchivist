@@ -61,6 +61,12 @@
       </form>
       <div class="llm-suggestion-header">
         <span class="llm-suggestion-label">Suggested noise — not worth canonicalizing</span>
+        <form method="post" action="{{ url_for('main.tags_llm_suggest_accept_noise', suggestion_id=s.id) }}" class="llm-accept-noise-form">
+          {% for m in s.members %}
+          <input type="hidden" name="member" value="{{ m }}">
+          {% endfor %}
+          <button type="submit" class="llm-accept-noise-btn">Mark all as noise</button>
+        </form>
       </div>
       <div class="llm-noise-tags">
         {% for m in s.members %}

@@ -191,6 +191,9 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 .llm-accept-btn { background: #0f2a0f; color: #4caf50; border: 1px solid #1a4a1a; padding: 0.3rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; flex-shrink: 0; }
 .llm-accept-btn:hover { background: #1a4a1a; color: #6fcf6f; }
 .llm-accept-form { margin: 0; }
+.llm-accept-noise-form { margin: 0 0 0 auto; }
+.llm-accept-noise-btn { background: #2a1a0a; color: #cc8844; border: 1px solid #4a2a0a; padding: 0.3rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; flex-shrink: 0; }
+.llm-accept-noise-btn:hover { background: #3a2a0a; color: #e09a55; }
 .llm-member-pool { padding-top: 0; }
 .llm-noise-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
