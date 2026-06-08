@@ -106,6 +106,10 @@ def count_hidden_videos(conn) -> int
 
 def init_webapp_tables(db_path: str) -> None   # creates webapp extension tables if missing; applies column migrations
 def collapse_case_variants(conn) -> int        # one-time admin: merges case-duplicate tags; NOT called at startup
+
+# Constants (enums)
+# crawler/models.py: FetchStatus(StrEnum) — PENDING, OK, ERROR, PRIVATE, DELETED
+# webapp/db.py:      MatchType(StrEnum)   — EXACT, PREFIX, CONTAINS
 ```
 
 `get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments. `fetch_status = 'ok'` and `is_hidden = 0` are always applied as base conditions — hidden videos and videos with any other status are never shown in the main index. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.

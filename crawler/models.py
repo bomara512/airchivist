@@ -1,7 +1,16 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import StrEnum
 from typing import Optional
 import re
+
+
+class FetchStatus(StrEnum):
+    PENDING = 'pending'
+    OK = 'ok'
+    ERROR = 'error'
+    PRIVATE = 'private'
+    DELETED = 'deleted'
 
 _YT_ID_RE = re.compile(
     r'(?:youtube\.com/watch\?.*?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)'
@@ -35,7 +44,7 @@ class VideoMetadata:
     date_published: Optional[datetime] = None
     yt_categories: list[str] = field(default_factory=list)
     yt_tags: list[str] = field(default_factory=list)
-    fetch_status: str = 'pending'
+    fetch_status: str = FetchStatus.PENDING
     fetch_error: Optional[str] = None
 
     def __post_init__(self):

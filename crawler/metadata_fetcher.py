@@ -4,7 +4,7 @@ from typing import Optional
 
 import yt_dlp
 
-from crawler.models import VideoMetadata
+from crawler.models import FetchStatus, VideoMetadata
 
 _YDL_OPTS = {
     "quiet": True,
@@ -22,13 +22,13 @@ def _parse_upload_date(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
-def _classify_error(message: str) -> str:
+def _classify_error(message: str) -> FetchStatus:
     lower = message.lower()
     if "private video" in lower:
-        return "private"
+        return FetchStatus.PRIVATE
     if "has been removed" in lower or "video unavailable" in lower:
-        return "deleted"
-    return "error"
+        return FetchStatus.DELETED
+    return FetchStatus.ERROR
 
 
 def fetch_metadata(video_id: str, delay: float = 1.5) -> VideoMetadata:
@@ -50,7 +50,7 @@ def fetch_metadata(video_id: str, delay: float = 1.5) -> VideoMetadata:
             date_published=_parse_upload_date(info.get("upload_date")),
             yt_categories=info.get("categories") or [],
             yt_tags=info.get("tags") or [],
-            fetch_status="ok",
+            fetch_status=FetchStatus.OK,
         )
     except yt_dlp.utils.DownloadError as exc:
         status = _classify_error(str(exc))

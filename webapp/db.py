@@ -2,13 +2,22 @@ import json
 import re
 import sqlite3
 from datetime import datetime, timezone
+from enum import StrEnum
 from typing import Optional
+
+from crawler.models import FetchStatus
 
 ALLOWED_SORT_COLUMNS = frozenset({
     'title', 'channel_name', 'yt_view_count', 'personal_view_count',
     'date_added', 'date_last_viewed', 'date_published',
 })
 ALLOWED_SORT_DIRS = frozenset({'asc', 'desc'})
+
+
+class MatchType(StrEnum):
+    EXACT = 'exact'
+    PREFIX = 'prefix'
+    CONTAINS = 'contains'
 
 
 def _build_where(channel, tag, search):
@@ -360,7 +369,7 @@ def add_video(
     duration_seconds: Optional[int] = None,
     thumbnail_url: Optional[str] = None,
     date_published: Optional[str] = None,
-    fetch_status: str = 'ok',
+    fetch_status: str = FetchStatus.OK,
     fetch_error: Optional[str] = None,
     yt_tags: Optional[list] = None,
 ) -> None:
@@ -433,11 +442,11 @@ def apply_aliases(conn: sqlite3.Connection, video_id: str) -> None:
         p = pattern.lower()
         for name in tag_names:
             n = name.lower()
-            if match_type == 'exact' and n == p:
+            if match_type == MatchType.EXACT and n == p:
                 canonical_ids.add(canonical_tag_id)
-            elif match_type == 'prefix' and n.startswith(p):
+            elif match_type == MatchType.PREFIX and n.startswith(p):
                 canonical_ids.add(canonical_tag_id)
-            elif match_type == 'contains' and p in n:
+            elif match_type == MatchType.CONTAINS and p in n:
                 canonical_ids.add(canonical_tag_id)
 
     for cid in canonical_ids:
@@ -485,7 +494,7 @@ def create_canonical_tag(conn: sqlite3.Connection, name: str) -> int:
     return cursor.lastrowid
 
 
-def add_alias(conn: sqlite3.Connection, tag_id: int, pattern: str, match_type: str = "exact") -> Optional[int]:
+def add_alias(conn: sqlite3.Connection, tag_id: int, pattern: str, match_type: str = MatchType.EXACT) -> Optional[int]:
     pattern = pattern.strip().lower()
     conn.execute(
         "INSERT OR IGNORE INTO tag_aliases (pattern, match_type, canonical_tag_id) VALUES (?, ?, ?)",
@@ -607,21 +616,21 @@ def retroactive_apply(
         p = pattern.lower()
         esc = p.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
         extra = (video_id,) if video_id is not None else ()
-        if match_type == "exact":
+        if match_type == MatchType.EXACT:
             cur = conn.execute(f"""
                 INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
                 SELECT DISTINCT vt.video_id_fk, ?
                 FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
                 WHERE LOWER(t.name) = ? {video_filter}
             """, (canonical_tag_id, p, *extra))
-        elif match_type == "prefix":
+        elif match_type == MatchType.PREFIX:
             cur = conn.execute(f"""
                 INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
                 SELECT DISTINCT vt.video_id_fk, ?
                 FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
                 WHERE LOWER(t.name) LIKE ? ESCAPE '\\' {video_filter}
             """, (canonical_tag_id, esc + "%", *extra))
-        elif match_type == "contains":
+        elif match_type == MatchType.CONTAINS:
             cur = conn.execute(f"""
                 INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
                 SELECT DISTINCT vt.video_id_fk, ?

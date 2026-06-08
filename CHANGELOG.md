@@ -6,6 +6,18 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-06-07
 
+### Add `FetchStatus` and `MatchType` enums; replace magic string literals
+
+Added `FetchStatus(StrEnum)` in `crawler/models.py` (`PENDING`, `OK`, `ERROR`, `PRIVATE`, `DELETED`) and `MatchType(StrEnum)` in `webapp/db.py` (`EXACT`, `PREFIX`, `CONTAINS`). Updated all Python-side comparisons and default parameter values to use the enum members. SQL string literals inside queries are left as raw strings (correct practice — they're SQL syntax, not Python logic).
+
+**Implications**
+- **+** Typos in status/match-type values are now a `ValueError` at the call site instead of a silent DB mismatch
+- **+** IDE autocomplete and type-checking work for both enums
+- **+** `StrEnum` members compare equal to their string values, so no test changes were needed
+- **−** `webapp/db.py` now imports from `crawler.models` — this is acceptable but reinforces the need to eventually move shared types to a neutral `core/` package
+
+---
+
 ### Remove `collapse_case_variants` from startup
 
 `collapse_case_variants()` was called inside `init_webapp_tables()`, which runs on every `create_app()`. Removed it from startup and exposed it as `viewtube-web --db <path> --normalize-tags` instead.

@@ -3,7 +3,8 @@ import os
 from flask import Blueprint, g, request, redirect, abort, render_template, url_for, jsonify, make_response
 from webapp import db as _db
 from webapp import llm_tagger as _llm
-from crawler.models import _YT_ID_RE
+from crawler.models import _YT_ID_RE, FetchStatus
+from webapp.db import MatchType
 
 bp = Blueprint("main", __name__)
 
@@ -133,7 +134,7 @@ def api_add():
 
     video_id = m.group(1)
     existing = _db.get_video_by_id(g.db, video_id)
-    if existing and existing.get("fetch_status") == "ok":
+    if existing and existing.get("fetch_status") == FetchStatus.OK:
         if existing.get("is_hidden"):
             resp = jsonify({"status": "hidden", "title": existing.get("title")})
             resp.headers.update(cors_headers)
@@ -162,7 +163,7 @@ def api_add():
         yt_tags=[*meta.yt_categories, *meta.yt_tags],
     )
 
-    if meta.fetch_status != "ok":
+    if meta.fetch_status != FetchStatus.OK:
         resp = jsonify({"status": "error", "error": meta.fetch_error or "fetch failed"})
         resp.headers.update(cors_headers)
         return resp, 200
@@ -215,7 +216,7 @@ def tags():
 def tag_add_alias(tag_id):
     pattern = request.form.get("pattern", "").strip()
     match_type = request.form.get("match_type", "exact")
-    if pattern and match_type in ("exact", "prefix", "contains"):
+    if pattern and match_type in MatchType:
         alias_id = _db.add_alias(g.db, tag_id, pattern, match_type)
         if alias_id is not None:
             _db.retroactive_apply(g.db, alias_id)
@@ -232,7 +233,7 @@ def tag_delete_alias(tag_id, alias_id):
 def tag_edit_alias(tag_id, alias_id):
     pattern = request.form.get("pattern", "").strip()
     match_type = request.form.get("match_type", "exact")
-    if pattern and match_type in ("exact", "prefix", "contains"):
+    if pattern and match_type in MatchType:
         _db.edit_alias(g.db, alias_id, pattern, match_type)
         _db.retroactive_apply(g.db, alias_id)
     return redirect(url_for("main.tags"))
