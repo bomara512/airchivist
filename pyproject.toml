@@ -16,7 +16,7 @@ viewtube-web = "webapp.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=crawler --cov-report=term-missing"
+addopts = "--cov=crawler --cov=webapp --cov=tools --cov-report=term-missing"
 
 [tool.coverage.run]
 omit = ["tests/*"]

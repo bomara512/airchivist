@@ -5,10 +5,11 @@ from webapp.cli import main
 
 
 def make_db(tmp_path):
-    from tests.webapp.conftest import SCHEMA_SQL, SEED_SQL
+    from tests.webapp.conftest import _setup_db, SEED_SQL
     db_path = str(tmp_path / "test.db")
+    _setup_db(db_path)
     conn = sqlite3.connect(db_path)
-    conn.executescript(SCHEMA_SQL + SEED_SQL)
+    conn.executescript(SEED_SQL)
     conn.close()
     return db_path
 

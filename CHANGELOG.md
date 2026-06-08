@@ -4,6 +4,29 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-06-07
+
+### Fix: coverage config only measured crawler, not webapp or tools
+
+Added `--cov=webapp` and `--cov=tools` to `pyproject.toml`. Overall coverage is 55% (was reported as 92% but only reflected the crawler). Notable gaps now visible: `routes.py` at 50%, `db.py` at 71%, `llm_tagger.py` at 60%, `tools/tag_categorizer.py` at 0%.
+
+**Implications**
+- **+** Coverage numbers now reflect the full codebase; previously misleading 92% hid large untested areas
+- **−** The headline number dropped from 92% to 55%, which is the accurate picture
+
+---
+
+### Fix: test schema drift causing 5 failing tests
+
+Replaced the hardcoded `SCHEMA_SQL` string in `tests/webapp/conftest.py` with a `_setup_db()` helper that builds the DB the same way production does — crawler base schema (`crawler/datastore._SCHEMA`) followed by `init_webapp_tables()`. Updated `test_cli.py` to use the same helper.
+
+**Implications**
+- **+** Tests can no longer drift from the real schema; adding a table to `init_webapp_tables` will automatically be present in all test fixtures
+- **+** Fixes the immediate failures caused by the missing `llm_suggestion_rejections` table
+- **−** `db_conn` fixture now requires `tmp_path` (file-based) instead of `:memory:`; marginally slower but negligible at this scale
+
+---
+
 ## Prior Sessions (before 2026-05-28)
 
 ### Initial Implementation
