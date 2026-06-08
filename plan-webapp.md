@@ -104,7 +104,8 @@ def delete_video(conn, video_id: str) -> None        # hard delete; video_tags c
 def get_hidden_videos(conn, sort_by, sort_dir, page, page_size) -> list[dict]
 def count_hidden_videos(conn) -> int
 
-def init_webapp_tables(db_path: str) -> None   # creates tag_keywords and video_tags if missing; applies is_hidden migration
+def init_webapp_tables(db_path: str) -> None   # creates webapp extension tables if missing; applies column migrations
+def collapse_case_variants(conn) -> int        # one-time admin: merges case-duplicate tags; NOT called at startup
 ```
 
 `get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments. `fetch_status = 'ok'` and `is_hidden = 0` are always applied as base conditions — hidden videos and videos with any other status are never shown in the main index. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
@@ -731,15 +732,20 @@ def main():
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=5000)
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--normalize-tags', action='store_true',
+                        help='Merge case-duplicate tags and exit')
     args = parser.parse_args()
 
     if not args.db.exists():
         print(f"Error: database not found: {args.db}", file=sys.stderr)
         sys.exit(1)
 
-    init_webapp_tables(str(args.db))
+    if args.normalize_tags:
+        deleted = collapse_case_variants(open_conn(str(args.db)))
+        print(f"Merged {deleted} duplicate tag row(s).")
+        return
+
     app = create_app(str(args.db))
-    print(f"ViewTube running at http://{args.host}:{args.port}")
     app.run(host=args.host, port=args.port, debug=args.debug)
 ```
 

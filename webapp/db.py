@@ -1006,6 +1006,4 @@ def init_webapp_tables(db_path: str) -> None:
         except sqlite3.OperationalError:
             pass  # column already exists
     conn.commit()
-    conn.row_factory = sqlite3.Row
-    collapse_case_variants(conn)
     conn.close()

@@ -6,6 +6,17 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ## 2026-06-07
 
+### Remove `collapse_case_variants` from startup
+
+`collapse_case_variants()` was called inside `init_webapp_tables()`, which runs on every `create_app()`. Removed it from startup and exposed it as `viewtube-web --db <path> --normalize-tags` instead.
+
+**Implications**
+- **+** App startup no longer does a full tag-table scan on every launch
+- **+** The operation is now explicit and auditable (prints how many rows were merged)
+- **âˆ’** Existing installations that relied on auto-normalization on startup will need to run `--normalize-tags` once manually if they have case-duplicate tags
+
+---
+
 ### Fix: coverage config only measured crawler, not webapp or tools
 
 Added `--cov=webapp` and `--cov=tools` to `pyproject.toml`. Overall coverage is 55% (was reported as 92% but only reflected the crawler). Notable gaps now visible: `routes.py` at 50%, `db.py` at 71%, `llm_tagger.py` at 60%, `tools/tag_categorizer.py` at 0%.
