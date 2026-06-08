@@ -759,21 +759,60 @@ def save_llm_suggestions(conn: sqlite3.Connection, suggestions: list[dict], pool
     conn.commit()
 
 
+def get_llm_suggestion_by_id(conn: sqlite3.Connection, suggestion_id: int) -> Optional[dict]:
+    row = conn.execute(
+        "SELECT id, canonical, members, confidence, is_noise "
+        "FROM llm_suggestions WHERE id = ?",
+        (suggestion_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "canonical": row["canonical"],
+        "members": json.loads(row["members"]),
+        "confidence": row["confidence"],
+        "is_noise": bool(row["is_noise"]),
+    }
+
+
 def get_llm_suggestions(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute(
         "SELECT id, canonical, members, confidence, is_noise "
         "FROM llm_suggestions WHERE canonical != '_run_marker' ORDER BY is_noise ASC, id ASC"
     ).fetchall()
-    return [
-        {
+    rejection_rows = conn.execute(
+        "SELECT member_tag, canonical FROM llm_suggestion_rejections"
+    ).fetchall()
+    rejections: set[tuple[str, str]] = {(r["member_tag"], r["canonical"]) for r in rejection_rows}
+
+    result = []
+    for row in rows:
+        members = [
+            m for m in json.loads(row["members"])
+            if (m, row["canonical"]) not in rejections
+        ]
+        if not members:
+            continue
+        result.append({
             "id": row["id"],
             "canonical": row["canonical"],
-            "members": json.loads(row["members"]),
+            "members": members,
             "confidence": row["confidence"],
             "is_noise": bool(row["is_noise"]),
-        }
-        for row in rows
-    ]
+        })
+    return result
+
+
+def record_suggestion_rejections(
+    conn: sqlite3.Connection, canonical: str, member_tags: list[str]
+) -> None:
+    for tag in member_tags:
+        conn.execute(
+            "INSERT OR IGNORE INTO llm_suggestion_rejections (member_tag, canonical) VALUES (?, ?)",
+            (tag, canonical),
+        )
+    conn.commit()
 
 
 def dismiss_llm_suggestion(conn: sqlite3.Connection, suggestion_id: int) -> None:
@@ -937,6 +976,13 @@ def init_webapp_tables(db_path: str) -> None:
             is_noise   BOOLEAN NOT NULL DEFAULT 0,
             created_at TEXT    NOT NULL,
             pool_hash  TEXT    NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS llm_suggestion_rejections (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            member_tag TEXT    NOT NULL,
+            canonical  TEXT    NOT NULL,
+            created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(member_tag, canonical)
         );
         CREATE TABLE IF NOT EXISTS tag_groups (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,

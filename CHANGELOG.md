@@ -806,6 +806,23 @@ Example: "garageband tutorial" (anchor, rank 4) yields the expansion word `garag
 
 ---
 
+### Smart Suggest: persistent rejection of bad-fit members
+
+Removing a pill before accepting a suggestion now records a permanent rejection: the `(member_tag, canonical)` pair is stored in `llm_suggestion_rejections` and filtered out of all future suggestion displays.
+
+- Removing a pill from a grouping card and clicking Accept → records that member as rejected for that canonical (won't be suggested under it again)
+- Removing a pill from a noise card and clicking Mark all as noise → records that member as rejected for `_noise` (won't be suggested as noise again)
+- Dismissing a card with × does **not** record rejections — that means "not now," not "bad fit"
+
+`get_llm_suggestions` filters rejected members from stored suggestions at read time, so rejections apply immediately to the current batch too. If all members of a suggestion are rejected, the card is suppressed entirely.
+
+**Implications**
+- **+** The LLM's suggestions improve over time as bad pairings are filtered out
+- **+** Rejections survive Smart Suggest re-runs — they're stored independently of the suggestion cache
+- **−** No UI to view or undo rejections yet; they can be cleared directly from `llm_suggestion_rejections` in SQLite if needed
+
+---
+
 ### Smart Suggest noise cards: "Mark all as noise" button
 
 The noise suggestion card previously only offered a dismiss (×) button, which removed the card but left the tags in the unclassified pool. To actually mark them as noise required right-clicking each tag individually.

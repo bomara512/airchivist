@@ -325,6 +325,12 @@ def tag_suggest_confirm():
     if canonical_name and members:
         _db.confirm_suggestion(g.db, canonical_name, members)
     if suggestion_id:
+        suggestion = _db.get_llm_suggestion_by_id(g.db, suggestion_id)
+        if suggestion:
+            accepted = set(members)
+            rejected = [m for m in suggestion["members"] if m not in accepted]
+            if rejected:
+                _db.record_suggestion_rejections(g.db, suggestion["canonical"], rejected)
         _db.dismiss_llm_suggestion(g.db, suggestion_id)
     return redirect(url_for("main.tags"))
 
@@ -355,6 +361,12 @@ def tags_llm_suggest_dismiss(suggestion_id):
 @bp.route("/tags/llm-suggest/<int:suggestion_id>/accept-noise", methods=["POST"])
 def tags_llm_suggest_accept_noise(suggestion_id):
     members = [m.strip() for m in request.form.getlist("member") if m.strip()]
+    suggestion = _db.get_llm_suggestion_by_id(g.db, suggestion_id)
+    if suggestion:
+        accepted = set(members)
+        rejected = [m for m in suggestion["members"] if m not in accepted]
+        if rejected:
+            _db.record_suggestion_rejections(g.db, "_noise", rejected)
     if members:
         _db.mark_tags_noise_bulk(g.db, members)
     _db.dismiss_llm_suggestion(g.db, suggestion_id)
