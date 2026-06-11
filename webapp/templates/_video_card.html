@@ -28,9 +28,10 @@
       {% endif %}
     </div>
     <div class="video-meta">
-      <span>{{ video.yt_view_count | view_count }}{% if video.personal_view_count %} [{{ video.personal_view_count }}]{% endif %} views</span>
-      <span>{{ video.date_published | date }}</span>
-      <span>{{ video.date_added | date }}</span>
+      <span title="YouTube views{% if video.personal_view_count %} · opened {{ video.personal_view_count }}× from ViewTube{% endif %}">{{ video.yt_view_count | view_count }}{% if video.personal_view_count %} [{{ video.personal_view_count }}]{% endif %} views</span>
+      <span title="Published {{ video.date_published[:10] if video.date_published else 'unknown' }}">{{ video.date_published | date }}</span>
+      <span title="Added to library {{ video.date_added[:10] if video.date_added else 'unknown' }}">{{ video.date_added | date }}</span>
+      {% if video.date_last_viewed %}<span title="Last opened from ViewTube {{ video.date_last_viewed[:10] }}">{{ video.date_last_viewed | date }}</span>{% endif %}
     </div>
     {% if video.tags %}
     <div class="video-tags" data-video-id="{{ video.video_id }}">

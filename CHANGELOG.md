@@ -6,6 +6,17 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-06-07
 
+### Add date_last_viewed and title tooltips to video card metadata
+
+Added `date_last_viewed` to the card metadata row (conditional — hidden when null, i.e. never opened from ViewTube). Added `title` attributes to all metadata spans with descriptive text and the exact ISO date as context behind the relative display value.
+
+**Implications**
+- **+** Hovering any metadata item explains what it means and shows the precise date
+- **+** Last-viewed date gives a quick signal for recently revisited videos
+- **−** `date_last_viewed` only reflects opens via ViewTube's redirect, not direct YouTube visits
+
+---
+
 ### Add `FetchStatus` and `MatchType` enums; replace magic string literals
 
 Added `FetchStatus(StrEnum)` in `crawler/models.py` (`PENDING`, `OK`, `ERROR`, `PRIVATE`, `DELETED`) and `MatchType(StrEnum)` in `webapp/db.py` (`EXACT`, `PREFIX`, `CONTAINS`). Updated all Python-side comparisons and default parameter values to use the enum members. SQL string literals inside queries are left as raw strings (correct practice — they're SQL syntax, not Python logic).
