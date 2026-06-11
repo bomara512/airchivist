@@ -30,3 +30,25 @@
 - [ ] Rating system for videos
 - [ ] Import from YouTube Watch Later playlist or a public playlist URL
 
+---
+
+## Tech debt
+
+Items identified in the 2026-06-07 architectural review. Completed items are struck through.
+
+### Done
+- ~~Fix test schema drift — conftest hardcoded schema diverged from real schema~~
+- ~~Coverage config only measured crawler (92% false) — now measures all packages (55% true)~~
+- ~~`collapse_case_variants` ran on every startup — moved to `--normalize-tags` CLI flag~~
+- ~~Magic string literals for `fetch_status` and `match_type` — replaced with `FetchStatus` / `MatchType` StrEnums~~
+
+### Medium (next)
+- [ ] Break `crawler` → `webapp` dependency: `crawler/datastore.py` imports `apply_aliases` from `webapp/db.py` — the crawler should not depend on the web layer; move shared alias logic to a neutral location
+- [ ] Split `webapp/db.py` (1000+ lines, 6 domains) into focused submodules: `db/videos.py`, `db/tags.py`, `db/aliases.py`, `db/suggestions.py`
+- [ ] Unify CORS handling — `api_add` uses a local dict, `api_status`/`api_hide` use a module-level constant, with a subtle method-list divergence between them
+
+### Larger lifts
+- [ ] Proper migrations table — replace the ALTER TABLE wrapped in try/except with a tracked migration history
+- [ ] Background processing for blocking operations — `fetch_metadata` (yt-dlp, ~2–5s) and LLM calls (~3–10s) both block a Flask worker thread synchronously
+- [ ] Move multi-step route transactions into the DB layer — e.g. `tag_suggest_confirm` does 4 distinct DB operations inline in the route handler with no single transaction wrapping them
+
