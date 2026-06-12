@@ -9,20 +9,13 @@ function ensureStyles() {
   s.textContent = `
     .vt-dot {
       display: inline-block;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      text-align: center;
-      line-height: 18px;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 700;
-      color: #fff;
       vertical-align: text-top;
-      margin-right: 7px;
-      flex-shrink: 0;
+      margin-right: 5px;
     }
-    .vt-dot--exists { background: #4caf50; }
-    .vt-dot--hidden { background: #e53935; }
+    .vt-dot--exists { color: #4caf50; }
+    .vt-dot--hidden { color: #e53935; }
   `;
   document.head.appendChild(s);
 }
