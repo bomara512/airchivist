@@ -46,8 +46,8 @@ function waitFor(selector, root = document, timeout = 5000) {
 }
 
 const BADGE_CFG = {
-  exists: { text: '✓ In ViewTube', cls: 'vt-badge--exists' },
-  hidden: { text: '⊘ Hidden in ViewTube', cls: 'vt-badge--hidden' },
+  exists: { text: '✓ In ViewTube', short: '✓', cls: 'vt-badge--exists' },
+  hidden: { text: '⊘ Hidden in ViewTube', short: '⊘', cls: 'vt-badge--hidden' },
 };
 
 // ── Current video badge ───────────────────────────────────────────────────
@@ -130,7 +130,7 @@ async function scanRelated() {
       if (!cfg) continue;
       const badge = document.createElement('span');
       badge.className = `vt-rel-badge vt-badge ${cfg.cls}`;
-      badge.textContent = cfg.text;
+      badge.textContent = cfg.short;
       const meta = card.querySelector(
         'yt-lockup-metadata-view-model, #meta, #metadata, h3'
       );
