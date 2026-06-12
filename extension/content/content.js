@@ -17,7 +17,7 @@ function ensureStyles() {
       font-size: 12px;
       font-weight: 700;
       color: #fff;
-      vertical-align: middle;
+      vertical-align: text-top;
       margin-right: 7px;
       flex-shrink: 0;
     }
@@ -134,7 +134,7 @@ async function scanRelated() {
       const dot = document.createElement('span');
       dot.className = `vt-dot vt-rel-dot ${cfg.cls}`;
       dot.textContent = cfg.symbol;
-      h3.prepend(dot);
+      (h3.querySelector('a') || h3).prepend(dot);
     }
   } catch(e) { console.log('[VT] scanRelated error:', e); }
 }
