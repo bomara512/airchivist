@@ -45,7 +45,7 @@ const BADGE_CFG = {
   hidden: { cls: 'vt-dot--hidden' },
 };
 
-const _CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M5.341,12.247a1,1,0,0,0,1.317,1.505l4-3.5a1,1,0,0,0,.028-1.48l-9-8.5A1,1,0,0,0,.313,1.727l8.2,7.745Z" transform="translate(19 6.5) rotate(90)" fill="currentColor"/></svg>';
+const _CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M5.341,12.247a1,1,0,0,0,1.317,1.505l4-3.5a1,1,0,0,0,.028-1.48l-9-8.5A1,1,0,0,0,.313,1.727l8.2,7.745Z" transform="translate(19 6.5) rotate(90)" fill="currentColor"/></svg>';
 
 function makeDot(cfg, id) {
   const span = document.createElement('span');
@@ -57,43 +57,32 @@ function makeDot(cfg, id) {
 
 // ── Current video badge ───────────────────────────────────────────────────
 
+const TITLE_COLOR = { exists: '#4caf50', hidden: '#e53935' };
+
+function _titleH1() {
+  return document.querySelector('#above-the-fold > div:nth-child(1) h1');
+}
+
 async function checkCurrentVideo() {
-  document.getElementById('vt-current-badge')?.remove();
+  // Reset any coloring left from a previous video.
+  const prevH1 = _titleH1();
+  if (prevH1) prevH1.style.color = '';
+
   const id = extractId(location.href);
   if (!id) return;
 
-  // Wait for the title area to exist before fetching.
   await waitFor('#above-the-fold > div:nth-child(1) h1');
   if (extractId(location.href) !== id) return;
 
   try {
-    // Route through background script to avoid mixed-content blocking
-    // (content scripts on https://youtube.com can't fetch http://localhost).
     const data = await browser.runtime.sendMessage({
       action: 'fetchStatus',
       url: location.href,
     });
-    const cfg = BADGE_CFG[data.status];
-    if (!cfg) return;
-
-    function inject() {
-      const h1 = document.querySelector('#above-the-fold > div:nth-child(1) h1');
-      if (!h1 || extractId(location.href) !== id) return;
-      document.getElementById('vt-current-badge')?.remove();
-      h1.prepend(makeDot(cfg, 'vt-current-badge'));
-    }
-
-    inject();
-
-    // If YouTube's renderer wipes our badge immediately, inject once more.
-    const guard = new MutationObserver(() => {
-      if (!document.getElementById('vt-current-badge')) {
-        guard.disconnect();
-        inject();
-      }
-    });
-    guard.observe(document.body, { childList: true, subtree: true });
-    setTimeout(() => guard.disconnect(), 3000);
+    const color = TITLE_COLOR[data.status];
+    if (!color) return;
+    const h1 = _titleH1();
+    if (h1 && extractId(location.href) === id) h1.style.color = color;
   } catch(e) { console.log('[VT] checkCurrentVideo error:', e); }
 }
 
