@@ -9,10 +9,9 @@ function ensureStyles() {
   s.textContent = `
     .vt-dot {
       display: inline-block;
-      font-size: 14px;
-      font-weight: 700;
       vertical-align: text-top;
       margin-right: 5px;
+      line-height: 0;
     }
     .vt-dot--exists { color: #4caf50; }
     .vt-dot--hidden { color: #e53935; }
@@ -42,9 +41,19 @@ function waitFor(selector, root = document, timeout = 5000) {
 }
 
 const BADGE_CFG = {
-  exists: { symbol: '✓', cls: 'vt-dot--exists' },
-  hidden: { symbol: '⊘', cls: 'vt-dot--hidden' },
+  exists: { cls: 'vt-dot--exists' },
+  hidden: { cls: 'vt-dot--hidden' },
 };
+
+const _CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M5.341,12.247a1,1,0,0,0,1.317,1.505l4-3.5a1,1,0,0,0,.028-1.48l-9-8.5A1,1,0,0,0,.313,1.727l8.2,7.745Z" transform="translate(19 6.5) rotate(90)" fill="currentColor"/></svg>';
+
+function makeDot(cfg, id) {
+  const span = document.createElement('span');
+  span.className = `vt-dot ${cfg.cls}`;
+  if (id) span.id = id;
+  span.innerHTML = _CHECK_SVG;
+  return span;
+}
 
 // ── Current video badge ───────────────────────────────────────────────────
 
@@ -71,11 +80,7 @@ async function checkCurrentVideo() {
       const h1 = document.querySelector('#above-the-fold > div:nth-child(1) h1');
       if (!h1 || extractId(location.href) !== id) return;
       document.getElementById('vt-current-badge')?.remove();
-      const dot = document.createElement('span');
-      dot.id = 'vt-current-badge';
-      dot.className = `vt-dot ${cfg.cls}`;
-      dot.textContent = cfg.symbol;
-      h1.prepend(dot);
+      h1.prepend(makeDot(cfg, 'vt-current-badge'));
     }
 
     inject();
@@ -124,9 +129,8 @@ async function scanRelated() {
       if (!cfg) continue;
       const h3 = card.querySelector('yt-lockup-metadata-view-model h3, #meta h3');
       if (!h3) continue;
-      const dot = document.createElement('span');
-      dot.className = `vt-dot vt-rel-dot ${cfg.cls}`;
-      dot.textContent = cfg.symbol;
+      const dot = makeDot(cfg);
+      dot.classList.add('vt-rel-dot');
       (h3.querySelector('a') || h3).prepend(dot);
     }
   } catch(e) { console.log('[VT] scanRelated error:', e); }
