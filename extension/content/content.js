@@ -73,13 +73,8 @@ async function checkCurrentVideo(vtUrl) {
   const id = extractId(location.href);
   if (!id) return;
 
-  // Wait for the title element; YouTube renders it asynchronously after nav.
-  const titleEl = await waitFor(
-    '#above-the-fold #title, ytd-watch-metadata #title'
-  );
-  if (!titleEl) return;
-
-  // Bail if the user navigated away while we were waiting.
+  // Wait for the title element to exist before fetching.
+  await waitFor('#above-the-fold #title, ytd-watch-metadata #title');
   if (extractId(location.href) !== id) return;
 
   try {
@@ -87,11 +82,36 @@ async function checkCurrentVideo(vtUrl) {
       `${vtUrl}/api/status?url=${encodeURIComponent(location.href)}`
     );
     const data = await resp.json();
-    const badge = makeBadge(data.status);
-    if (!badge) return;
-    badge.id = 'vt-current-badge';
-    titleEl.after(badge);
-  } catch { /* ViewTube unreachable — inject nothing */ }
+    const cfg = BADGE_CFG[data.status];
+    if (!cfg) return;
+
+    function inject() {
+      // Re-query after the async fetch — the original reference may be
+      // orphaned if YouTube's reactive renderer replaced the node.
+      const titleEl = document.querySelector(
+        '#above-the-fold #title, ytd-watch-metadata #title'
+      );
+      if (!titleEl || extractId(location.href) !== id) return;
+      document.getElementById('vt-current-badge')?.remove();
+      const badge = document.createElement('span');
+      badge.id = 'vt-current-badge';
+      badge.className = `vt-badge ${cfg.cls}`;
+      badge.textContent = cfg.text;
+      titleEl.after(badge);
+    }
+
+    inject();
+
+    // If YouTube's renderer wipes our badge immediately, inject once more.
+    const guard = new MutationObserver(() => {
+      if (!document.getElementById('vt-current-badge')) {
+        guard.disconnect();
+        inject();
+      }
+    });
+    guard.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => guard.disconnect(), 3000);
+  } catch { /* ViewTube unreachable */ }
 }
 
 // ── Related video badges ──────────────────────────────────────────────────
