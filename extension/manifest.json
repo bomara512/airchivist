@@ -1,16 +1,24 @@
 {
   "manifest_version": 2,
   "name": "ViewTube",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Bookmark YouTube videos to Firefox and ViewTube in one click",
   "permissions": [
     "bookmarks",
     "activeTab",
-    "storage"
+    "storage",
+    "http://localhost:*/*"
   ],
   "browser_action": {
     "default_icon": "icons/icon.svg",
     "default_popup": "popup/popup.html",
     "default_title": "Save to ViewTube"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/watch*"],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }

@@ -166,10 +166,27 @@ Files in `extension/`:
   - Bookmark folder picker (lists existing bookmark folders)
   - "Test connection" button that POSTs a dummy request and shows the response
 
-### Phase 3 — Active-page indicator (optional)
+### Phase 3 — In-page status indicators ✅ IMPLEMENTED (2026-06-11)
 
-- Dim the toolbar icon on non-YouTube-video pages via a content script + `browser.browserAction.setIcon` / `setTitle`
-- Or switch to `pageAction` (icon appears in the URL bar, only on YouTube video pages)
+Content script (`extension/content/content.js`) injected on `youtube.com/watch*`:
+
+**Current video badge** — after the video title (`#above-the-fold #title`), a coloured pill shows:
+- `✓ In ViewTube` (green) if the video is saved
+- `⊘ Hidden in ViewTube` (red) if it's hidden
+- Nothing if not found (no noise for unsaved videos)
+
+**Related video badges** — for each `ytd-compact-video-renderer` in the side panel, a smaller version of the same badge is prepended into the `#meta` text area (below the video title in the card). A `MutationObserver` on `#secondary` catches cards loading after the initial page render.
+
+**Navigation** — YouTube is a SPA; the script re-runs on every `yt-navigate-finish` event (YouTube's own navigation hook). Fallback `DOMContentLoaded` listener handles initial page load.
+
+**Batch endpoint** — `POST /api/status/batch` (server-side) accepts `{"ids": [...]}` (max 50), returns `{"videoId": "exists"|"hidden"|"not_found"}` in a single SQL query. Used by the related-video scan.
+
+**Manifest changes:**
+- Version bumped to `1.1`
+- Added `"http://localhost:*/*"` permission so the content script can fetch from the local ViewTube server
+- Added `content_scripts` block
+
+**Known limitation:** YouTube's DOM element names change occasionally; if selectors break after a YouTube update, `ytd-compact-video-renderer a#thumbnail` and `#above-the-fold #title` are the ones to re-check.
 
 ### Phase 4 — Bookmark watcher (optional)
 

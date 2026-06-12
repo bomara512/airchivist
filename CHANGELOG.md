@@ -6,6 +6,19 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-06-07
 
+### Add in-page ViewTube status indicators to YouTube via content script
+
+New content script (`extension/content/content.js`) injected on YouTube watch pages. Shows a coloured pill below the current video title (✓ In ViewTube / ⊘ Hidden) and a smaller version on each related video card in the side panel. Re-runs on YouTube SPA navigations via `yt-navigate-finish`. New server endpoint `POST /api/status/batch` resolves up to 50 video IDs in one SQL query.
+
+**Implications**
+- **+** Instant visual signal whether a video is already saved, without opening the popup
+- **+** Side-panel badges let you see at a glance which related videos you've already bookmarked
+- **+** `yt-navigate-finish` is stable and well-documented; no polling needed
+- **−** YouTube DOM selectors (`ytd-compact-video-renderer`, `#above-the-fold #title`) may break when YouTube updates its layout — needs periodic re-checking
+- **−** Requires reloading the extension in `about:debugging` after this update; the new `http://localhost:*/*` permission must be accepted
+
+---
+
 ### Add date_last_viewed and title tooltips to video card metadata
 
 Added `date_last_viewed` to the card metadata row (conditional — hidden when null, i.e. never opened from ViewTube). Added `title` attributes to all metadata spans with descriptive text and the exact ISO date as context behind the relative display value.

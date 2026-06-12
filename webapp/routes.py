@@ -455,6 +455,20 @@ def api_status():
     return resp
 
 
+@bp.route("/api/status/batch", methods=["POST", "OPTIONS"])
+def api_status_batch():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+    data = request.get_json(silent=True) or {}
+    raw_ids = data.get("ids") or []
+    ids = [v.strip() for v in raw_ids if isinstance(v, str) and v.strip()][:50]
+    found = _db.get_videos_status_batch(g.db, ids)
+    result = {vid: found.get(vid, "not_found") for vid in ids}
+    resp = jsonify(result)
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+
 @bp.route("/api/hide", methods=["POST", "OPTIONS"])
 def api_hide():
     if request.method == "OPTIONS":

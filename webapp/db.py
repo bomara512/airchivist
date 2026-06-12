@@ -108,6 +108,18 @@ def count_videos(
     return conn.execute(sql, params).fetchone()[0]
 
 
+def get_videos_status_batch(conn: sqlite3.Connection, video_ids: list[str]) -> dict[str, str]:
+    """Return {video_id: 'exists'|'hidden'} for IDs present in the DB. Missing IDs are omitted."""
+    if not video_ids:
+        return {}
+    ph = ",".join("?" * len(video_ids))
+    rows = conn.execute(
+        f"SELECT video_id, is_hidden FROM videos WHERE video_id IN ({ph})",
+        video_ids,
+    ).fetchall()
+    return {r["video_id"]: ("hidden" if r["is_hidden"] else "exists") for r in rows}
+
+
 def get_video_by_id(conn: sqlite3.Connection, video_id: str) -> Optional[dict]:
     row = conn.execute(
         "SELECT * FROM videos WHERE video_id = ?", (video_id,)
