@@ -103,12 +103,16 @@ async function checkCurrentVideo() {
 let _relObserver = null;
 
 async function scanRelated() {
-  const cards = document.querySelectorAll('ytd-compact-video-renderer');
+  // YouTube's current layout uses yt-lockup-view-model; older layouts used
+  // ytd-compact-video-renderer. Query both so either layout works.
+  const cards = document.querySelectorAll(
+    'yt-lockup-view-model, ytd-compact-video-renderer'
+  );
   const toCheck = new Map(); // videoId → card element
 
   for (const card of cards) {
     if (card.querySelector('.vt-rel-badge')) continue; // already labelled
-    const link = card.querySelector('a#thumbnail[href]');
+    const link = card.querySelector('a[href*="watch?v="]');
     if (!link) continue;
     const id = extractId(link.href);
     if (!id) continue;
@@ -127,7 +131,9 @@ async function scanRelated() {
       const badge = document.createElement('span');
       badge.className = `vt-rel-badge vt-badge ${cfg.cls}`;
       badge.textContent = cfg.text;
-      const meta = card.querySelector('#meta, #metadata');
+      const meta = card.querySelector(
+        'yt-lockup-metadata-view-model, #meta, #metadata, h3'
+      );
       if (meta) meta.prepend(badge);
     }
   } catch(e) { console.log('[VT] scanRelated error:', e); }
