@@ -7,19 +7,22 @@ function ensureStyles() {
   const s = document.createElement('style');
   s.id = 'vt-styles';
   s.textContent = `
-    .vt-badge {
+    .vt-dot {
       display: inline-block;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 3px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      line-height: 1.6;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 18px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      vertical-align: middle;
+      margin-right: 7px;
+      flex-shrink: 0;
     }
-    .vt-badge--exists { background: #1a3a1a; color: #5cb85c; border: 1px solid #2d5a2d; }
-    .vt-badge--hidden { background: #2a1a1a; color: #e74c3c; border: 1px solid #5a2a2a; }
-    #vt-current-badge  { display: block; margin: 6px 0 2px; }
-    .vt-rel-badge      { display: block; margin: 2px 0 0; font-size: 10px; padding: 1px 6px; }
+    .vt-dot--exists { background: #4caf50; }
+    .vt-dot--hidden { background: #e53935; }
   `;
   document.head.appendChild(s);
 }
@@ -46,8 +49,8 @@ function waitFor(selector, root = document, timeout = 5000) {
 }
 
 const BADGE_CFG = {
-  exists: { text: '✓ In ViewTube', short: '✓', cls: 'vt-badge--exists' },
-  hidden: { text: '⊘ Hidden in ViewTube', short: '⊘', cls: 'vt-badge--hidden' },
+  exists: { symbol: '✓', cls: 'vt-dot--exists' },
+  hidden: { symbol: '⊘', cls: 'vt-dot--hidden' },
 };
 
 // ── Current video badge ───────────────────────────────────────────────────
@@ -57,8 +60,8 @@ async function checkCurrentVideo() {
   const id = extractId(location.href);
   if (!id) return;
 
-  // Wait for the title element to exist before fetching.
-  await waitFor('#above-the-fold #title, ytd-watch-metadata #title');
+  // Wait for the title area to exist before fetching.
+  await waitFor('#above-the-fold > div:nth-child(1) h1');
   if (extractId(location.href) !== id) return;
 
   try {
@@ -72,16 +75,14 @@ async function checkCurrentVideo() {
     if (!cfg) return;
 
     function inject() {
-      const titleEl = document.querySelector(
-        '#above-the-fold #title, ytd-watch-metadata #title'
-      );
-      if (!titleEl || extractId(location.href) !== id) return;
+      const h1 = document.querySelector('#above-the-fold > div:nth-child(1) h1');
+      if (!h1 || extractId(location.href) !== id) return;
       document.getElementById('vt-current-badge')?.remove();
-      const badge = document.createElement('span');
-      badge.id = 'vt-current-badge';
-      badge.className = `vt-badge ${cfg.cls}`;
-      badge.textContent = cfg.text;
-      titleEl.after(badge);
+      const dot = document.createElement('span');
+      dot.id = 'vt-current-badge';
+      dot.className = `vt-dot ${cfg.cls}`;
+      dot.textContent = cfg.symbol;
+      h1.prepend(dot);
     }
 
     inject();
@@ -111,7 +112,7 @@ async function scanRelated() {
   const toCheck = new Map(); // videoId → card element
 
   for (const card of cards) {
-    if (card.querySelector('.vt-rel-badge')) continue; // already labelled
+    if (card.querySelector('.vt-rel-dot')) continue; // already labelled
     const link = card.querySelector('a[href*="watch?v="]');
     if (!link) continue;
     const id = extractId(link.href);
@@ -128,13 +129,12 @@ async function scanRelated() {
     for (const [id, card] of toCheck) {
       const cfg = BADGE_CFG[data[id]];
       if (!cfg) continue;
-      const badge = document.createElement('span');
-      badge.className = `vt-rel-badge vt-badge ${cfg.cls}`;
-      badge.textContent = cfg.short;
-      const meta = card.querySelector(
-        'yt-lockup-metadata-view-model, #meta, #metadata, h3'
-      );
-      if (meta) meta.prepend(badge);
+      const h3 = card.querySelector('yt-lockup-metadata-view-model h3, #meta h3');
+      if (!h3) continue;
+      const dot = document.createElement('span');
+      dot.className = `vt-dot vt-rel-dot ${cfg.cls}`;
+      dot.textContent = cfg.symbol;
+      h3.prepend(dot);
     }
   } catch(e) { console.log('[VT] scanRelated error:', e); }
 }
