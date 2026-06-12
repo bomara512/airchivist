@@ -6,6 +6,12 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-06-07
 
+### Fix content script badge injected into stale DOM reference
+
+After the async `fetch()`, YouTube's reactive renderer had already replaced the `#title` node that `waitFor` had resolved with. Re-querying the DOM fresh after each fetch resolved it. Added a one-shot `MutationObserver` guard as a belt-and-suspenders in case YouTube wipes the badge in a subsequent render pass. Works with and without Enhancer for YouTube.
+
+---
+
 ### Add in-page ViewTube status indicators to YouTube via content script
 
 New content script (`extension/content/content.js`) injected on YouTube watch pages. Shows a coloured pill below the current video title (✓ In ViewTube / ⊘ Hidden) and a smaller version on each related video card in the side panel. Re-runs on YouTube SPA navigations via `yt-navigate-finish`. New server endpoint `POST /api/status/batch` resolves up to 50 video IDs in one SQL query.
