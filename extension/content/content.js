@@ -45,7 +45,7 @@ async function checkCurrentVideo() {
     if (!color) return;
     const h1 = _titleH1();
     if (h1 && extractId(location.href) === id) h1.style.color = color;
-  } catch(e) { console.log('[VT] checkCurrentVideo error:', e); }
+  } catch { /* ViewTube unreachable */ }
 }
 
 // ── Related video titles ──────────────────────────────────────────────────
@@ -81,7 +81,7 @@ async function scanRelated() {
       if (!h3) continue;
       (h3.querySelector('a') || h3).style.color = color;
     }
-  } catch(e) { console.log('[VT] scanRelated error:', e); }
+  } catch { /* ViewTube unreachable */ }
 }
 
 function watchRelated() {

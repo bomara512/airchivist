@@ -12,6 +12,35 @@ Whenever you make an implementation change, update `plan-webapp.md` and/or
 - Implementation details (specific HTML attributes, CSS values) don't need to
   be recorded unless they represent a non-obvious design choice.
 
+## Remove debug logging before finishing
+
+Any `console.log`, `print`, or other debug statement added during investigation
+must be removed before the response ends — without being asked.
+
+- Search for `console.log('[VT]`, `print(`, `logger.debug` etc. before committing.
+- Exception: logging that is part of the intended production behaviour (e.g. a
+  startup message or an explicit error handler) may stay.
+
+## Remove old approaches when replacing them
+
+When pivoting an implementation (different algorithm, different UI pattern,
+different data structure), delete the old code in the same response.
+
+- Do not leave unused functions, dead CSS, orphaned constants, or commented-out
+  blocks alongside the new approach.
+- If the old code might be needed for reference, that belongs in git history,
+  not in the working tree.
+
+## Use `_CORS_HEADERS` for all API routes
+
+Every route in `webapp/routes.py` that returns a JSON response to the extension
+must use the module-level `_CORS_HEADERS` constant — never a locally-defined
+dict.
+
+- Apply it to both the success response and the OPTIONS preflight.
+- When adding a new API route, copy the OPTIONS + CORS pattern from an existing
+  route such as `api_status`.
+
 ## Always write tests alongside new server code
 
 Whenever you add or change a public function in `webapp/db.py` or a route in
