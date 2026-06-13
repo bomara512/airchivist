@@ -12,6 +12,19 @@ Whenever you make an implementation change, update `plan-webapp.md` and/or
 - Implementation details (specific HTML attributes, CSS values) don't need to
   be recorded unless they represent a non-obvious design choice.
 
+## When a miss is identified, sweep and codify it
+
+Whenever a bug, inconsistency, or anti-pattern is found — whether by the user
+or during a review — before closing it out:
+
+1. **Sweep the entire codebase** for other instances of the same miss and fix
+   them all in the same response.
+2. **Add an instruction to this file** so the pattern is prevented going
+   forward, not just patched this once.
+
+Do not fix the one instance and move on. The miss is evidence that the pattern
+exists elsewhere and that there is no rule preventing recurrence.
+
 ## Remove debug logging before finishing
 
 Any `console.log`, `print`, or other debug statement added during investigation
