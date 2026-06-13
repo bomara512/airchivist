@@ -9,7 +9,7 @@ from webapp.db import (
     add_alias, delete_alias, retroactive_apply,
     get_unclassified_tags, confirm_suggestion,
     save_llm_suggestions, get_llm_suggestions, dismiss_llm_suggestion,
-    is_llm_suggestion_cache_stale,
+    is_llm_suggestion_cache_stale, get_videos_status_batch,
 )
 
 
@@ -724,3 +724,28 @@ class TestHideVideo:
         assert count_hidden_videos(db_conn) == 0
         hide_video(db_conn, "aaaaaaaaaa1")
         assert count_hidden_videos(db_conn) == 1
+
+
+class TestGetVideosStatusBatch:
+    def test_known_video_returns_exists(self, db_conn):
+        result = get_videos_status_batch(db_conn, ["aaaaaaaaaa1"])
+        assert result == {"aaaaaaaaaa1": "exists"}
+
+    def test_unknown_video_omitted(self, db_conn):
+        result = get_videos_status_batch(db_conn, ["XXXXXXXXXXX"])
+        assert result == {}
+
+    def test_hidden_video_returns_hidden(self, db_conn):
+        from webapp.db import hide_video
+        hide_video(db_conn, "aaaaaaaaaa1")
+        result = get_videos_status_batch(db_conn, ["aaaaaaaaaa1"])
+        assert result == {"aaaaaaaaaa1": "hidden"}
+
+    def test_mixed_known_and_unknown(self, db_conn):
+        result = get_videos_status_batch(db_conn, ["aaaaaaaaaa1", "XXXXXXXXXXX", "aaaaaaaaaa2"])
+        assert result["aaaaaaaaaa1"] == "exists"
+        assert result["aaaaaaaaaa2"] == "exists"
+        assert "XXXXXXXXXXX" not in result
+
+    def test_empty_list_returns_empty(self, db_conn):
+        assert get_videos_status_batch(db_conn, []) == {}

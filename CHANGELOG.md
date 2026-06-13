@@ -12,6 +12,16 @@ After the async `fetch()`, YouTube's reactive renderer had already replaced the 
 
 ---
 
+### Review and complete test coverage for YouTube in-page indicator feature
+
+Reviewed all code for the feature (content.js, background.js, manifest, db, routes). No dead code found. Added missing tests: `TestGetVideosStatusBatch` (5 tests in test_db.py) and `TestApiStatusBatch` (6 tests in test_routes.py) covering mixed results, hidden videos, empty input, non-string IDs, CORS headers, and OPTIONS preflight.
+
+**Implications**
+- **+** `/api/status/batch` and `get_videos_status_batch` now have the same test coverage as `/api/status`
+- **−** None
+
+---
+
 ### Fix: marking a tag as noise doesn't remove it from Smart Suggest cards
 
 `get_llm_suggestions` was filtering out `llm_suggestion_rejections` entries but not tags marked `is_noise = 1` in the `tags` table. Marking a tag as noise from the unclassified pool now immediately hides it from any suggestion card that listed it as a member.

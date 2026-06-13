@@ -151,6 +151,38 @@ class TestApiStatus:
         assert resp.get_json()["status"] == "error"
 
 
+class TestApiStatusBatch:
+    def test_mixed_results(self, client):
+        client.post("/videos/aaaaaaaaaa2/hide")
+        data = client.post("/api/status/batch", json={
+            "ids": ["aaaaaaaaaa1", "aaaaaaaaaa2", "XXXXXXXXXXX"]
+        }).get_json()
+        assert data["aaaaaaaaaa1"] == "exists"
+        assert data["aaaaaaaaaa2"] == "hidden"
+        assert data["XXXXXXXXXXX"] == "not_found"
+
+    def test_empty_ids_returns_empty(self, client):
+        data = client.post("/api/status/batch", json={"ids": []}).get_json()
+        assert data == {}
+
+    def test_missing_ids_key_returns_empty(self, client):
+        data = client.post("/api/status/batch", json={}).get_json()
+        assert data == {}
+
+    def test_ignores_non_string_ids(self, client):
+        data = client.post("/api/status/batch", json={"ids": [1, None, "aaaaaaaaaa1"]}).get_json()
+        assert "aaaaaaaaaa1" in data
+        assert data["aaaaaaaaaa1"] == "exists"
+
+    def test_cors_header_present(self, client):
+        resp = client.post("/api/status/batch", json={"ids": []})
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+    def test_options_preflight(self, client):
+        resp = client.options("/api/status/batch")
+        assert resp.status_code == 204
+
+
 class TestApiHide:
     def test_hides_video(self, client):
         resp = client.post("/api/hide", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
