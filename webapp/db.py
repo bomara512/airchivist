@@ -807,11 +807,16 @@ def get_llm_suggestions(conn: sqlite3.Connection) -> list[dict]:
     ).fetchall()
     rejections: set[tuple[str, str]] = {(r["member_tag"], r["canonical"]) for r in rejection_rows}
 
+    noise_names: set[str] = {
+        r["name"] for r in conn.execute("SELECT name FROM tags WHERE is_noise = 1").fetchall()
+    }
+
     result = []
     for row in rows:
         members = [
             m for m in json.loads(row["members"])
             if (m, row["canonical"]) not in rejections
+            and m not in noise_names
         ]
         if not members:
             continue

@@ -12,6 +12,16 @@ After the async `fetch()`, YouTube's reactive renderer had already replaced the 
 
 ---
 
+### Fix: marking a tag as noise doesn't remove it from Smart Suggest cards
+
+`get_llm_suggestions` was filtering out `llm_suggestion_rejections` entries but not tags marked `is_noise = 1` in the `tags` table. Marking a tag as noise from the unclassified pool now immediately hides it from any suggestion card that listed it as a member.
+
+**Implications**
+- **+** Noise tags vanish from suggestion cards on the next page load without needing a separate dismiss action
+- **−** None — noise tags were already excluded from the unclassified pool display; this makes suggestions consistent with that
+
+---
+
 ### Add in-page ViewTube status indicators to YouTube via content script
 
 New content script (`extension/content/content.js`) injected on YouTube watch pages. Shows a coloured pill below the current video title (✓ In ViewTube / ⊘ Hidden) and a smaller version on each related video card in the side panel. Re-runs on YouTube SPA navigations via `yt-navigate-finish`. New server endpoint `POST /api/status/batch` resolves up to 50 video IDs in one SQL query.
