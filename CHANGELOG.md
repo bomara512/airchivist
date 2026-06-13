@@ -12,6 +12,28 @@ After the async `fetch()`, YouTube's reactive renderer had already replaced the 
 
 ---
 
+### Split webapp/db.py into focused submodules
+
+Converted the 988-line monolithic `webapp/db.py` into a package with five domain files:
+
+| File | Responsibility |
+|---|---|
+| `webapp/db/videos.py` | Video CRUD, filtering, pagination, stats |
+| `webapp/db/tags.py` | Tag management, canonical tags, noise, unclassified pool |
+| `webapp/db/groups.py` | Tag group CRUD and membership |
+| `webapp/db/aliases.py` | Alias engine: add, delete, cleanup, retroactive apply |
+| `webapp/db/suggestions.py` | LLM suggestion storage and retrieval |
+| `webapp/db/schema.py` | `init_webapp_tables` |
+
+`webapp/db/__init__.py` re-exports the entire public API, so all existing import paths (`from webapp import db as _db`, `from webapp.db import func_name`) are unchanged.
+
+**Implications**
+- **+** Each file is ~60–220 lines and covers a single domain — much easier to navigate
+- **+** Cross-domain dependencies are now explicit imports between submodules
+- **−** `webapp/db/suggestions.py` imports from `tags.py` and `aliases.py` — the inter-module graph is a DAG but adds a layer of indirection
+
+---
+
 ### Break crawler → webapp dependency
 
 `crawler/datastore.py` had a deferred `from webapp.db import apply_aliases` inside `upsert_video`, making the crawler depend on the web layer. Fixed by:
