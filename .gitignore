@@ -1,4 +1,3 @@
-viewtube.db
 __pycache__/
 *.py[cod]
 .venv/
@@ -6,3 +5,7 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+viewtube.db
+viewtube-test.db
+proposals*.json
+approved*.json
