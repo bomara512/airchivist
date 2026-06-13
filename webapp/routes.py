@@ -10,6 +10,12 @@ bp = Blueprint("main", __name__)
 
 PAGE_SIZE = 100
 
+_CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST",
+    "Access-Control-Allow-Headers": "Content-Type",
+}
+
 
 @bp.route("/")
 def index():
@@ -115,13 +121,8 @@ def visit(video_id):
 
 @bp.route("/api/add", methods=["POST", "OPTIONS"])
 def api_add():
-    cors_headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST",
-        "Access-Control-Allow-Headers": "Content-Type",
-    }
     if request.method == "OPTIONS":
-        return make_response("", 204, cors_headers)
+        return make_response("", 204, _CORS_HEADERS)
 
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
@@ -129,7 +130,7 @@ def api_add():
     m = _YT_ID_RE.search(url)
     if not m:
         resp = jsonify({"status": "error", "error": "Not a YouTube video URL"})
-        resp.headers.update(cors_headers)
+        resp.headers.update(_CORS_HEADERS)
         return resp, 400
 
     video_id = m.group(1)
@@ -137,11 +138,11 @@ def api_add():
     if existing and existing.get("fetch_status") == FetchStatus.OK:
         if existing.get("is_hidden"):
             resp = jsonify({"status": "hidden", "title": existing.get("title")})
-            resp.headers.update(cors_headers)
+            resp.headers.update(_CORS_HEADERS)
             return resp
         _db.record_visit(g.db, video_id)
         resp = jsonify({"status": "exists", "title": existing.get("title")})
-        resp.headers.update(cors_headers)
+        resp.headers.update(_CORS_HEADERS)
         return resp
 
     from crawler.metadata_fetcher import fetch_metadata
@@ -165,7 +166,7 @@ def api_add():
 
     if meta.fetch_status != FetchStatus.OK:
         resp = jsonify({"status": "error", "error": meta.fetch_error or "fetch failed"})
-        resp.headers.update(cors_headers)
+        resp.headers.update(_CORS_HEADERS)
         return resp, 200
 
     video_row = _db.get_video_by_id(g.db, video_id)
@@ -173,7 +174,7 @@ def api_add():
         _db.retroactive_apply(g.db, video_id=video_row["id"])
     _db.record_visit(g.db, video_id)
     resp = jsonify({"status": "added", "title": meta.title})
-    resp.headers.update(cors_headers)
+    resp.headers.update(_CORS_HEADERS)
     return resp
 
 
@@ -424,13 +425,6 @@ def hidden():
         prev_url=page_url(page - 1) if page > 1 else None,
         next_url=page_url(page + 1) if page < total_pages else None,
     )
-
-
-_CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST",
-    "Access-Control-Allow-Headers": "Content-Type",
-}
 
 
 @bp.route("/api/status", methods=["GET", "OPTIONS"])
