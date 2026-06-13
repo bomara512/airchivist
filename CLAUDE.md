@@ -12,6 +12,13 @@ Whenever you make an implementation change, update `plan-webapp.md` and/or
 - Implementation details (specific HTML attributes, CSS values) don't need to
   be recorded unless they represent a non-obvious design choice.
 
+## Check TODO.md after every implementation change
+
+After making a code change, read `TODO.md` and:
+
+1. **Mark completed items** — if the change implements or closes something on the list, strike it through.
+2. **Suggest related items** — if the change touches an area where nearby TODO items could be tackled with little extra effort, mention them briefly at the end of the response. Don't implement them unbidden; just surface them.
+
 ## When a miss is identified, sweep and codify it
 
 Whenever a bug, inconsistency, or anti-pattern is found — whether by the user
