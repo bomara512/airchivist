@@ -12,6 +12,20 @@ After the async `fetch()`, YouTube's reactive renderer had already replaced the 
 
 ---
 
+### Break crawler → webapp dependency
+
+`crawler/datastore.py` had a deferred `from webapp.db import apply_aliases` inside `upsert_video`, making the crawler depend on the web layer. Fixed by:
+- Moving `MatchType` from `webapp/db.py` to `crawler/models.py` (alongside `FetchStatus` — both are domain constants, not webapp concerns)
+- Moving `apply_aliases` from `webapp/db.py` to `crawler/datastore.py` (where it's primarily called during ingestion)
+- `webapp/db.py` re-exports both via `from crawler.models import MatchType` and `from crawler.datastore import apply_aliases`, so all existing call sites are unchanged
+
+**Implications**
+- **+** `crawler/` has zero imports from `webapp/` — the dependency is now strictly one-way (webapp → crawler)
+- **+** The crawler can be run standalone without Flask installed
+- **−** `webapp/db.py` imports from `crawler.datastore`, adding a cross-package import in that direction; this is acceptable and consistent with existing `webapp` → `crawler` imports
+
+---
+
 ### Review and complete test coverage for YouTube in-page indicator feature
 
 Reviewed all code for the feature (content.js, background.js, manifest, db, routes). No dead code found. Added missing tests: `TestGetVideosStatusBatch` (5 tests in test_db.py) and `TestApiStatusBatch` (6 tests in test_routes.py) covering mixed results, hidden videos, empty input, non-string IDs, CORS headers, and OPTIONS preflight.

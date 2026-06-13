@@ -2,22 +2,16 @@ import json
 import re
 import sqlite3
 from datetime import datetime, timezone
-from enum import StrEnum
 from typing import Optional
 
-from crawler.models import FetchStatus
+from crawler.models import FetchStatus, MatchType
+from crawler.datastore import apply_aliases  # re-exported: was defined here, now in crawler
 
 ALLOWED_SORT_COLUMNS = frozenset({
     'title', 'channel_name', 'yt_view_count', 'personal_view_count',
     'date_added', 'date_last_viewed', 'date_published',
 })
 ALLOWED_SORT_DIRS = frozenset({'asc', 'desc'})
-
-
-class MatchType(StrEnum):
-    EXACT = 'exact'
-    PREFIX = 'prefix'
-    CONTAINS = 'contains'
 
 
 def _build_where(channel, tag, search):
@@ -426,48 +420,6 @@ def add_video(
         conn.commit()
 
     apply_aliases(conn, video_id)
-
-
-def apply_aliases(conn: sqlite3.Connection, video_id: str) -> None:
-    """Associate video with canonical tags whose alias rules match any of its current tags."""
-    video_row = conn.execute("SELECT id FROM videos WHERE video_id = ?", (video_id,)).fetchone()
-    if not video_row:
-        return
-
-    try:
-        rules = conn.execute(
-            "SELECT pattern, match_type, canonical_tag_id FROM tag_aliases"
-        ).fetchall()
-    except sqlite3.OperationalError:
-        return  # tag_aliases table not yet created
-
-    if not rules:
-        return
-
-    tag_names = [r[0] for r in conn.execute(
-        "SELECT t.name FROM tags t JOIN video_tags vt ON vt.tag_id_fk = t.id WHERE vt.video_id_fk = ?",
-        (video_row[0],),
-    ).fetchall()]
-
-    canonical_ids = set()
-    for pattern, match_type, canonical_tag_id in rules:
-        p = pattern.lower()
-        for name in tag_names:
-            n = name.lower()
-            if match_type == MatchType.EXACT and n == p:
-                canonical_ids.add(canonical_tag_id)
-            elif match_type == MatchType.PREFIX and n.startswith(p):
-                canonical_ids.add(canonical_tag_id)
-            elif match_type == MatchType.CONTAINS and p in n:
-                canonical_ids.add(canonical_tag_id)
-
-    for cid in canonical_ids:
-        conn.execute(
-            "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (?, ?)",
-            (video_row[0], cid),
-        )
-    if canonical_ids:
-        conn.commit()
 
 
 def get_canonical_tags(conn: sqlite3.Connection) -> list:

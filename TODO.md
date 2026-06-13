@@ -44,9 +44,9 @@ Items identified in the 2026-06-07 architectural review. Completed items are str
 - ~~Magic string literals for `fetch_status` and `match_type` — replaced with `FetchStatus` / `MatchType` StrEnums~~
 
 ### Medium (next)
-- [ ] Break `crawler` → `webapp` dependency: `crawler/datastore.py` imports `apply_aliases` from `webapp/db.py` — the crawler should not depend on the web layer; move shared alias logic to a neutral location
+- ~~Break `crawler` → `webapp` dependency: `crawler/datastore.py` imports `apply_aliases` from `webapp/db.py` — the crawler should not depend on the web layer; move shared alias logic to a neutral location~~
 - [ ] Split `webapp/db.py` (1000+ lines, 6 domains) into focused submodules: `db/videos.py`, `db/tags.py`, `db/aliases.py`, `db/suggestions.py`
-- [ ] Unify CORS handling — `api_add` uses a local dict, `api_status`/`api_hide` use a module-level constant, with a subtle method-list divergence between them
+- ~~Unify CORS handling — `api_add` uses a local dict, `api_status`/`api_hide` use a module-level constant, with a subtle method-list divergence between them~~
 
 - [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js` and `content.js` are currently untested
 

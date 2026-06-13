@@ -12,6 +12,12 @@ class FetchStatus(StrEnum):
     PRIVATE = 'private'
     DELETED = 'deleted'
 
+
+class MatchType(StrEnum):
+    EXACT = 'exact'
+    PREFIX = 'prefix'
+    CONTAINS = 'contains'
+
 _YT_ID_RE = re.compile(
     r'(?:youtube\.com/watch\?.*?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)'
     r'([A-Za-z0-9_-]{11})'

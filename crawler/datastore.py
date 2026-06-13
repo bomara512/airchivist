@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from crawler.models import Bookmark, VideoMetadata
+from crawler.models import Bookmark, MatchType, VideoMetadata
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS videos (
@@ -46,6 +46,51 @@ CREATE INDEX IF NOT EXISTS idx_videos_video_id ON videos(video_id);
 
 def _dt(value: Optional[datetime]) -> Optional[str]:
     return value.isoformat() if value else None
+
+
+def apply_aliases(conn: sqlite3.Connection, video_id: str) -> None:
+    """Associate a video with canonical tags whose alias rules match any of its raw tags."""
+    video_row = conn.execute(
+        "SELECT id FROM videos WHERE video_id = ?", (video_id,)
+    ).fetchone()
+    if not video_row:
+        return
+
+    try:
+        rules = conn.execute(
+            "SELECT pattern, match_type, canonical_tag_id FROM tag_aliases"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return  # tag_aliases table not yet created
+
+    if not rules:
+        return
+
+    tag_names = [r[0] for r in conn.execute(
+        "SELECT t.name FROM tags t JOIN video_tags vt ON vt.tag_id_fk = t.id "
+        "WHERE vt.video_id_fk = ?",
+        (video_row[0],),
+    ).fetchall()]
+
+    canonical_ids = set()
+    for pattern, match_type, canonical_tag_id in rules:
+        p = pattern.lower()
+        for name in tag_names:
+            n = name.lower()
+            if match_type == MatchType.EXACT and n == p:
+                canonical_ids.add(canonical_tag_id)
+            elif match_type == MatchType.PREFIX and n.startswith(p):
+                canonical_ids.add(canonical_tag_id)
+            elif match_type == MatchType.CONTAINS and p in n:
+                canonical_ids.add(canonical_tag_id)
+
+    for cid in canonical_ids:
+        conn.execute(
+            "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (?, ?)",
+            (video_row[0], cid),
+        )
+    if canonical_ids:
+        conn.commit()
 
 
 class Datastore:
@@ -102,7 +147,6 @@ class Datastore:
         )
         self._conn.commit()
         self._apply_yt_tags(metadata)
-        from webapp.db import apply_aliases
         apply_aliases(self._conn, metadata.video_id)
 
     def _apply_yt_tags(self, metadata: VideoMetadata) -> None:
