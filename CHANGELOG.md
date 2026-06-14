@@ -4,6 +4,19 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Move multi-step route transactions into the DB layer (2026-06-14)
+
+Four routes performed multi-step writes sequentially across separate DB functions, each committing independently. Failure after an intermediate commit left the database in partial state. Fixed by consolidating each flow into a single composite DB function:
+
+- `confirm_and_dismiss_suggestion(conn, canonical_name, accepted_members, suggestion_id, all_suggestion_members)` — consolidates 3 DB calls in `tag_suggest_confirm`; creates canonical tag, adds exact aliases, retroactively applies, records rejections, dismisses suggestion; single transaction
+- `accept_noise_and_dismiss_suggestion(conn, suggestion_id, noise_members, rejected_members)` — consolidates 3 DB calls in `tags_llm_suggest_accept_noise`; marks members as noise, records rejections, dismisses suggestion; single transaction
+- `add_alias_and_apply(conn, tag_id, pattern, match_type)` — consolidates 2 DB calls in `tag_add_alias`; adds alias and retroactively applies in one transaction
+- `edit_alias_and_apply(conn, alias_id, pattern, match_type)` — consolidates 2 DB calls in `tag_edit_alias`; edits alias and retroactively applies in one transaction
+
+**Trade-offs:** Existing single-step DB functions (`add_alias`, `edit_alias`, `retroactive_apply`, etc.) remain unchanged — still used directly by tests and other code paths. Composite functions inline their SQL to avoid premature transaction termination from sub-function commits. No external API change; routes are the only callers of the new functions.
+
+---
+
 ## 2026-06-07
 
 ### Fix content script badge injected into stale DOM reference

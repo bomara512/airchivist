@@ -152,3 +152,110 @@ def retroactive_apply(
         total += cur.rowcount
     conn.commit()
     return total
+
+
+def add_alias_and_apply(
+    conn: sqlite3.Connection,
+    tag_id: int,
+    pattern: str,
+    match_type: str = MatchType.EXACT,
+) -> int:
+    """Add alias and retroactively apply in a single transaction. Returns count of new associations."""
+    pattern = pattern.strip().lower()
+
+    # Step 1: Insert the alias
+    conn.execute(
+        "INSERT OR IGNORE INTO tag_aliases (pattern, match_type, canonical_tag_id) VALUES (?, ?, ?)",
+        (pattern, match_type, tag_id),
+    )
+
+    # Step 2: Retroactively apply
+    p = pattern.lower()
+    esc = p.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
+    total = 0
+
+    if match_type == MatchType.EXACT:
+        cur = conn.execute(f"""
+            INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
+            SELECT DISTINCT vt.video_id_fk, ?
+            FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
+            WHERE LOWER(t.name) = ?
+        """, (tag_id, p))
+    elif match_type == MatchType.PREFIX:
+        cur = conn.execute(f"""
+            INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
+            SELECT DISTINCT vt.video_id_fk, ?
+            FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
+            WHERE LOWER(t.name) LIKE ? ESCAPE '\\'
+        """, (tag_id, esc + "%"))
+    elif match_type == MatchType.CONTAINS:
+        cur = conn.execute(f"""
+            INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
+            SELECT DISTINCT vt.video_id_fk, ?
+            FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
+            WHERE LOWER(t.name) LIKE ? ESCAPE '\\'
+        """, (tag_id, "%" + esc + "%"))
+    else:
+        cur = None
+
+    total = cur.rowcount if cur else 0
+    conn.commit()
+    return total
+
+
+def edit_alias_and_apply(
+    conn: sqlite3.Connection,
+    alias_id: int,
+    pattern: str,
+    match_type: str,
+) -> int:
+    """Edit alias and retroactively apply in a single transaction. Returns count of new associations."""
+    pattern = pattern.strip().lower()
+
+    # Fetch the alias to get the canonical tag ID
+    alias_row = conn.execute(
+        "SELECT canonical_tag_id FROM tag_aliases WHERE id = ?", (alias_id,)
+    ).fetchone()
+    if not alias_row:
+        return 0
+
+    tag_id = alias_row[0]
+
+    # Step 1: Update the alias
+    conn.execute(
+        "UPDATE tag_aliases SET pattern = ?, match_type = ? WHERE id = ?",
+        (pattern, match_type, alias_id),
+    )
+
+    # Step 2: Retroactively apply
+    p = pattern.lower()
+    esc = p.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
+    total = 0
+
+    if match_type == MatchType.EXACT:
+        cur = conn.execute(f"""
+            INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
+            SELECT DISTINCT vt.video_id_fk, ?
+            FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
+            WHERE LOWER(t.name) = ?
+        """, (tag_id, p))
+    elif match_type == MatchType.PREFIX:
+        cur = conn.execute(f"""
+            INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
+            SELECT DISTINCT vt.video_id_fk, ?
+            FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
+            WHERE LOWER(t.name) LIKE ? ESCAPE '\\'
+        """, (tag_id, esc + "%"))
+    elif match_type == MatchType.CONTAINS:
+        cur = conn.execute(f"""
+            INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
+            SELECT DISTINCT vt.video_id_fk, ?
+            FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
+            WHERE LOWER(t.name) LIKE ? ESCAPE '\\'
+        """, (tag_id, "%" + esc + "%"))
+    else:
+        cur = None
+
+    total = cur.rowcount if cur else 0
+    conn.commit()
+    return total

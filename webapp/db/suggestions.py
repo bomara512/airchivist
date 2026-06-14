@@ -117,6 +117,88 @@ def dismiss_llm_suggestion(conn: sqlite3.Connection, suggestion_id: int) -> None
     conn.commit()
 
 
+def confirm_and_dismiss_suggestion(
+    conn: sqlite3.Connection,
+    canonical_name: str,
+    accepted_members: list[str],
+    suggestion_id: int,
+    all_suggestion_members: list[str],
+) -> int:
+    """Create canonical tag, add exact aliases for accepted members, record rejections, dismiss suggestion.
+
+    Single transaction: creates canonical, adds aliases with retroactive apply, records rejections,
+    deletes the suggestion. Returns count of new video-tag associations created.
+    """
+    canonical_name = canonical_name.strip().lower()
+
+    # Step 1: Create or update canonical tag
+    existing = conn.execute("SELECT id FROM tags WHERE name = ?", (canonical_name,)).fetchone()
+    if existing:
+        conn.execute("UPDATE tags SET is_canonical = 1 WHERE id = ?", (existing[0],))
+        tag_id = existing[0]
+    else:
+        cursor = conn.execute("INSERT INTO tags (name, is_canonical) VALUES (?, 1)", (canonical_name,))
+        tag_id = cursor.lastrowid
+
+    # Step 2: Add exact aliases for accepted members and retroactively apply
+    total_associations = 0
+    accepted_set = set(m.strip() for m in accepted_members if m.strip())
+
+    for name in accepted_set:
+        name_lower = name.lower()
+
+        # Add the alias
+        conn.execute(
+            "INSERT OR IGNORE INTO tag_aliases (pattern, match_type, canonical_tag_id) VALUES (?, ?, ?)",
+            (name_lower, "exact", tag_id),
+        )
+
+        # Retroactively apply: find videos with this raw tag and link to canonical
+        conn.execute(f"""
+            INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
+            SELECT DISTINCT vt.video_id_fk, ?
+            FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
+            WHERE LOWER(t.name) = ?
+        """, (tag_id, name_lower))
+
+        total_associations += conn.execute("SELECT changes()").fetchone()[0]
+
+    # Step 3: Record rejections for members not in accepted set
+    rejected = [m.strip() for m in all_suggestion_members if m.strip() not in accepted_set]
+    for tag in rejected:
+        conn.execute(
+            "INSERT OR IGNORE INTO llm_suggestion_rejections (member_tag, canonical) VALUES (?, ?)",
+            (tag, canonical_name),
+        )
+
+    # Step 4: Dismiss the suggestion
+    conn.execute("DELETE FROM llm_suggestions WHERE id = ?", (suggestion_id,))
+
+    conn.commit()
+    return total_associations
+
+
+def accept_noise_and_dismiss_suggestion(
+    conn: sqlite3.Connection,
+    suggestion_id: int,
+    noise_members: list[str],
+    rejected_members: list[str],
+) -> None:
+    """Mark members as noise, record rejections, dismiss suggestion. Single transaction."""
+    if noise_members:
+        ph = ",".join("?" * len(noise_members))
+        conn.execute(f"UPDATE tags SET is_noise = 1 WHERE name IN ({ph})", noise_members)
+
+    for tag in rejected_members:
+        conn.execute(
+            "INSERT OR IGNORE INTO llm_suggestion_rejections (member_tag, canonical) VALUES (?, ?)",
+            (tag, "_noise"),
+        )
+
+    conn.execute("DELETE FROM llm_suggestions WHERE id = ?", (suggestion_id,))
+    conn.commit()
+
+
 def is_llm_suggestion_cache_stale(conn: sqlite3.Connection, current_hash: str) -> bool:
     """True when there are no stored suggestions or the pool has changed since the last run."""
     row = conn.execute(

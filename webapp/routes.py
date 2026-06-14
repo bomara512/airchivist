@@ -218,9 +218,7 @@ def tag_add_alias(tag_id):
     pattern = request.form.get("pattern", "").strip()
     match_type = request.form.get("match_type", "exact")
     if pattern and match_type in MatchType:
-        alias_id = _db.add_alias(g.db, tag_id, pattern, match_type)
-        if alias_id is not None:
-            _db.retroactive_apply(g.db, alias_id)
+        _db.add_alias_and_apply(g.db, tag_id, pattern, match_type)
     return redirect(url_for("main.tags"))
 
 
@@ -235,8 +233,7 @@ def tag_edit_alias(tag_id, alias_id):
     pattern = request.form.get("pattern", "").strip()
     match_type = request.form.get("match_type", "exact")
     if pattern and match_type in MatchType:
-        _db.edit_alias(g.db, alias_id, pattern, match_type)
-        _db.retroactive_apply(g.db, alias_id)
+        _db.edit_alias_and_apply(g.db, alias_id, pattern, match_type)
     return redirect(url_for("main.tags"))
 
 
@@ -324,15 +321,11 @@ def tag_suggest_confirm():
     canonical_name = request.form.get("canonical_name", "").strip()
     members = [m for m in request.form.getlist("member") if m.strip()]
     suggestion_id = request.form.get("suggestion_id", type=int)
-    if canonical_name and members:
-        _db.confirm_suggestion(g.db, canonical_name, members)
-    if suggestion_id:
+    if canonical_name and members and suggestion_id:
         suggestion = _db.get_llm_suggestion_by_id(g.db, suggestion_id)
-        if suggestion:
-            accepted = set(members)
-            rejected = [m for m in suggestion["members"] if m not in accepted]
-            if rejected:
-                _db.record_suggestion_rejections(g.db, suggestion["canonical"], rejected)
+        all_members = suggestion["members"] if suggestion else members
+        _db.confirm_and_dismiss_suggestion(g.db, canonical_name, members, suggestion_id, all_members)
+    elif suggestion_id:
         _db.dismiss_llm_suggestion(g.db, suggestion_id)
     return redirect(url_for("main.tags"))
 
@@ -364,14 +357,9 @@ def tags_llm_suggest_dismiss(suggestion_id):
 def tags_llm_suggest_accept_noise(suggestion_id):
     members = [m.strip() for m in request.form.getlist("member") if m.strip()]
     suggestion = _db.get_llm_suggestion_by_id(g.db, suggestion_id)
-    if suggestion:
-        accepted = set(members)
-        rejected = [m for m in suggestion["members"] if m not in accepted]
-        if rejected:
-            _db.record_suggestion_rejections(g.db, "_noise", rejected)
-    if members:
-        _db.mark_tags_noise_bulk(g.db, members)
-    _db.dismiss_llm_suggestion(g.db, suggestion_id)
+    all_members = suggestion["members"] if suggestion else []
+    rejected = [m for m in all_members if m not in set(members)]
+    _db.accept_noise_and_dismiss_suggestion(g.db, suggestion_id, members, rejected)
     return redirect(url_for("main.tags"))
 
 

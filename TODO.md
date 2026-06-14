@@ -53,5 +53,5 @@ Items identified in the 2026-06-07 architectural review. Completed items are str
 ### Larger lifts
 - [ ] Proper migrations table — replace the ALTER TABLE wrapped in try/except with a tracked migration history
 - [ ] Background processing for blocking operations — `fetch_metadata` (yt-dlp, ~2–5s) and LLM calls (~3–10s) both block a Flask worker thread synchronously
-- [ ] Move multi-step route transactions into the DB layer — e.g. `tag_suggest_confirm` does 4 distinct DB operations inline in the route handler with no single transaction wrapping them
+- ~~Move multi-step route transactions into the DB layer — e.g. `tag_suggest_confirm` does 4 distinct DB operations inline in the route handler with no single transaction wrapping them~~
 
