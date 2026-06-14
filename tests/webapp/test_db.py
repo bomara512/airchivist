@@ -10,6 +10,8 @@ from webapp.db import (
     get_unclassified_tags, confirm_suggestion,
     save_llm_suggestions, get_llm_suggestions, dismiss_llm_suggestion,
     is_llm_suggestion_cache_stale, get_videos_status_batch,
+    confirm_and_dismiss_suggestion, accept_noise_and_dismiss_suggestion,
+    add_alias_and_apply, edit_alias_and_apply,
 )
 
 
@@ -749,3 +751,253 @@ class TestGetVideosStatusBatch:
 
     def test_empty_list_returns_empty(self, db_conn):
         assert get_videos_status_batch(db_conn, []) == {}
+
+
+class TestConfirmAndDismissSuggestion:
+    """Test the composite confirm_and_dismiss_suggestion function."""
+
+    def _seed_raw_tags(self, db_conn, tag_names, video_id=1):
+        """Helper to add raw (unclassified) tags to a video."""
+        for name in tag_names:
+            db_conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
+            db_conn.commit()
+            tag_row = db_conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()
+            db_conn.execute(
+                "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (?, ?)",
+                (video_id, tag_row[0]),
+            )
+            db_conn.commit()
+
+    def test_creates_canonical_and_aliases_atomically(self, db_conn):
+        """Confirm and dismiss should create canonical, add aliases, and dismiss in one transaction."""
+        self._seed_raw_tags(db_conn, ["python", "py", "python3"])
+
+        confirm_and_dismiss_suggestion(
+            db_conn,
+            canonical_name="Python",
+            accepted_members=["python", "py", "python3"],
+            suggestion_id=1,  # dummy id
+            all_suggestion_members=["python", "py", "python3"],
+        )
+
+        # Canonical tag should exist
+        canonical = db_conn.execute(
+            "SELECT id FROM tags WHERE name = ? AND is_canonical = 1", ("python",)
+        ).fetchone()
+        assert canonical is not None
+
+        # Aliases should exist
+        aliases = db_conn.execute(
+            "SELECT pattern FROM tag_aliases WHERE canonical_tag_id = ?", (canonical[0],)
+        ).fetchall()
+        patterns = {a[0] for a in aliases}
+        assert patterns == {"python", "py", "python3"}
+
+    def test_removes_raw_tags_from_unclassified_list(self, db_conn):
+        """After confirm, the raw tags should not appear in unclassified list (aliased exclusion)."""
+        # Seed each tag to 2+ videos to meet min_videos threshold
+        self._seed_raw_tags(db_conn, ["python", "py", "python3"], video_id=1)
+        self._seed_raw_tags(db_conn, ["python", "py", "python3"], video_id=2)
+
+        # Before confirm, they should be in unclassified
+        tags_before, _ = get_unclassified_tags(db_conn)
+        names_before = {t["name"] for t in tags_before}
+        assert {"python", "py", "python3"}.issubset(names_before)
+
+        # Confirm the suggestion
+        confirm_and_dismiss_suggestion(
+            db_conn,
+            canonical_name="Python",
+            accepted_members=["python", "py", "python3"],
+            suggestion_id=1,
+            all_suggestion_members=["python", "py", "python3"],
+        )
+
+        # After confirm, raw tags should NOT be in unclassified (excluded by alias pattern check)
+        tags_after, _ = get_unclassified_tags(db_conn)
+        names_after = {t["name"] for t in tags_after}
+        assert not {"python", "py", "python3"}.intersection(names_after), \
+            f"Raw tags should be excluded after aliasing, but found: {names_after & {'python', 'py', 'python3'}}"
+
+    def test_records_rejections_for_non_accepted_members(self, db_conn):
+        """Members not accepted should be recorded as rejections."""
+        self._seed_raw_tags(db_conn, ["python", "py", "python3"])
+
+        confirm_and_dismiss_suggestion(
+            db_conn,
+            canonical_name="Python",
+            accepted_members=["python"],
+            suggestion_id=1,
+            all_suggestion_members=["python", "py", "python3"],
+        )
+
+        # Check rejections were recorded
+        rejections = db_conn.execute(
+            "SELECT member_tag FROM llm_suggestion_rejections WHERE canonical = ?",
+            ("python",),
+        ).fetchall()
+        rejected_tags = {r[0] for r in rejections}
+        assert rejected_tags == {"py", "python3"}
+
+    def test_dismisses_suggestion(self, db_conn):
+        """The suggestion should be deleted."""
+        # First, add a suggestion
+        save_llm_suggestions(
+            db_conn,
+            [{"canonical": "Python", "members": ["python", "py"], "confidence": "high"}],
+            "test-hash",
+        )
+        suggestions = db_conn.execute("SELECT id FROM llm_suggestions WHERE canonical = 'Python'").fetchall()
+        assert len(suggestions) == 1
+        suggestion_id = suggestions[0][0]
+
+        self._seed_raw_tags(db_conn, ["python", "py"])
+
+        confirm_and_dismiss_suggestion(
+            db_conn,
+            canonical_name="Python",
+            accepted_members=["python", "py"],
+            suggestion_id=suggestion_id,
+            all_suggestion_members=["python", "py"],
+        )
+
+        # Suggestion should be deleted
+        remaining = db_conn.execute(
+            "SELECT id FROM llm_suggestions WHERE id = ?", (suggestion_id,)
+        ).fetchone()
+        assert remaining is None
+
+
+class TestAcceptNoiseAndDismissSuggestion:
+    """Test the composite accept_noise_and_dismiss_suggestion function."""
+
+    def _seed_raw_tags(self, db_conn, tag_names, video_id=1):
+        for name in tag_names:
+            db_conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
+            db_conn.commit()
+            tag_row = db_conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()
+            db_conn.execute(
+                "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (?, ?)",
+                (video_id, tag_row[0]),
+            )
+            db_conn.commit()
+
+    def test_marks_tags_as_noise(self, db_conn):
+        """Accepted members should be marked as noise."""
+        self._seed_raw_tags(db_conn, ["spam", "junk", "invalid"])
+
+        accept_noise_and_dismiss_suggestion(
+            db_conn,
+            suggestion_id=1,
+            noise_members=["spam", "junk"],
+            rejected_members=["invalid"],
+        )
+
+        # Check tags are marked as noise
+        noise_tags = db_conn.execute(
+            "SELECT name FROM tags WHERE is_noise = 1 ORDER BY name"
+        ).fetchall()
+        noise_names = {t[0] for t in noise_tags}
+        assert {"spam", "junk"}.issubset(noise_names)
+
+    def test_records_rejections(self, db_conn):
+        """Non-accepted members should be recorded as rejections."""
+        self._seed_raw_tags(db_conn, ["spam", "junk", "invalid"])
+
+        accept_noise_and_dismiss_suggestion(
+            db_conn,
+            suggestion_id=1,
+            noise_members=["spam", "junk"],
+            rejected_members=["invalid"],
+        )
+
+        # Check rejections
+        rejections = db_conn.execute(
+            "SELECT member_tag FROM llm_suggestion_rejections WHERE canonical = '_noise'"
+        ).fetchall()
+        rejected = {r[0] for r in rejections}
+        assert rejected == {"invalid"}
+
+    def test_dismisses_suggestion(self, db_conn):
+        """The suggestion should be deleted."""
+        save_llm_suggestions(
+            db_conn,
+            [{"canonical": "Noise", "members": ["spam", "junk"], "confidence": "high", "is_noise": True}],
+            "test-hash",
+        )
+        suggestions = db_conn.execute("SELECT id FROM llm_suggestions WHERE is_noise = 1").fetchall()
+        assert len(suggestions) == 1
+        suggestion_id = suggestions[0][0]
+
+        self._seed_raw_tags(db_conn, ["spam", "junk"])
+
+        accept_noise_and_dismiss_suggestion(
+            db_conn,
+            suggestion_id=suggestion_id,
+            noise_members=["spam", "junk"],
+            rejected_members=[],
+        )
+
+        # Suggestion should be deleted
+        remaining = db_conn.execute(
+            "SELECT id FROM llm_suggestions WHERE id = ?", (suggestion_id,)
+        ).fetchone()
+        assert remaining is None
+
+
+class TestAddAliasAndApply:
+    """Test the composite add_alias_and_apply function."""
+
+    def test_creates_alias_and_links_videos(self, db_conn):
+        """add_alias_and_apply should create alias and retroactively link videos."""
+        # Create a canonical tag
+        tag_id = create_canonical_tag(db_conn, "Python")
+
+        # Create a raw tag "py" and link to video
+        db_conn.execute("INSERT INTO tags (name) VALUES ('py')")
+        db_conn.commit()
+        raw_tag = db_conn.execute("SELECT id FROM tags WHERE name = 'py'").fetchone()
+        db_conn.execute(
+            "INSERT INTO video_tags (video_id_fk, tag_id_fk) VALUES (1, ?)", (raw_tag[0],)
+        )
+        db_conn.commit()
+
+        # Add alias "py" -> "python" canonical and apply
+        count = add_alias_and_apply(db_conn, tag_id, "py", "exact")
+
+        assert count == 1  # One video-tag association created
+        # Verify the video is now linked to the canonical tag
+        linked = db_conn.execute(
+            "SELECT video_id_fk FROM video_tags WHERE video_id_fk = 1 AND tag_id_fk = ?",
+            (tag_id,),
+        ).fetchone()
+        assert linked is not None
+
+
+class TestEditAliasAndApply:
+    """Test the composite edit_alias_and_apply function."""
+
+    def test_updates_alias_and_reapplies(self, db_conn):
+        """edit_alias_and_apply should update the pattern and retroactively apply."""
+        tag_id = create_canonical_tag(db_conn, "Python")
+        alias_id = add_alias(db_conn, tag_id, "py", "exact")
+
+        # Create raw tag "py3" and link to video
+        db_conn.execute("INSERT INTO tags (name) VALUES ('py3')")
+        db_conn.commit()
+        raw_tag = db_conn.execute("SELECT id FROM tags WHERE name = 'py3'").fetchone()
+        db_conn.execute(
+            "INSERT INTO video_tags (video_id_fk, tag_id_fk) VALUES (1, ?)", (raw_tag[0],)
+        )
+        db_conn.commit()
+
+        # Edit the alias from "py" to "py3" and reapply
+        count = edit_alias_and_apply(db_conn, alias_id, "py3", "exact")
+
+        assert count == 1  # One video-tag association created
+        # Verify the video is linked to canonical
+        linked = db_conn.execute(
+            "SELECT video_id_fk FROM video_tags WHERE video_id_fk = 1 AND tag_id_fk = ?",
+            (tag_id,),
+        ).fetchone()
+        assert linked is not None
