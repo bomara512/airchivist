@@ -4,6 +4,14 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ---
 
+### Fix manual tag assignment to existing canonical tags (2026-06-14)
+
+When manually assigning an unclassified tag to an existing canonical tag (e.g., select "srv strat", enter "blues guitar", click "Assign selected"), the alias was not being created. Root cause: `tag_suggest_confirm` route required `suggestion_id` to be present, but manual assignments (from the unclassified tag pool, not Smart Suggest) have no suggestion. Condition `if canonical_name and members and suggestion_id` failed; nothing happened.
+
+**Fix:** Split the route logic to handle `canonical_name + members` separately from `suggestion_id`. The `confirm_and_dismiss_suggestion` function now accepts `Optional[int]` for suggestion_id and only dismisses suggestions if one is provided. Result: manual assignments now create aliases correctly, and raw tags disappear from the unclassified list (excluded via `NOT IN (SELECT pattern FROM tag_aliases)` check).
+
+---
+
 ### Move multi-step route transactions into the DB layer (2026-06-14)
 
 Four routes performed multi-step writes sequentially across separate DB functions, each committing independently. Failure after an intermediate commit left the database in partial state. Fixed by consolidating each flow into a single composite DB function:
