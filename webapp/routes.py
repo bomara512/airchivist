@@ -321,10 +321,15 @@ def tag_suggest_confirm():
     canonical_name = request.form.get("canonical_name", "").strip()
     members = [m for m in request.form.getlist("member") if m.strip()]
     suggestion_id = request.form.get("suggestion_id", type=int)
-    if canonical_name and members and suggestion_id:
-        suggestion = _db.get_llm_suggestion_by_id(g.db, suggestion_id)
-        all_members = suggestion["members"] if suggestion else members
-        _db.confirm_and_dismiss_suggestion(g.db, canonical_name, members, suggestion_id, all_members)
+    if canonical_name and members:
+        if suggestion_id:
+            # Confirming from a Smart Suggest — also dismiss the suggestion
+            suggestion = _db.get_llm_suggestion_by_id(g.db, suggestion_id)
+            all_members = suggestion["members"] if suggestion else members
+            _db.confirm_and_dismiss_suggestion(g.db, canonical_name, members, suggestion_id, all_members)
+        else:
+            # Manual assignment — just create the aliases without a suggestion to dismiss
+            _db.confirm_and_dismiss_suggestion(g.db, canonical_name, members, None, members)
     elif suggestion_id:
         _db.dismiss_llm_suggestion(g.db, suggestion_id)
     return redirect(url_for("main.tags"))

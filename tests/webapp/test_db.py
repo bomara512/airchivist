@@ -867,6 +867,31 @@ class TestConfirmAndDismissSuggestion:
         ).fetchone()
         assert remaining is None
 
+    def test_manual_assignment_without_suggestion(self, db_conn):
+        """Manual assignment without a Smart Suggest should create aliases but not dismiss anything."""
+        self._seed_raw_tags(db_conn, ["srv strat"], video_id=1)
+        self._seed_raw_tags(db_conn, ["srv strat"], video_id=2)
+
+        # Manually assign "srv strat" to existing canonical "Python" (no suggestion_id)
+        confirm_and_dismiss_suggestion(
+            db_conn,
+            canonical_name="Python",
+            accepted_members=["srv strat"],
+            suggestion_id=None,  # No suggestion to dismiss
+            all_suggestion_members=["srv strat"],
+        )
+
+        # Aliases should be created
+        aliases = db_conn.execute(
+            "SELECT pattern FROM tag_aliases WHERE pattern = 'srv strat'"
+        ).fetchall()
+        assert len(aliases) == 1
+
+        # Raw tag should no longer appear in unclassified (excluded by alias pattern)
+        tags, _ = get_unclassified_tags(db_conn)
+        names = {t["name"] for t in tags}
+        assert "srv strat" not in names
+
 
 class TestAcceptNoiseAndDismissSuggestion:
     """Test the composite accept_noise_and_dismiss_suggestion function."""

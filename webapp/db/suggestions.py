@@ -121,13 +121,13 @@ def confirm_and_dismiss_suggestion(
     conn: sqlite3.Connection,
     canonical_name: str,
     accepted_members: list[str],
-    suggestion_id: int,
+    suggestion_id: Optional[int],
     all_suggestion_members: list[str],
 ) -> int:
-    """Create canonical tag, add exact aliases for accepted members, record rejections, dismiss suggestion.
+    """Create canonical tag, add exact aliases for accepted members, record rejections, optionally dismiss suggestion.
 
     Single transaction: creates canonical, adds aliases with retroactive apply, records rejections,
-    deletes the suggestion. Returns count of new video-tag associations created.
+    and (if suggestion_id is provided) deletes the suggestion. Returns count of new video-tag associations created.
     """
     canonical_name = canonical_name.strip().lower()
 
@@ -171,8 +171,9 @@ def confirm_and_dismiss_suggestion(
             (tag, canonical_name),
         )
 
-    # Step 4: Dismiss the suggestion
-    conn.execute("DELETE FROM llm_suggestions WHERE id = ?", (suggestion_id,))
+    # Step 4: Dismiss the suggestion (if one was provided)
+    if suggestion_id is not None:
+        conn.execute("DELETE FROM llm_suggestions WHERE id = ?", (suggestion_id,))
 
     conn.commit()
     return total_associations
