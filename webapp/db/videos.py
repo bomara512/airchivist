@@ -354,7 +354,7 @@ def generate_rediscover_shelf(conn: sqlite3.Connection) -> dict:
 def get_current_rediscover_shelf(conn: sqlite3.Connection) -> Optional[dict]:
     """Fetch active rediscover shelf if not expired; regenerate if expired or missing."""
     shelf = conn.execute(
-        "SELECT video_ids, reasons, generated_at, expires_at FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
+        "SELECT video_ids, generated_at, expires_at FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
     ).fetchone()
 
     if not shelf:
