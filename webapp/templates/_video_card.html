@@ -32,6 +32,7 @@
       <span title="Published {{ video.date_published[:10] if video.date_published else 'unknown' }}">{{ video.date_published | date }}</span>
       <span title="Added to library {{ video.date_added[:10] if video.date_added else 'unknown' }}">{{ video.date_added | date }}</span>
       {% if video.date_last_viewed %}<span title="Last opened from ViewTube {{ video.date_last_viewed[:10] }}">{{ video.date_last_viewed | date }}</span>{% endif %}
+      <button class="watch-later-btn" data-video-id="{{ video.video_id }}" title="Add to Watch Later">⏱</button>
     </div>
     {% if video.tags %}
     <div class="video-tags" data-video-id="{{ video.video_id }}">

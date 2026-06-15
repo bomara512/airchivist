@@ -2,6 +2,7 @@
 
 ## High priority
 
+- ~~Watch Later queue — ordered list of videos to watch next (with reordering, remove, etc.)~~
 - [ ] "Watched" toggle — mark a video as fully watched without clicking through to YouTube
 - [ ] "Unwatched only" filter / sort by unwatched first (personal_view_count = 0)
 - [ ] Date range filter (e.g. added in the last 30 days)

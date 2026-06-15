@@ -356,3 +356,55 @@ h1 { margin-top: 0; }
   text-align: center;
   padding: 2rem;
 }
+
+/* Watch Later buttons */
+.watch-later-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0;
+  margin-left: 0.4rem;
+  transition: color 0.2s, opacity 0.2s;
+}
+
+.watch-later-btn:hover:not(:disabled) {
+  color: #0099ff;
+}
+
+.watch-later-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.shelf-card-watch-later {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.25rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, opacity 0.2s;
+}
+
+.shelf-card-watch-later:hover:not(:disabled) {
+  color: #0099ff;
+}
+
+.shelf-card-watch-later:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.shelf-card {
+  position: relative;
+}

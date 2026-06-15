@@ -167,6 +167,29 @@
     fetch(`/videos/${videoId}/hide`, { method: 'POST' })
       .then(function (r) { if (r.ok) card.remove(); });
   });
+
+  // Watch Later queue button (main video list)
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.watch-later-btn');
+    if (!btn) return;
+    const videoId = btn.dataset.videoId;
+    const url = 'https://www.youtube.com/watch?v=' + videoId;
+    fetch('/api/watch-later/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.status === 'added') {
+          btn.style.opacity = '0.5';
+          btn.disabled = true;
+          btn.title = 'Added to Watch Later';
+        } else if (data.status === 'already_in_queue') {
+          btn.title = 'Already in Watch Later';
+        }
+      });
+  });
 })();
 
 // Rediscover shelf
@@ -198,6 +221,7 @@
             <p class="shelf-reason">${video.reason || ''}</p>
           </div>
         </a>
+        <button class="shelf-card-watch-later" data-video-id="${video.id}" title="Add to Watch Later">⏱</button>
       `;
       carousel.appendChild(card);
     });
@@ -274,6 +298,29 @@
       }
     }
   }, 60000);
+
+  // Watch Later queue button (rediscover shelf)
+  carousel.addEventListener('click', function (e) {
+    const btn = e.target.closest('.shelf-card-watch-later');
+    if (!btn) return;
+    const videoId = btn.dataset.videoId;
+    const url = 'https://www.youtube.com/watch?v=' + videoId;
+    fetch('/api/watch-later/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.status === 'added') {
+          btn.style.opacity = '0.5';
+          btn.disabled = true;
+          btn.title = 'Added to Watch Later';
+        } else if (data.status === 'already_in_queue') {
+          btn.title = 'Already in Watch Later';
+        }
+      });
+  });
 })();
 </script>
 {% endblock %}
