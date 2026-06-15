@@ -24,7 +24,12 @@
 - [ ] Archive button — hide videos from main view without deleting them
 - [ ] Tag distillation — consolidate many similar tags into a single canonical concept for cleaner search and grouping
 - [ ] Show ungrouped canonical tags on the /tags page — canonical tags not assigned to any tag group are currently invisible unless you use Auto-assign
-- [ ] Channel bookmarking — save creator channels separately from individual videos (extension should show a "bookmark channel" action on channel pages, not "video not found")
+- [ ] Creator pages support — full support for bookmarking and tracking YouTube creator channels (not just videos)
+  - [ ] Crawler: extract and store channel URLs from Firefox bookmarks
+  - [ ] Schema: channel entity with name, URL, subscriber count, description
+  - [ ] Extension: "bookmark channel" action on youtube.com/c/* and youtube.com/@* pages
+  - [ ] UI: channels view alongside videos, tagging channels, channel-specific stats
+  - [ ] Features: all existing functionality (tags, viewing history, search) should work for channels where appropriate
 
 ## Metadata / Quality of life
 
