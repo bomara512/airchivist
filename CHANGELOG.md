@@ -4,6 +4,19 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Implement Watch Later queue feature (2026-06-14)
+
+Added a dedicated Watch Later queue for bookmarking videos to watch later. Features:
+- DB layer: `watch_later` table with position-based ordering, `add_to_watch_later`, `remove_from_watch_later`, `is_in_watch_later`, `get_watch_later_queue` functions
+- API routes: POST /api/watch-later/add, /api/watch-later/remove, /api/watch-later/status with CORS headers and video validation
+- UI: /watch-later dedicated page with horizontal list layout, remove buttons, expiration counter badges
+- Integration: ⏱ button on main video list cards and rediscover shelf cards (fade/disable on click)
+- Navigation: Watch Later link in main header between Tags and Hidden
+
+**Trade-offs:** No drag-to-reorder in UI (`reorder_watch_later` function exists but not wired); could be added later. Watches single video — no multi-select bulk operations. Page reloads when queue becomes empty (could use HTMX swap instead).
+
+---
+
 ### Fix manual tag assignment to existing canonical tags (2026-06-14)
 
 When manually assigning an unclassified tag to an existing canonical tag (e.g., select "srv strat", enter "blues guitar", click "Assign selected"), the alias was not being created. Root cause: `tag_suggest_confirm` route required `suggestion_id` to be present, but manual assignments (from the unclassified tag pool, not Smart Suggest) have no suggestion. Condition `if canonical_name and members and suggestion_id` failed; nothing happened.

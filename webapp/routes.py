@@ -213,6 +213,16 @@ def tags():
     )
 
 
+@bp.route("/watch-later")
+def watch_later():
+    queue = _db.get_watch_later_queue(g.db)
+    return render_template(
+        "watch-later.html",
+        queue=queue,
+        queue_count=len(queue),
+    )
+
+
 @bp.route("/tags/<int:tag_id>/alias", methods=["POST"])
 def tag_add_alias(tag_id):
     pattern = request.form.get("pattern", "").strip()
@@ -569,6 +579,12 @@ def api_watch_later_add():
         return resp, 400
 
     video_id = m.group(1)
+    video = _db.get_video_by_id(g.db, video_id)
+    if not video:
+        resp = jsonify({"status": "error", "error": "Video not found"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 404
+
     added = _db.add_to_watch_later(g.db, video_id)
     if not added:
         resp = jsonify({"status": "already_in_queue"})
@@ -594,9 +610,15 @@ def api_watch_later_remove():
         return resp, 400
 
     video_id = m.group(1)
+    video = _db.get_video_by_id(g.db, video_id)
+    if not video:
+        resp = jsonify({"status": "error", "error": "Video not found"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 404
+
     removed = _db.remove_from_watch_later(g.db, video_id)
     if not removed:
-        resp = jsonify({"status": "not_found"})
+        resp = jsonify({"status": "error", "error": "Not in queue"})
         resp.headers.update(_CORS_HEADERS)
         return resp, 404
 
@@ -619,6 +641,12 @@ def api_watch_later_status():
         return resp, 400
 
     video_id = m.group(1)
+    video = _db.get_video_by_id(g.db, video_id)
+    if not video:
+        resp = jsonify({"status": "error", "error": "Video not found"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 404
+
     in_queue = _db.is_in_watch_later(g.db, video_id)
     resp = jsonify({"in_queue": in_queue})
     resp.headers.update(_CORS_HEADERS)

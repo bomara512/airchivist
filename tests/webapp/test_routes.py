@@ -219,3 +219,123 @@ class TestApiAddHiddenVideo:
         assert data["title"] == "Guitar Lesson 1"
 
 
+class TestWatchLaterPage:
+    def test_returns_200(self, client):
+        resp = client.get("/watch-later")
+        assert resp.status_code == 200
+
+    def test_empty_queue_message(self, client):
+        resp = client.get("/watch-later")
+        assert b"Your queue is empty" in resp.data
+
+    def test_shows_queued_videos(self, client):
+        client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.get("/watch-later")
+        assert resp.status_code == 200
+        assert b"Guitar Lesson 1" in resp.data
+
+    def test_queue_count_in_title(self, client):
+        client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.get("/watch-later")
+        assert b"Watch Later (1)" in resp.data
+
+
+class TestApiWatchLaterAdd:
+    def test_add_video_returns_added(self, client):
+        resp = client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["status"] == "added"
+
+    def test_duplicate_add_returns_already_in_queue(self, client):
+        client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["status"] == "already_in_queue"
+
+    def test_invalid_video_returns_error(self, client):
+        resp = client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=XXXXXXXXXXX"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+
+    def test_invalid_url_returns_error(self, client):
+        resp = client.post("/api/watch-later/add", json={"url": "https://example.com"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+
+    def test_cors_header_present(self, client):
+        resp = client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+    def test_options_preflight(self, client):
+        resp = client.options("/api/watch-later/add")
+        assert resp.status_code == 204
+
+
+class TestApiWatchLaterRemove:
+    def test_remove_video_returns_removed(self, client):
+        client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.post("/api/watch-later/remove", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["status"] == "removed"
+
+    def test_remove_nonexistent_video_returns_error(self, client):
+        resp = client.post("/api/watch-later/remove", json={"url": "https://www.youtube.com/watch?v=XXXXXXXXXXX"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+        assert resp.status_code == 404
+
+    def test_remove_not_in_queue_returns_error(self, client):
+        resp = client.post("/api/watch-later/remove", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+        assert resp.status_code == 404
+
+    def test_remove_video_from_queue(self, client):
+        client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        client.post("/api/watch-later/remove", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.get("/watch-later")
+        assert b"Guitar Lesson 1" not in resp.data
+        assert b"Your queue is empty" in resp.data
+
+    def test_cors_header_present(self, client):
+        client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.post("/api/watch-later/remove", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+    def test_options_preflight(self, client):
+        resp = client.options("/api/watch-later/remove")
+        assert resp.status_code == 204
+
+
+class TestApiWatchLaterStatus:
+    def test_status_for_queued_video(self, client):
+        client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.post("/api/watch-later/status", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["in_queue"] is True
+
+    def test_status_for_non_queued_video(self, client):
+        resp = client.post("/api/watch-later/status", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["in_queue"] is False
+
+    def test_nonexistent_video_returns_error(self, client):
+        resp = client.post("/api/watch-later/status", json={"url": "https://www.youtube.com/watch?v=XXXXXXXXXXX"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+        assert resp.status_code == 404
+
+    def test_invalid_url_returns_error(self, client):
+        resp = client.post("/api/watch-later/status", json={"url": "https://example.com"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+
+    def test_cors_header_present(self, client):
+        resp = client.post("/api/watch-later/status", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+    def test_options_preflight(self, client):
+        resp = client.options("/api/watch-later/status")
+        assert resp.status_code == 204
+
+
