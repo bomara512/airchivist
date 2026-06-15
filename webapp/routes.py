@@ -555,3 +555,73 @@ def api_rediscover_shelf_refresh():
     return resp
 
 
+@bp.route("/api/watch-later/add", methods=["POST", "OPTIONS"])
+def api_watch_later_add():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    m = _YT_ID_RE.search(url)
+    if not m:
+        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 400
+
+    video_id = m.group(1)
+    added = _db.add_to_watch_later(g.db, video_id)
+    if not added:
+        resp = jsonify({"status": "already_in_queue"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 409
+
+    resp = jsonify({"status": "added"})
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+
+@bp.route("/api/watch-later/remove", methods=["POST", "OPTIONS"])
+def api_watch_later_remove():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    m = _YT_ID_RE.search(url)
+    if not m:
+        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 400
+
+    video_id = m.group(1)
+    removed = _db.remove_from_watch_later(g.db, video_id)
+    if not removed:
+        resp = jsonify({"status": "not_found"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 404
+
+    resp = jsonify({"status": "removed"})
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+
+@bp.route("/api/watch-later/status", methods=["POST", "OPTIONS"])
+def api_watch_later_status():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    m = _YT_ID_RE.search(url)
+    if not m:
+        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 400
+
+    video_id = m.group(1)
+    in_queue = _db.is_in_watch_later(g.db, video_id)
+    resp = jsonify({"in_queue": in_queue})
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+

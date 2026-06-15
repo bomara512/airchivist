@@ -58,6 +58,7 @@ from webapp.db.tags import (
 from webapp.db.videos import (
     ALLOWED_SORT_COLUMNS,
     ALLOWED_SORT_DIRS,
+    add_to_watch_later,
     add_video,
     count_hidden_videos,
     count_videos,
@@ -70,10 +71,15 @@ from webapp.db.videos import (
     get_stats,
     get_video_by_id,
     get_videos_status_batch,
+    get_watch_later_count,
+    get_watch_later_queue,
     hide_video,
+    is_in_watch_later,
     is_rediscover_shelf_expired,
     record_visit,
     refresh_rediscover_shelf,
+    remove_from_watch_later,
+    reorder_watch_later,
     unhide_video,
 )
 
@@ -100,9 +106,11 @@ __all__ = [
     "get_video_titles_for_tag", "mark_tag_noise", "mark_tags_noise_bulk", "remove_video_tag",
     "set_tag_keywords",
     # videos
-    "ALLOWED_SORT_COLUMNS", "ALLOWED_SORT_DIRS", "add_video", "count_hidden_videos",
-    "count_videos", "delete_video", "generate_rediscover_shelf", "get_all_channels",
-    "get_all_videos", "get_current_rediscover_shelf", "get_hidden_videos", "get_stats",
-    "get_video_by_id", "get_videos_status_batch", "hide_video", "is_rediscover_shelf_expired",
-    "record_visit", "refresh_rediscover_shelf", "unhide_video",
+    "ALLOWED_SORT_COLUMNS", "ALLOWED_SORT_DIRS", "add_to_watch_later", "add_video",
+    "count_hidden_videos", "count_videos", "delete_video", "generate_rediscover_shelf",
+    "get_all_channels", "get_all_videos", "get_current_rediscover_shelf", "get_hidden_videos",
+    "get_stats", "get_video_by_id", "get_videos_status_batch", "get_watch_later_count",
+    "get_watch_later_queue", "hide_video", "is_in_watch_later", "is_rediscover_shelf_expired",
+    "record_visit", "refresh_rediscover_shelf", "remove_from_watch_later", "reorder_watch_later",
+    "unhide_video",
 ]

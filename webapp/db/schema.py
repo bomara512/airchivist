@@ -5,6 +5,13 @@ def init_webapp_tables(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript("""
+        CREATE TABLE IF NOT EXISTS watch_later (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            video_id_fk INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+            position   INTEGER NOT NULL,
+            added_at   TEXT NOT NULL,
+            UNIQUE(video_id_fk)
+        );
         CREATE TABLE IF NOT EXISTS rediscover_shelf (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             generated_at TEXT NOT NULL,

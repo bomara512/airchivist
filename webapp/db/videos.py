@@ -425,3 +425,137 @@ def is_rediscover_shelf_expired(conn: sqlite3.Connection) -> bool:
 def refresh_rediscover_shelf(conn: sqlite3.Connection) -> dict:
     """Force regeneration of shelf."""
     return generate_rediscover_shelf(conn)
+
+
+def add_to_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
+    """Add a video to the watch later queue. Returns True if added, False if already in queue."""
+    # Get the video row
+    video = conn.execute(
+        "SELECT id FROM videos WHERE video_id = ?", (video_id,)
+    ).fetchone()
+    if not video:
+        return False
+
+    # Check if already in queue
+    existing = conn.execute(
+        "SELECT id FROM watch_later WHERE video_id_fk = ?", (video["id"],)
+    ).fetchone()
+    if existing:
+        return False
+
+    # Get the next position
+    max_pos = conn.execute(
+        "SELECT MAX(position) FROM watch_later"
+    ).fetchone()[0] or 0
+
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        "INSERT INTO watch_later (video_id_fk, position, added_at) VALUES (?, ?, ?)",
+        (video["id"], max_pos + 1, now),
+    )
+    conn.commit()
+    return True
+
+
+def remove_from_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
+    """Remove a video from the watch later queue. Returns True if removed, False if not found."""
+    video = conn.execute(
+        "SELECT id FROM videos WHERE video_id = ?", (video_id,)
+    ).fetchone()
+    if not video:
+        return False
+
+    # Get the position being removed
+    row = conn.execute(
+        "SELECT position FROM watch_later WHERE video_id_fk = ?", (video["id"],)
+    ).fetchone()
+    if not row:
+        return False
+
+    pos = row[0]
+
+    # Delete the video
+    conn.execute(
+        "DELETE FROM watch_later WHERE video_id_fk = ?", (video["id"],)
+    )
+
+    # Shift down positions after the deleted one
+    conn.execute(
+        "UPDATE watch_later SET position = position - 1 WHERE position > ?", (pos,)
+    )
+    conn.commit()
+    return True
+
+
+def get_watch_later_queue(conn: sqlite3.Connection) -> list:
+    """Get all videos in the watch later queue, ordered by position."""
+    rows = conn.execute("""
+        SELECT v.video_id, v.title, v.channel_name, v.thumbnail_url, v.yt_view_count, wl.position, wl.added_at
+        FROM watch_later wl
+        JOIN videos v ON v.id = wl.video_id_fk
+        ORDER BY wl.position ASC
+    """).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_watch_later_count(conn: sqlite3.Connection) -> int:
+    """Get the number of videos in the watch later queue."""
+    return conn.execute("SELECT COUNT(*) FROM watch_later").fetchone()[0]
+
+
+def is_in_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
+    """Check if a video is in the watch later queue."""
+    video = conn.execute(
+        "SELECT id FROM videos WHERE video_id = ?", (video_id,)
+    ).fetchone()
+    if not video:
+        return False
+
+    row = conn.execute(
+        "SELECT id FROM watch_later WHERE video_id_fk = ?", (video["id"],)
+    ).fetchone()
+    return row is not None
+
+
+def reorder_watch_later(conn: sqlite3.Connection, video_id: str, new_position: int) -> bool:
+    """Move a video to a new position in the queue. Returns True if moved, False if video not found."""
+    video = conn.execute(
+        "SELECT id FROM videos WHERE video_id = ?", (video_id,)
+    ).fetchone()
+    if not video:
+        return False
+
+    row = conn.execute(
+        "SELECT position FROM watch_later WHERE video_id_fk = ?", (video["id"],)
+    ).fetchone()
+    if not row:
+        return False
+
+    old_pos = row[0]
+    if old_pos == new_position:
+        return True  # No change needed
+
+    # Get queue size
+    queue_size = conn.execute("SELECT COUNT(*) FROM watch_later").fetchone()[0]
+    new_position = max(1, min(new_position, queue_size))  # Clamp to valid range
+
+    if old_pos < new_position:
+        # Moving down: shift items between old and new up
+        conn.execute(
+            "UPDATE watch_later SET position = position - 1 WHERE position > ? AND position <= ?",
+            (old_pos, new_position),
+        )
+    else:
+        # Moving up: shift items between new and old down
+        conn.execute(
+            "UPDATE watch_later SET position = position + 1 WHERE position >= ? AND position < ?",
+            (new_position, old_pos),
+        )
+
+    # Set the video to its new position
+    conn.execute(
+        "UPDATE watch_later SET position = ? WHERE video_id_fk = ?",
+        (new_position, video["id"]),
+    )
+    conn.commit()
+    return True
