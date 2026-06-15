@@ -19,6 +19,7 @@
 
 ## Organization
 
+- [ ] Unify video card UI and functionality — consolidate _video_card.html (main list), rediscover shelf cards (index.html inline), and watch-later list items into a single reusable component with consistent actions (tags, metadata, watch-later button, context menu, etc)
 - [ ] Notes field per video — freeform text to add while watching
 - [ ] Playlists / collections — group videos manually beyond tags
 - [ ] Bulk tag assignment — select multiple videos and tag them at once
