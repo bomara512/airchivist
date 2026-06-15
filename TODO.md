@@ -11,9 +11,9 @@
 
 ## Discovery
 
-- [ ] Surface old content — random video button, or random from least recently viewed
+- [ ] Surface old content — random video button (related to rediscover shelf)
 - [ ] "More like this" button on video cards
-- [ ] Recently added shelf on the homepage
+- ~~Rediscover shelf — least recently viewed videos, 20 random from pool, sticky for 7 days, manually refreshable~~
 - [ ] "Continue watching" section — videos started but not finished (requires progress tracking)
 
 ## Organization

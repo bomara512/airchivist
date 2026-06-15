@@ -1,6 +1,8 @@
+import json
+import random
 import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from crawler.datastore import apply_aliases
@@ -271,3 +273,155 @@ def get_hidden_videos(
 
 def count_hidden_videos(conn: sqlite3.Connection) -> int:
     return conn.execute("SELECT COUNT(*) FROM videos WHERE is_hidden = 1").fetchone()[0]
+
+
+def generate_rediscover_shelf(conn: sqlite3.Connection) -> dict:
+    """Generate a new rediscover shelf: 20 random from least-recently-viewed pool.
+
+    Prioritizes unwatched (personal_view_count = 0), then falls back to oldest-viewed.
+    Returns dict with video_ids, reasons, generated_at, expires_at.
+    """
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=7)
+
+    # Fetch unwatched videos
+    unwatched = conn.execute("""
+        SELECT id, video_id, title, channel_name, personal_view_count, date_last_viewed
+        FROM videos
+        WHERE personal_view_count = 0
+        ORDER BY date_added ASC
+    """).fetchall()
+
+    # Fetch oldest-viewed videos
+    viewed = conn.execute("""
+        SELECT id, video_id, title, channel_name, personal_view_count, date_last_viewed
+        FROM videos
+        WHERE personal_view_count > 0
+        ORDER BY date_last_viewed ASC
+    """).fetchall()
+
+    # Combine pools: unwatched first, then viewed
+    pool = [dict(r) for r in unwatched] + [dict(r) for r in viewed]
+
+    if not pool:
+        # Empty library — store empty shelf
+        conn.execute(
+            "DELETE FROM rediscover_shelf"
+        )
+        conn.execute(
+            "INSERT INTO rediscover_shelf (generated_at, expires_at, pool, video_ids) VALUES (?, ?, ?, ?)",
+            (now.isoformat(), expires_at.isoformat(), "[]", "[]"),
+        )
+        conn.commit()
+        return {"video_ids": [], "reasons": {}, "generated_at": now.isoformat(), "expires_at": expires_at.isoformat()}
+
+    # Select 20 random from the pool
+    selected = random.sample(pool, min(20, len(pool)))
+    video_ids = [v["video_id"] for v in selected]
+    pool_ids = [v["video_id"] for v in pool]
+
+    # Compute reasons for each video
+    reasons = {}
+    for video in selected:
+        if video["personal_view_count"] == 0:
+            reasons[video["video_id"]] = "Never watched"
+        else:
+            last_viewed = datetime.fromisoformat(video["date_last_viewed"])
+            days_ago = (now - last_viewed).days
+            if days_ago == 0:
+                reasons[video["video_id"]] = "Last viewed today"
+            elif days_ago == 1:
+                reasons[video["video_id"]] = "Last viewed 1 day ago"
+            else:
+                reasons[video["video_id"]] = f"Last viewed {days_ago} days ago"
+
+    # Store in DB
+    conn.execute("DELETE FROM rediscover_shelf")
+    conn.execute(
+        "INSERT INTO rediscover_shelf (generated_at, expires_at, pool, video_ids) VALUES (?, ?, ?, ?)",
+        (now.isoformat(), expires_at.isoformat(), json.dumps(pool_ids), json.dumps(video_ids)),
+    )
+    conn.commit()
+
+    return {
+        "video_ids": video_ids,
+        "reasons": reasons,
+        "generated_at": now.isoformat(),
+        "expires_at": expires_at.isoformat(),
+    }
+
+
+def get_current_rediscover_shelf(conn: sqlite3.Connection) -> Optional[dict]:
+    """Fetch active rediscover shelf if not expired; regenerate if expired or missing."""
+    shelf = conn.execute(
+        "SELECT video_ids, reasons, generated_at, expires_at FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
+    ).fetchone()
+
+    if not shelf:
+        return generate_rediscover_shelf(conn)
+
+    video_ids = json.loads(shelf["video_ids"])
+    expires_at = datetime.fromisoformat(shelf["expires_at"])
+    now = datetime.now(timezone.utc)
+
+    if now >= expires_at:
+        return generate_rediscover_shelf(conn)
+
+    # Fetch full video data for each ID
+    if not video_ids:
+        return {
+            "videos": [],
+            "generated_at": shelf["generated_at"],
+            "expires_at": shelf["expires_at"],
+        }
+
+    placeholders = ",".join("?" * len(video_ids))
+    videos = conn.execute(f"""
+        SELECT id, video_id, title, channel_name, thumbnail_url, personal_view_count, date_last_viewed
+        FROM videos
+        WHERE video_id IN ({placeholders})
+    """, video_ids).fetchall()
+
+    # Compute reasons for each video
+    reasons = {}
+    for video in videos:
+        if video["personal_view_count"] == 0:
+            reasons[video["video_id"]] = "Never watched"
+        else:
+            last_viewed = datetime.fromisoformat(video["date_last_viewed"])
+            days_ago = (now - last_viewed).days
+            if days_ago == 0:
+                reasons[video["video_id"]] = "Last viewed today"
+            elif days_ago == 1:
+                reasons[video["video_id"]] = "Last viewed 1 day ago"
+            else:
+                reasons[video["video_id"]] = f"Last viewed {days_ago} days ago"
+
+    # Return in the order of video_ids (to preserve order from shelf generation)
+    video_dict = {v["video_id"]: dict(v) for v in videos}
+    ordered_videos = [video_dict[vid] for vid in video_ids if vid in video_dict]
+
+    return {
+        "videos": ordered_videos,
+        "reasons": reasons,
+        "generated_at": shelf["generated_at"],
+        "expires_at": shelf["expires_at"],
+    }
+
+
+def is_rediscover_shelf_expired(conn: sqlite3.Connection) -> bool:
+    """Check if current shelf has passed expires_at."""
+    shelf = conn.execute(
+        "SELECT expires_at FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
+    ).fetchone()
+
+    if not shelf:
+        return True
+
+    expires_at = datetime.fromisoformat(shelf["expires_at"])
+    return datetime.now(timezone.utc) >= expires_at
+
+
+def refresh_rediscover_shelf(conn: sqlite3.Connection) -> dict:
+    """Force regeneration of shelf."""
+    return generate_rediscover_shelf(conn)

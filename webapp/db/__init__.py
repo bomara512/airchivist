@@ -62,14 +62,18 @@ from webapp.db.videos import (
     count_hidden_videos,
     count_videos,
     delete_video,
+    generate_rediscover_shelf,
     get_all_channels,
     get_all_videos,
+    get_current_rediscover_shelf,
     get_hidden_videos,
     get_stats,
     get_video_by_id,
     get_videos_status_batch,
     hide_video,
+    is_rediscover_shelf_expired,
     record_visit,
+    refresh_rediscover_shelf,
     unhide_video,
 )
 
@@ -97,7 +101,8 @@ __all__ = [
     "set_tag_keywords",
     # videos
     "ALLOWED_SORT_COLUMNS", "ALLOWED_SORT_DIRS", "add_video", "count_hidden_videos",
-    "count_videos", "delete_video", "get_all_channels", "get_all_videos", "get_hidden_videos",
-    "get_stats", "get_video_by_id", "get_videos_status_batch", "hide_video", "record_visit",
-    "unhide_video",
+    "count_videos", "delete_video", "generate_rediscover_shelf", "get_all_channels",
+    "get_all_videos", "get_current_rediscover_shelf", "get_hidden_videos", "get_stats",
+    "get_video_by_id", "get_videos_status_batch", "hide_video", "is_rediscover_shelf_expired",
+    "record_visit", "refresh_rediscover_shelf", "unhide_video",
 ]

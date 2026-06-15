@@ -479,3 +479,79 @@ def api_hide():
     return resp
 
 
+@bp.route("/api/rediscover-shelf", methods=["GET", "OPTIONS"])
+def api_rediscover_shelf():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+
+    shelf = _db.get_current_rediscover_shelf(g.db)
+
+    if not shelf.get("videos"):
+        result = {
+            "shelf": [],
+            "expires_at": shelf.get("expires_at"),
+            "is_expired": False,
+        }
+    else:
+        result = {
+            "shelf": [
+                {
+                    "id": v["video_id"],
+                    "title": v["title"],
+                    "channel_name": v["channel_name"],
+                    "thumbnail_url": v["thumbnail_url"],
+                    "reason": shelf["reasons"].get(v["video_id"], ""),
+                }
+                for v in shelf["videos"]
+            ],
+            "expires_at": shelf.get("expires_at"),
+            "is_expired": _db.is_rediscover_shelf_expired(g.db),
+        }
+
+    resp = jsonify(result)
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+
+@bp.route("/api/rediscover-shelf/refresh", methods=["POST", "OPTIONS"])
+def api_rediscover_shelf_refresh():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+
+    shelf = _db.refresh_rediscover_shelf(g.db)
+
+    if not shelf.get("video_ids"):
+        result = {
+            "shelf": [],
+            "expires_at": shelf.get("expires_at"),
+            "is_expired": False,
+        }
+    else:
+        # Fetch full video data
+        placeholders = ",".join("?" * len(shelf["video_ids"]))
+        videos = g.db.execute(f"""
+            SELECT video_id, title, channel_name, thumbnail_url
+            FROM videos
+            WHERE video_id IN ({placeholders})
+        """, shelf["video_ids"]).fetchall()
+
+        result = {
+            "shelf": [
+                {
+                    "id": v["video_id"],
+                    "title": v["title"],
+                    "channel_name": v["channel_name"],
+                    "thumbnail_url": v["thumbnail_url"],
+                    "reason": shelf["reasons"].get(v["video_id"], ""),
+                }
+                for v in videos
+            ],
+            "expires_at": shelf.get("expires_at"),
+            "is_expired": False,
+        }
+
+    resp = jsonify(result)
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+
