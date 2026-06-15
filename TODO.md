@@ -24,6 +24,7 @@
 - [ ] Archive button — hide videos from main view without deleting them
 - [ ] Tag distillation — consolidate many similar tags into a single canonical concept for cleaner search and grouping
 - [ ] Show ungrouped canonical tags on the /tags page — canonical tags not assigned to any tag group are currently invisible unless you use Auto-assign
+- [ ] Channel bookmarking — save creator channels separately from individual videos (extension should show a "bookmark channel" action on channel pages, not "video not found")
 
 ## Metadata / Quality of life
 
