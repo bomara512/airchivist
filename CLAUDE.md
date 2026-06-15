@@ -1,5 +1,11 @@
 # ViewTube — Claude Code Instructions
 
+## Store plans in the project root
+
+All project plans are stored as `plan-*.md` files in the repository root, not in `~/.claude/`. Plans are versioned with the code and shared across sessions. Examples: `plan-webapp.md`, `plan-crawler.md`, `plan-rediscover-shelf.md`.
+
+When creating a new plan, ask the user first. Store it in the project root and commit it to git.
+
 ## Always update the plans
 
 Whenever you make an implementation change, update `plan-webapp.md` and/or
