@@ -231,19 +231,19 @@
 <p class="empty">No canonical tags yet. Create one above or assign from the pool.</p>
 {% endif %}
 
-<div id="pool-context-menu" class="alias-context-menu pool-context-menu">
+<div id="pool-context-menu" class="context-menu pool-context-menu">
   <div id="pool-ctx-titles" class="pool-ctx-titles"></div>
   <button id="pool-ctx-noise">⊘ Mark as noise</button>
 </div>
 
-<div id="alias-context-menu" class="alias-context-menu">
+<div id="context-menu" class="context-menu">
   <button id="ctx-edit">✏ Edit</button>
   <button id="ctx-delete">✕ Delete</button>
 </div>
 
 <script>
 (function () {
-  const menu = document.getElementById('alias-context-menu');
+  const menu = document.getElementById('context-menu');
   let activePill = null;
 
   function hideMenu() {

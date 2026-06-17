@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>Watch Later <span class="queue-count">{{ queue_count }}</span></h1>
+  <h1>Watch Later <span class="count-badge">{{ queue_count }}</span></h1>
   {% if not queue %}
   <p class="queue-desc empty">Your queue is empty</p>
   {% endif %}
