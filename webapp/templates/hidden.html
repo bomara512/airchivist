@@ -46,6 +46,7 @@
       </div>
       <div class="video-meta">
         <span>{{ video.yt_view_count | view_count }} views</span>
+        {% if video.personal_view_count %}<span title="Opened from ViewTube {{ video.personal_view_count }}×">{{ video.personal_view_count }}× watched</span>{% endif %}
         <span>{{ video.date_added | date }}</span>
         {% if video.date_hidden %}<span>Hidden {{ video.date_hidden | date }}</span>{% endif %}
       </div>
