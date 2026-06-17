@@ -221,7 +221,11 @@ def add_video(
 
 
 def hide_video(conn: sqlite3.Connection, video_id: str) -> None:
-    conn.execute("UPDATE videos SET is_hidden = 1 WHERE video_id = ?", (video_id,))
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        "UPDATE videos SET is_hidden = 1, date_hidden = ? WHERE video_id = ?",
+        (now, video_id),
+    )
     conn.commit()
 
 

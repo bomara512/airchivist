@@ -68,6 +68,7 @@ def init_webapp_tables(db_path: str) -> None:
         ("is_canonical", "ALTER TABLE tags    ADD COLUMN is_canonical BOOLEAN NOT NULL DEFAULT 0"),
         ("is_noise",     "ALTER TABLE tags    ADD COLUMN is_noise     BOOLEAN NOT NULL DEFAULT 0"),
         ("is_hidden",    "ALTER TABLE videos  ADD COLUMN is_hidden    BOOLEAN NOT NULL DEFAULT 0"),
+        ("date_hidden",  "ALTER TABLE videos  ADD COLUMN date_hidden  TEXT"),
     ]:
         try:
             conn.execute(ddl)

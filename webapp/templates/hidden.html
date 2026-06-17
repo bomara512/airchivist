@@ -38,11 +38,16 @@
         {{ video.title or video.video_id }}
       </a>
       <div class="video-channel">
+        {% if video.channel_id %}
+        <a href="https://www.youtube.com/channel/{{ video.channel_id }}" class="channel-link" target="_blank" rel="noopener noreferrer">{{ video.channel_name or video.channel_id }}</a>
+        {% else %}
         <span>{{ video.channel_name or '—' }}</span>
+        {% endif %}
       </div>
       <div class="video-meta">
         <span>{{ video.yt_view_count | view_count }} views</span>
         <span>{{ video.date_added | date }}</span>
+        {% if video.date_hidden %}<span>Hidden {{ video.date_hidden | date }}</span>{% endif %}
       </div>
       {% if video.tags %}
       <div class="video-tags" data-video-id="{{ video.video_id }}">
