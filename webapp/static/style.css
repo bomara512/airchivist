@@ -210,6 +210,62 @@ form button:hover { background: #ee0000; }
 
 .empty { color: #666; grid-column: 1/-1; }
 
+/* Delete confirmation modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.modal-open {
+  display: flex;
+}
+
+.modal-dialog {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 380px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+}
+
+.modal-dialog h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: #e8e8e8;
+}
+
+.modal-dialog p {
+  margin: 0 0 1.25rem;
+  font-size: 0.875rem;
+  color: #888;
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.btn-delete-confirm {
+  background: #cc0000;
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.9rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.btn-delete-confirm:hover { background: #ee0000; }
+
 h1 { margin-top: 0; }
 
 /* Rediscover shelf */

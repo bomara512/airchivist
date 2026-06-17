@@ -77,7 +77,7 @@
         <button type="submit" class="btn-restore">Restore</button>
       </form>
       <form action="{{ url_for('main.video_delete', video_id=video.video_id) }}" method="post" style="display:inline"
-            onsubmit="return confirm('Permanently delete this video?')">
+            data-confirm-delete>
         <button type="submit" class="btn-delete">Delete permanently</button>
       </form>
     </div>

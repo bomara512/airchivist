@@ -26,6 +26,18 @@
     {% block content %}{% endblock %}
   </main>
 
+  <!-- Delete confirmation modal -->
+  <div id="delete-modal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+      <h3 id="delete-modal-title">Delete permanently?</h3>
+      <p>This video will be removed from your library and cannot be restored.</p>
+      <div class="modal-actions">
+        <button id="delete-modal-cancel" class="secondary-btn">Cancel</button>
+        <button id="delete-modal-confirm" class="btn-delete-confirm">Delete permanently</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Context menus (shared across all pages) -->
   <div id="tag-pill-menu" class="alias-context-menu">
     <button id="tag-pill-remove">✕ Remove from video</button>
@@ -37,6 +49,45 @@
 
   <script>
   (function () {
+    // Delete confirmation modal
+    var deleteModal = document.getElementById('delete-modal');
+    var pendingDeleteForm = null;
+
+    function openDeleteModal(form) {
+      pendingDeleteForm = form;
+      deleteModal.setAttribute('aria-hidden', 'false');
+      deleteModal.classList.add('modal-open');
+      document.getElementById('delete-modal-confirm').focus();
+    }
+
+    function closeDeleteModal() {
+      deleteModal.setAttribute('aria-hidden', 'true');
+      deleteModal.classList.remove('modal-open');
+      pendingDeleteForm = null;
+    }
+
+    document.addEventListener('submit', function (e) {
+      var form = e.target.closest('form[data-confirm-delete]');
+      if (!form) return;
+      e.preventDefault();
+      openDeleteModal(form);
+    });
+
+    document.getElementById('delete-modal-confirm').addEventListener('click', function () {
+      if (pendingDeleteForm) pendingDeleteForm.submit();
+      closeDeleteModal();
+    });
+
+    document.getElementById('delete-modal-cancel').addEventListener('click', closeDeleteModal);
+
+    deleteModal.addEventListener('click', function (e) {
+      if (e.target === deleteModal) closeDeleteModal();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && deleteModal.classList.contains('modal-open')) closeDeleteModal();
+    });
+
     // Tag pill context menu
     var pillMenu = document.getElementById('tag-pill-menu');
     var activePill = null;
