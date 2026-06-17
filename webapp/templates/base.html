@@ -17,7 +17,7 @@
       <a href="{{ url_for('main.tags') }}" style="font-size:0.9rem;font-weight:400;">Tags</a>
       <a href="{{ url_for('main.watch_later') }}" style="font-size:0.9rem;font-weight:400;">Watch Later</a>
       {% if stats is defined and stats.hidden_count %}
-      <a href="{{ url_for('main.hidden') }}" class="nav-hidden">Hidden ({{ stats.hidden_count }})</a>
+      <a href="{{ url_for('main.hidden') }}" class="nav-hidden">Hidden</a>
       {% endif %}
       <a href="{{ url_for('main.install') }}" class="nav-install">Install bookmarklet</a>
     </nav>

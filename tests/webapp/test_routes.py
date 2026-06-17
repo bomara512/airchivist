@@ -118,7 +118,7 @@ class TestHiddenPage:
     def test_nav_hidden_link_appears(self, client):
         client.post("/videos/aaaaaaaaaa1/hide")
         resp = client.get("/")
-        assert b"Hidden (1)" in resp.data
+        assert b'nav-hidden' in resp.data
 
     def test_nav_hidden_link_absent_when_none(self, client):
         resp = client.get("/")
