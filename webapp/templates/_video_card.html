@@ -1,19 +1,30 @@
 {% set ctx = context | default("main") %}
 <div class="video-card" data-video-id="{{ video.video_id }}">
 
-  <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="thumb-link" target="_blank" rel="noopener noreferrer">
-    {% if video.thumbnail_url %}
-    <img src="{{ video.thumbnail_url }}" alt="{{ video.title }}" loading="lazy">
+  <div class="thumb-wrap">
+    <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="thumb-link" target="_blank" rel="noopener noreferrer">
+      {% if video.thumbnail_url %}
+      <img src="{{ video.thumbnail_url }}" alt="{{ video.title }}" loading="lazy">
+      {% else %}
+      <div class="no-thumb"></div>
+      {% endif %}
+      {% if video.duration_seconds %}
+      <span class="duration-overlay">{{ video.duration_seconds | duration }}</span>
+      {% endif %}
+      {% if ctx == "watch_later" and position is defined %}
+      <span class="queue-position-badge">{{ position }}</span>
+      {% endif %}
+    </a>
+    {% if ctx == "watch_later" %}
+    <button class="queue-remove-btn" data-video-id="{{ video.video_id }}" title="Remove from queue">✕</button>
     {% else %}
-    <div class="no-thumb"></div>
+    {% set in_wl = video.video_id in watch_later_ids %}
+    <button class="watch-later-btn"
+            data-video-id="{{ video.video_id }}"
+            title="{{ 'Already in Watch Later' if in_wl else 'Add to Watch Later' }}"
+            {% if in_wl %}disabled{% endif %}>⏱</button>
     {% endif %}
-    {% if video.duration_seconds %}
-    <span class="duration-overlay">{{ video.duration_seconds | duration }}</span>
-    {% endif %}
-    {% if ctx == "watch_later" and position is defined %}
-    <span class="queue-position-badge">{{ position }}</span>
-    {% endif %}
-  </a>
+  </div>
 
   <div class="video-info">
     <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="video-title" target="_blank" rel="noopener noreferrer">
@@ -59,17 +70,6 @@
     </div>
     {% endif %}
 
-    <div class="video-actions">
-      {% if ctx == "watch_later" %}
-      <button class="queue-remove-btn" data-video-id="{{ video.video_id }}" title="Remove from queue">✕</button>
-      {% else %}
-      {% set in_wl = video.video_id in watch_later_ids %}
-      <button class="watch-later-btn"
-              data-video-id="{{ video.video_id }}"
-              title="{{ 'Already in Watch Later' if in_wl else 'Add to Watch Later' }}"
-              {% if in_wl %}disabled{% endif %}>⏱</button>
-      {% endif %}
-    </div>
   </div>
 
 </div>

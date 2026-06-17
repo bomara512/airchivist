@@ -40,6 +40,7 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 
 .video-card { background: #1a1a1a; border-radius: 8px; overflow: hidden; }
 
+.thumb-wrap { position: relative; }
 .thumb-link { display: block; aspect-ratio: 16/9; background: #222; overflow: hidden; position: relative; }
 .duration-overlay { position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.85); color: #fff; font-size: 0.75rem; font-weight: 600; padding: 1px 5px; border-radius: 3px; pointer-events: none; }
 .thumb-link img { width: 100%; height: 100%; object-fit: cover; }
@@ -59,7 +60,6 @@ main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 .video-meta span::after { content: "·"; margin-left: 0.4rem; }
 .video-meta span:last-of-type::after { content: ""; }
 
-.video-actions { display: flex; align-items: center; margin-top: 0.4rem; }
 
 .video-tags { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .tag-pill { background: #2a2a2a; color: #aaa; text-decoration: none; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.75rem; }
@@ -333,44 +333,36 @@ h1 { margin-top: 0; }
   padding: 2rem;
 }
 
-/* Watch Later button (main list and shelf cards) */
-.watch-later-btn {
-  background: none;
-  border: none;
-  color: #999;
-  cursor: pointer;
-  font-size: 0.9rem;
-  padding: 0;
-  transition: color 0.2s, opacity 0.2s;
-}
-
-.watch-later-btn:hover:not(:disabled) { color: #0099ff; }
-
-.watch-later-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* Remove from queue button (watch-later cards) */
+/* Watch Later / Remove buttons — thumbnail overlay (top-right corner) */
+.watch-later-btn,
 .queue-remove-btn {
-  background: none;
-  border: 1px solid #444;
-  color: #e53935;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  border: none;
+  border-radius: 4px;
+  color: #ccc;
   cursor: pointer;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 3px;
+  font-size: 0.8rem;
+  width: 1.6rem;
+  height: 1.6rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  z-index: 1;
 }
 
-.queue-remove-btn:hover {
-  background: #e53935;
-  color: #fff;
-  border-color: #e53935;
-}
+.thumb-wrap:hover .watch-later-btn,
+.thumb-wrap:hover .queue-remove-btn { opacity: 1; }
+
+.watch-later-btn:hover:not(:disabled) { color: #fff; background: rgba(0, 153, 255, 0.85); }
+.watch-later-btn:disabled { opacity: 0.5 !important; cursor: default; color: #4caf50; }
+
+.queue-remove-btn:hover { color: #fff; background: rgba(229, 57, 53, 0.85); }
 
 /* Watch Later page chrome */
 .watch-later-header {
