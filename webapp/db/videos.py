@@ -158,6 +158,18 @@ def record_visit(conn: sqlite3.Connection, video_id: str) -> None:
         "date_last_viewed = ? WHERE video_id = ?",
         (now, video_id),
     )
+    # Remove from rediscover shelf if present — viewed videos don't need rediscovering
+    row = conn.execute(
+        "SELECT rowid, video_ids FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
+    ).fetchone()
+    if row:
+        video_ids = json.loads(row["video_ids"])
+        if video_id in video_ids:
+            video_ids = [v for v in video_ids if v != video_id]
+            conn.execute(
+                "UPDATE rediscover_shelf SET video_ids = ? WHERE rowid = ?",
+                (json.dumps(video_ids), row["rowid"]),
+            )
     conn.commit()
 
 

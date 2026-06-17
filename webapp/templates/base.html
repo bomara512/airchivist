@@ -49,6 +49,18 @@
 
   <script>
   (function () {
+    // Fade out shelf card when its video link is clicked (opens in new tab; shelf stays open)
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest('#shelf-carousel .thumb-link, #shelf-carousel .video-title');
+      if (!link) return;
+      var card = link.closest('.video-card');
+      if (card) {
+        card.style.transition = 'opacity 0.3s';
+        card.style.opacity = '0';
+        setTimeout(function () { card.remove(); }, 300);
+      }
+    });
+
     // Delete confirmation modal
     var deleteModal = document.getElementById('delete-modal');
     var pendingDeleteForm = null;
