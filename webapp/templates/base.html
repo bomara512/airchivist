@@ -110,6 +110,7 @@
       var btn = e.target.closest('.watch-later-btn');
       if (!btn || btn.disabled) return;
       var videoId = btn.dataset.videoId;
+      var onShelf = !!btn.closest('#shelf-carousel');
       fetch('/api/watch-later/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,11 +119,29 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
           if (data.status === 'added') {
-            btn.disabled = true;
-            btn.title = 'Already in Watch Later';
+            if (onShelf) {
+              var card = btn.closest('.video-card');
+              if (card) {
+                card.style.opacity = '0';
+                card.style.transition = 'opacity 0.2s';
+                setTimeout(function () { card.remove(); }, 200);
+              }
+            } else {
+              btn.disabled = true;
+              btn.title = 'Already in Watch Later';
+            }
           } else if (data.status === 'already_in_queue') {
-            btn.disabled = true;
-            btn.title = 'Already in Watch Later';
+            if (onShelf) {
+              var card = btn.closest('.video-card');
+              if (card) {
+                card.style.opacity = '0';
+                card.style.transition = 'opacity 0.2s';
+                setTimeout(function () { card.remove(); }, 200);
+              }
+            } else {
+              btn.disabled = true;
+              btn.title = 'Already in Watch Later';
+            }
           }
         });
     });
