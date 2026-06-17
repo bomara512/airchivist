@@ -4,9 +4,7 @@
 {% block content %}
 <div class="watch-later-header">
   <h1>Watch Later <span class="queue-count">{{ queue_count }}</span></h1>
-  {% if queue %}
-  <p class="queue-desc">{{ queue_count }} video{{ 's' if queue_count != 1 }}</p>
-  {% else %}
+  {% if not queue %}
   <p class="queue-desc empty">Your queue is empty</p>
   {% endif %}
 </div>
