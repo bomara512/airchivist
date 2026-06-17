@@ -1,4 +1,6 @@
+{% set ctx = context | default("main") %}
 <div class="video-card" data-video-id="{{ video.video_id }}">
+
   <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="thumb-link" target="_blank" rel="noopener noreferrer">
     {% if video.thumbnail_url %}
     <img src="{{ video.thumbnail_url }}" alt="{{ video.title }}" loading="lazy">
@@ -8,18 +10,23 @@
     {% if video.duration_seconds %}
     <span class="duration-overlay">{{ video.duration_seconds | duration }}</span>
     {% endif %}
+    {% if ctx == "watch_later" and position is defined %}
+    <span class="queue-position-badge">{{ position }}</span>
+    {% endif %}
   </a>
+
   <div class="video-info">
     <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="video-title" target="_blank" rel="noopener noreferrer">
       {{ video.title or video.video_id }}
     </a>
+
     <div class="video-channel">
       {% if video.channel_id %}
       <a href="https://www.youtube.com/channel/{{ video.channel_id }}" class="channel-link" target="_blank" rel="noopener noreferrer">{{ video.channel_name or video.channel_id }}</a>
       {% else %}
       <span>{{ video.channel_name or '—' }}</span>
       {% endif %}
-      {% if video.channel_name %}
+      {% if ctx == "main" and video.channel_name %}
       <a href="{{ url_for('main.index', channel=video.channel_name) }}" class="channel-filter-icon" title="Filter by {{ video.channel_name }}">
         <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A.998.998 0 0 0 18.95 4H5.04a1 1 0 0 0-.79 1.61z"/>
@@ -27,13 +34,23 @@
       </a>
       {% endif %}
     </div>
+
+    {% if ctx == "shelf" and video.reason %}
+    <p class="shelf-reason">{{ video.reason }}</p>
+    {% elif ctx == "main" %}
     <div class="video-meta">
       <span title="YouTube views{% if video.personal_view_count %} · opened {{ video.personal_view_count }}× from ViewTube{% endif %}">{{ video.yt_view_count | view_count }}{% if video.personal_view_count %} [{{ video.personal_view_count }}]{% endif %} views</span>
       <span title="Published {{ video.date_published[:10] if video.date_published else 'unknown' }}">{{ video.date_published | date }}</span>
       <span title="Added to library {{ video.date_added[:10] if video.date_added else 'unknown' }}">{{ video.date_added | date }}</span>
       {% if video.date_last_viewed %}<span title="Last opened from ViewTube {{ video.date_last_viewed[:10] }}">{{ video.date_last_viewed | date }}</span>{% endif %}
-      <button class="watch-later-btn" data-video-id="{{ video.video_id }}" title="Add to Watch Later">⏱</button>
     </div>
+    {% elif ctx == "watch_later" %}
+    <div class="video-meta">
+      <span>{{ video.yt_view_count | view_count }} views</span>
+      {% if video.queue_added_at %}<span>Queued {{ video.queue_added_at | date }}</span>{% endif %}
+    </div>
+    {% endif %}
+
     {% if video.tags %}
     <div class="video-tags" data-video-id="{{ video.video_id }}">
       {% for tag_name in video.tags.split(',') %}
@@ -41,5 +58,18 @@
       {% endfor %}
     </div>
     {% endif %}
+
+    <div class="video-actions">
+      {% if ctx == "watch_later" %}
+      <button class="queue-remove-btn" data-video-id="{{ video.video_id }}" title="Remove from queue">✕</button>
+      {% else %}
+      {% set in_wl = video.video_id in watch_later_ids %}
+      <button class="watch-later-btn"
+              data-video-id="{{ video.video_id }}"
+              title="{{ 'Already in Watch Later' if in_wl else 'Add to Watch Later' }}"
+              {% if in_wl %}disabled{% endif %}>⏱</button>
+      {% endif %}
+    </div>
   </div>
+
 </div>

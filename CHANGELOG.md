@@ -4,6 +4,21 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Unify video card UI across all surfaces (2026-06-16)
+
+Replaced three divergent card implementations (main list `_video_card.html`, JS-rendered rediscover shelf, hand-rolled watch-later list) with a single `_video_card.html` Jinja partial that renders context-appropriately via a `context` variable (`"main"` / `"shelf"` / `"watch_later"`).
+
+Key changes:
+- **Single card template**: one source of truth for thumbnail, title, channel, metadata row, tags, and action buttons. Context controls which elements appear (e.g. reason label on shelf, position badge on watch-later, channel filter icon on main only).
+- **Watch Later pre-state**: new `get_watch_later_video_ids()` DB function; a Jinja context processor in `app.py` injects `watch_later_ids` into every template so the ⏱ button renders disabled on page load for already-queued videos.
+- **Server-rendered shelf**: the rediscover shelf JS IIFE (~130 lines) is removed entirely. Initial render is now handled by the index route + Jinja. Refresh uses HTMX (`hx-post="/rediscover-shelf/refresh"` → HTML partial swap). The two JSON shelf API endpoints (`GET /api/rediscover-shelf`, `POST /api/rediscover-shelf/refresh`) are deleted.
+- **Unified JS handlers**: tag-pill menu, video-card hide menu, watch-later add, and queue remove are all event-delegated listeners in `base.html`, so they work on all pages and on HTMX-swapped content.
+- **DB queries expanded**: `get_current_rediscover_shelf` and `get_watch_later_queue` now return full video data including `channel_id`, `duration_seconds`, `date_published`, `date_added`, `tags` (GROUP_CONCAT), enabling consistent metadata display everywhere.
+
+**Trade-offs:** Watch-later page cards now use the same grid-card layout as the main list (thumbnail at top) rather than the old horizontal-row layout — this is a visual change but achieves true structural unity. Rediscover shelf countdown timer is no longer live-updating (static "expires in X days" label computed at render time).
+
+---
+
 ### Implement Watch Later queue feature (2026-06-14)
 
 Added a dedicated Watch Later queue for bookmarking videos to watch later. Features:

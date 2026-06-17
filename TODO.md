@@ -19,7 +19,9 @@
 
 ## Organization
 
-- [ ] Unify video card UI and functionality — consolidate _video_card.html (main list), rediscover shelf cards (index.html inline), and watch-later list items into a single reusable component with consistent actions (tags, metadata, watch-later button, context menu, etc)
+- ~~Unify video card UI and functionality — single `_video_card.html` used across main list, rediscover shelf, and watch-later page~~
+- [ ] Drag-to-reorder watch-later queue (DB function `reorder_watch_later` exists; needs a JS drag library wired up)
+- [ ] Rediscover shelf countdown timer — currently shows static "expires in X days" at page load; could refresh periodically
 - [ ] Notes field per video — freeform text to add while watching
 - [ ] Playlists / collections — group videos manually beyond tags
 - [ ] Bulk tag assignment — select multiple videos and tag them at once

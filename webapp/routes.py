@@ -1,5 +1,6 @@
 import math
 import os
+from datetime import datetime, timezone
 from flask import Blueprint, g, request, redirect, abort, render_template, url_for, jsonify, make_response
 from webapp import db as _db
 from webapp import llm_tagger as _llm
@@ -15,6 +16,23 @@ _CORS_HEADERS = {
     "Access-Control-Allow-Methods": "GET, POST",
     "Access-Control-Allow-Headers": "Content-Type",
 }
+
+
+def _shelf_expires_label(expires_at_str: str | None) -> str:
+    if not expires_at_str:
+        return "—"
+    try:
+        expires = datetime.fromisoformat(expires_at_str)
+        diff = expires - datetime.now(timezone.utc)
+        if diff.total_seconds() <= 0:
+            return "expired"
+        days = diff.days
+        hours = diff.seconds // 3600
+        if days > 0:
+            return f"{days} day{'s' if days != 1 else ''}"
+        return f"{hours} hour{'s' if hours != 1 else ''}"
+    except Exception:
+        return "—"
 
 
 @bp.route("/")
@@ -97,6 +115,9 @@ def index():
             return render_template("_load_more.html", **template_vars)
         return render_template("_video_container.html", **template_vars)
 
+    shelf = _db.get_current_rediscover_shelf(g.db)
+    template_vars["shelf"] = shelf
+    template_vars["expires_label"] = _shelf_expires_label(shelf.get("expires_at"))
     return render_template("index.html", **template_vars)
 
 
@@ -489,80 +510,10 @@ def api_hide():
     return resp
 
 
-@bp.route("/api/rediscover-shelf", methods=["GET", "OPTIONS"])
-def api_rediscover_shelf():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-
-    shelf = _db.get_current_rediscover_shelf(g.db)
-
-    if not shelf.get("videos"):
-        result = {
-            "shelf": [],
-            "expires_at": shelf.get("expires_at"),
-            "is_expired": False,
-        }
-    else:
-        result = {
-            "shelf": [
-                {
-                    "id": v["video_id"],
-                    "title": v["title"],
-                    "channel_name": v["channel_name"],
-                    "thumbnail_url": v["thumbnail_url"],
-                    "reason": shelf["reasons"].get(v["video_id"], ""),
-                }
-                for v in shelf["videos"]
-            ],
-            "expires_at": shelf.get("expires_at"),
-            "is_expired": _db.is_rediscover_shelf_expired(g.db),
-        }
-
-    resp = jsonify(result)
-    resp.headers.update(_CORS_HEADERS)
-    return resp
-
-
-@bp.route("/api/rediscover-shelf/refresh", methods=["POST", "OPTIONS"])
-def api_rediscover_shelf_refresh():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-
+@bp.route("/rediscover-shelf/refresh", methods=["POST"])
+def rediscover_shelf_refresh():
     shelf = _db.refresh_rediscover_shelf(g.db)
-
-    if not shelf.get("video_ids"):
-        result = {
-            "shelf": [],
-            "expires_at": shelf.get("expires_at"),
-            "is_expired": False,
-        }
-    else:
-        # Fetch full video data
-        placeholders = ",".join("?" * len(shelf["video_ids"]))
-        videos = g.db.execute(f"""
-            SELECT video_id, title, channel_name, thumbnail_url
-            FROM videos
-            WHERE video_id IN ({placeholders})
-        """, shelf["video_ids"]).fetchall()
-
-        result = {
-            "shelf": [
-                {
-                    "id": v["video_id"],
-                    "title": v["title"],
-                    "channel_name": v["channel_name"],
-                    "thumbnail_url": v["thumbnail_url"],
-                    "reason": shelf["reasons"].get(v["video_id"], ""),
-                }
-                for v in videos
-            ],
-            "expires_at": shelf.get("expires_at"),
-            "is_expired": False,
-        }
-
-    resp = jsonify(result)
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+    return render_template("_shelf_cards.html", shelf=shelf)
 
 
 @bp.route("/api/watch-later/add", methods=["POST", "OPTIONS"])

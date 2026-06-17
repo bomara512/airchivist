@@ -67,19 +67,23 @@
   <div class="shelf-header">
     <h2>Rediscover</h2>
     <div class="shelf-controls">
-      <button id="refresh-shelf-btn" class="secondary-btn">Refresh</button>
+      <button id="refresh-shelf-btn"
+              class="secondary-btn"
+              hx-post="/rediscover-shelf/refresh"
+              hx-target="#shelf-carousel"
+              hx-swap="innerHTML">Refresh</button>
       <button id="toggle-shelf-btn" class="toggle-btn" aria-label="Toggle shelf">−</button>
     </div>
   </div>
 
   <div class="shelf-container" id="shelf-container">
     <div class="video-carousel" id="shelf-carousel">
-      <!-- Dynamically populated by JavaScript -->
+      {% include "_shelf_cards.html" %}
     </div>
   </div>
 
   <div class="shelf-footer">
-    <p>Refreshes automatically in <span id="expires-in">—</span></p>
+    <p>Refreshes automatically in <span id="expires-in">{{ expires_label }}</span></p>
   </div>
 </section>
 
@@ -87,189 +91,12 @@
   {% include "_video_container.html" %}
 </div>
 
-<div id="tag-pill-menu" class="alias-context-menu">
-  <button id="tag-pill-remove">✕ Remove from video</button>
-</div>
-
-<div id="video-card-menu" class="alias-context-menu">
-  <button id="video-card-hide">Hide video</button>
-</div>
-
 <script>
 (function () {
-  const pillMenu = document.getElementById('tag-pill-menu');
-  let activePill = null;
-
-  function hidePillMenu() {
-    pillMenu.style.display = 'none';
-    activePill = null;
-  }
-
-  const cardMenu = document.getElementById('video-card-menu');
-  let activeCard = null;
-
-  function hideCardMenu() {
-    cardMenu.style.display = 'none';
-    activeCard = null;
-  }
-
-  document.addEventListener('contextmenu', function (e) {
-    if (e.target.closest('.tag-pill')) {
-      hideCardMenu();
-      const pill = e.target.closest('.tag-pill');
-      e.preventDefault();
-      activePill = pill;
-      pillMenu.style.display = 'block';
-      const x = Math.min(e.clientX, window.innerWidth - pillMenu.offsetWidth - 8);
-      const y = Math.min(e.clientY, window.innerHeight - pillMenu.offsetHeight - 8);
-      pillMenu.style.left = x + 'px';
-      pillMenu.style.top = y + 'px';
-      return;
-    }
-    hidePillMenu();
-
-    const card = e.target.closest('.video-card');
-    if (!card) { hideCardMenu(); return; }
-    e.preventDefault();
-    activeCard = card;
-    cardMenu.style.display = 'block';
-    const x = Math.min(e.clientX, window.innerWidth - cardMenu.offsetWidth - 8);
-    const y = Math.min(e.clientY, window.innerHeight - cardMenu.offsetHeight - 8);
-    cardMenu.style.left = x + 'px';
-    cardMenu.style.top = y + 'px';
-  });
-
-  document.addEventListener('click', function (e) {
-    if (!pillMenu.contains(e.target)) hidePillMenu();
-    if (!cardMenu.contains(e.target)) hideCardMenu();
-  });
-
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { hidePillMenu(); hideCardMenu(); }
-  });
-
-  document.getElementById('tag-pill-remove').addEventListener('click', function () {
-    if (!activePill) return;
-    const tagName = activePill.dataset.tagName;
-    const videoId = activePill.closest('.video-tags').dataset.videoId;
-    const pill = activePill;
-    hidePillMenu();
-    const body = new URLSearchParams({ tag_name: tagName });
-    fetch(`/videos/${videoId}/tags/remove`, { method: 'POST', body })
-      .then(function (r) { if (r.ok) pill.remove(); });
-  });
-
-  document.getElementById('video-card-hide').addEventListener('click', function () {
-    if (!activeCard) return;
-    const videoId = activeCard.dataset.videoId;
-    const card = activeCard;
-    hideCardMenu();
-    fetch(`/videos/${videoId}/hide`, { method: 'POST' })
-      .then(function (r) { if (r.ok) card.remove(); });
-  });
-
-  // Watch Later queue button (main video list)
-  document.addEventListener('click', function (e) {
-    const btn = e.target.closest('.watch-later-btn');
-    if (!btn) return;
-    const videoId = btn.dataset.videoId;
-    const url = 'https://www.youtube.com/watch?v=' + videoId;
-    fetch('/api/watch-later/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: url })
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.status === 'added') {
-          btn.style.opacity = '0.5';
-          btn.disabled = true;
-          btn.title = 'Added to Watch Later';
-        } else if (data.status === 'already_in_queue') {
-          btn.title = 'Already in Watch Later';
-        }
-      });
-  });
-})();
-
-// Rediscover shelf
-(function () {
+  // Shelf collapse/expand (localStorage state)
   const shelf = document.getElementById('rediscover-shelf');
-  const carousel = document.getElementById('shelf-carousel');
-  const refreshBtn = document.getElementById('refresh-shelf-btn');
   const toggleBtn = document.getElementById('toggle-shelf-btn');
-  const expiresIn = document.getElementById('expires-in');
-
   const COLLAPSED_KEY = 'rediscover-shelf-collapsed';
-
-  function renderShelf(data) {
-    carousel.innerHTML = '';
-    if (!data.shelf || data.shelf.length === 0) {
-      carousel.innerHTML = '<p class="empty-shelf">No videos to rediscover yet.</p>';
-      return;
-    }
-
-    data.shelf.forEach(function (video) {
-      const card = document.createElement('div');
-      card.className = 'shelf-card';
-      card.innerHTML = `
-        <a href="/watch/${video.id}" class="shelf-card-link">
-          <img src="${video.thumbnail_url || ''}" alt="${video.title || ''}">
-          <div class="shelf-card-info">
-            <h3>${video.title || 'Untitled'}</h3>
-            <p class="shelf-channel">${video.channel_name || 'Unknown'}</p>
-            <p class="shelf-reason">${video.reason || ''}</p>
-          </div>
-        </a>
-        <button class="shelf-card-watch-later" data-video-id="${video.id}" title="Add to Watch Later">⏱</button>
-      `;
-      carousel.appendChild(card);
-    });
-
-    updateExpiration(data.expires_at);
-  }
-
-  function updateExpiration(expiresAt) {
-    if (!expiresAt) return;
-    const expires = new Date(expiresAt);
-    const now = new Date();
-    const diff = expires - now;
-    if (diff <= 0) {
-      expiresIn.textContent = 'expired';
-      return;
-    }
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    if (days > 0) {
-      expiresIn.textContent = `${days} day${days === 1 ? '' : 's'}, ${hours} hour${hours === 1 ? '' : 's'}`;
-    } else {
-      expiresIn.textContent = `${hours} hour${hours === 1 ? '' : 's'}`;
-    }
-  }
-
-  function loadShelf() {
-    fetch('/api/rediscover-shelf')
-      .then(function (r) { return r.json(); })
-      .then(function (data) { renderShelf(data); })
-      .catch(function (e) { console.error('Failed to load rediscover shelf:', e); });
-  }
-
-  refreshBtn.addEventListener('click', function () {
-    refreshBtn.disabled = true;
-    refreshBtn.textContent = 'Refreshing…';
-    fetch('/api/rediscover-shelf/refresh', { method: 'POST' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        renderShelf(data);
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = 'Refresh';
-      })
-      .catch(function (e) {
-        console.error('Failed to refresh shelf:', e);
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = 'Refresh';
-      });
-  });
 
   toggleBtn.addEventListener('click', function () {
     const isCollapsed = shelf.classList.toggle('collapsed');
@@ -277,50 +104,10 @@
     toggleBtn.textContent = isCollapsed ? '+' : '−';
   });
 
-  // Restore collapsed state
   if (localStorage.getItem(COLLAPSED_KEY) === 'true') {
     shelf.classList.add('collapsed');
     toggleBtn.textContent = '+';
   }
-
-  // Load shelf on page load
-  loadShelf();
-
-  // Update expiration timer every minute
-  setInterval(function () {
-    const expiresAtEl = document.querySelector('.shelf-footer p span:first-of-type');
-    if (expiresAtEl && expiresAtEl.parentElement) {
-      const expiresAt = expiresAtEl.parentElement.textContent.match(/Refreshes automatically in (.*)/);
-      if (expiresAt) {
-        fetch('/api/rediscover-shelf')
-          .then(function (r) { return r.json(); })
-          .then(function (data) { updateExpiration(data.expires_at); });
-      }
-    }
-  }, 60000);
-
-  // Watch Later queue button (rediscover shelf)
-  carousel.addEventListener('click', function (e) {
-    const btn = e.target.closest('.shelf-card-watch-later');
-    if (!btn) return;
-    const videoId = btn.dataset.videoId;
-    const url = 'https://www.youtube.com/watch?v=' + videoId;
-    fetch('/api/watch-later/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: url })
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.status === 'added') {
-          btn.style.opacity = '0.5';
-          btn.disabled = true;
-          btn.title = 'Added to Watch Later';
-        } else if (data.status === 'already_in_queue') {
-          btn.title = 'Already in Watch Later';
-        }
-      });
-  });
 })();
 </script>
 {% endblock %}

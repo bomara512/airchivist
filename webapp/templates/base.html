@@ -25,5 +25,141 @@
   <main>
     {% block content %}{% endblock %}
   </main>
+
+  <!-- Context menus (shared across all pages) -->
+  <div id="tag-pill-menu" class="alias-context-menu">
+    <button id="tag-pill-remove">✕ Remove from video</button>
+  </div>
+
+  <div id="video-card-menu" class="alias-context-menu">
+    <button id="video-card-hide">Hide video</button>
+  </div>
+
+  <script>
+  (function () {
+    // Tag pill context menu
+    var pillMenu = document.getElementById('tag-pill-menu');
+    var activePill = null;
+
+    function hidePillMenu() { pillMenu.style.display = 'none'; activePill = null; }
+
+    // Video card right-click menu
+    var cardMenu = document.getElementById('video-card-menu');
+    var activeCard = null;
+
+    function hideCardMenu() { cardMenu.style.display = 'none'; activeCard = null; }
+
+    document.addEventListener('contextmenu', function (e) {
+      if (e.target.closest('.tag-pill')) {
+        hideCardMenu();
+        var pill = e.target.closest('.tag-pill');
+        e.preventDefault();
+        activePill = pill;
+        pillMenu.style.display = 'block';
+        var x = Math.min(e.clientX, window.innerWidth - pillMenu.offsetWidth - 8);
+        var y = Math.min(e.clientY, window.innerHeight - pillMenu.offsetHeight - 8);
+        pillMenu.style.left = x + 'px';
+        pillMenu.style.top = y + 'px';
+        return;
+      }
+      hidePillMenu();
+
+      var card = e.target.closest('.video-card');
+      if (!card) { hideCardMenu(); return; }
+      e.preventDefault();
+      activeCard = card;
+      cardMenu.style.display = 'block';
+      var x = Math.min(e.clientX, window.innerWidth - cardMenu.offsetWidth - 8);
+      var y = Math.min(e.clientY, window.innerHeight - cardMenu.offsetHeight - 8);
+      cardMenu.style.left = x + 'px';
+      cardMenu.style.top = y + 'px';
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!pillMenu.contains(e.target)) hidePillMenu();
+      if (!cardMenu.contains(e.target)) hideCardMenu();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { hidePillMenu(); hideCardMenu(); }
+    });
+
+    document.getElementById('tag-pill-remove').addEventListener('click', function () {
+      if (!activePill) return;
+      var tagName = activePill.dataset.tagName;
+      var videoId = activePill.closest('.video-tags').dataset.videoId;
+      var pill = activePill;
+      hidePillMenu();
+      fetch('/videos/' + videoId + '/tags/remove', {
+        method: 'POST',
+        body: new URLSearchParams({ tag_name: tagName })
+      }).then(function (r) { if (r.ok) pill.remove(); });
+    });
+
+    document.getElementById('video-card-hide').addEventListener('click', function () {
+      if (!activeCard) return;
+      var videoId = activeCard.dataset.videoId;
+      var card = activeCard;
+      hideCardMenu();
+      fetch('/videos/' + videoId + '/hide', { method: 'POST' })
+        .then(function (r) { if (r.ok) card.remove(); });
+    });
+
+    // Watch Later button — add to queue (main list and shelf cards)
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.watch-later-btn');
+      if (!btn || btn.disabled) return;
+      var videoId = btn.dataset.videoId;
+      fetch('/api/watch-later/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'https://www.youtube.com/watch?v=' + videoId })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.status === 'added') {
+            btn.disabled = true;
+            btn.title = 'Already in Watch Later';
+          } else if (data.status === 'already_in_queue') {
+            btn.disabled = true;
+            btn.title = 'Already in Watch Later';
+          }
+        });
+    });
+
+    // Remove from Watch Later queue button (watch-later page)
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.queue-remove-btn');
+      if (!btn) return;
+      var videoId = btn.dataset.videoId;
+      var card = btn.closest('.video-card');
+      fetch('/api/watch-later/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'https://www.youtube.com/watch?v=' + videoId })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.status === 'removed') {
+            card.style.opacity = '0.5';
+            setTimeout(function () {
+              card.remove();
+              // Reindex position badges
+              document.querySelectorAll('.queue-position-badge').forEach(function (badge, idx) {
+                badge.textContent = idx + 1;
+              });
+              // Update header count
+              var countEl = document.querySelector('.queue-count');
+              if (countEl) {
+                var remaining = document.querySelectorAll('.watch-later-list .video-card').length;
+                countEl.textContent = remaining;
+                if (remaining === 0) location.reload();
+              }
+            }, 200);
+          }
+        });
+    });
+  })();
+  </script>
 </body>
 </html>

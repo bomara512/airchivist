@@ -5,7 +5,7 @@
 <div class="watch-later-header">
   <h1>Watch Later <span class="queue-count">{{ queue_count }}</span></h1>
   {% if queue %}
-  <p class="queue-desc">{{ queue_count }} video{{ 's' if queue_count != 1 }} queued</p>
+  <p class="queue-desc">{{ queue_count }} video{{ 's' if queue_count != 1 }}</p>
   {% else %}
   <p class="queue-desc empty">Your queue is empty</p>
   {% endif %}
@@ -14,81 +14,14 @@
 {% if queue %}
 <div class="watch-later-list">
   {% for video in queue %}
-  <div class="queue-item" data-video-id="{{ video.video_id }}">
-    <div class="queue-position">{{ loop.index }}</div>
-
-    <a href="{{ url_for('main.visit', video_id=video.video_id) }}" target="_blank" rel="noopener noreferrer" class="queue-thumbnail">
-      <img src="{{ video.thumbnail_url or '' }}" alt="{{ video.title }}">
-    </a>
-
-    <div class="queue-info">
-      <a href="{{ url_for('main.visit', video_id=video.video_id) }}" target="_blank" rel="noopener noreferrer" class="queue-title">
-        {{ video.title or video.video_id }}
-      </a>
-      <div class="queue-meta">
-        <span class="channel">
-          {% if video.channel_name %}
-          <a href="https://www.youtube.com/channel/{{ video.channel_id }}" target="_blank" rel="noopener noreferrer">{{ video.channel_name }}</a>
-          {% else %}
-          —
-          {% endif %}
-        </span>
-        <span class="views">{{ video.yt_view_count | view_count }} views</span>
-        <span class="added-at">Added {{ video.added_at | date }}</span>
-      </div>
-    </div>
-
-    <div class="queue-actions">
-      <button class="queue-remove-btn" data-video-id="{{ video.video_id }}" title="Remove from queue">✕</button>
-    </div>
-  </div>
+  {% with context="watch_later", position=loop.index %}
+  {% include "_video_card.html" %}
+  {% endwith %}
   {% endfor %}
 </div>
 {% else %}
 <div class="empty-queue">
-  <p>Nothing in your queue yet. Add videos from the library or rediscover shelf to queue them for later.</p>
+  <p>Nothing in your queue yet. Add videos from the library or rediscover shelf.</p>
 </div>
 {% endif %}
-
-<script>
-(function () {
-  document.addEventListener('click', function (e) {
-    const btn = e.target.closest('.queue-remove-btn');
-    if (!btn) return;
-
-    const videoId = btn.dataset.videoId;
-    const item = btn.closest('.queue-item');
-    const url = 'https://www.youtube.com/watch?v=' + videoId;
-
-    fetch('/api/watch-later/remove', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: url })
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.status === 'removed') {
-          item.style.opacity = '0.5';
-          setTimeout(function () { item.remove(); }, 200);
-
-          // Reorder remaining items
-          const items = document.querySelectorAll('.queue-item');
-          items.forEach(function (it, idx) {
-            it.querySelector('.queue-position').textContent = idx + 1;
-          });
-
-          // Update count
-          const count = document.querySelector('.queue-count');
-          const newCount = items.length - 1;
-          count.textContent = newCount;
-
-          // Show empty state if no items left
-          if (newCount === 0) {
-            location.reload();
-          }
-        }
-      });
-  });
-})();
-</script>
 {% endblock %}

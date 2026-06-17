@@ -210,6 +210,17 @@ class TestApiHide:
         assert resp.status_code == 204
 
 
+class TestRediscoverShelfRefresh:
+    def test_returns_200_html(self, client):
+        resp = client.post("/rediscover-shelf/refresh")
+        assert resp.status_code == 200
+        assert b"video-card" in resp.data or b"empty-shelf" in resp.data
+
+    def test_returns_html_not_json(self, client):
+        resp = client.post("/rediscover-shelf/refresh")
+        assert resp.content_type.startswith("text/html")
+
+
 class TestApiAddHiddenVideo:
     def test_hidden_video_returns_hidden_status(self, client):
         client.post("/videos/aaaaaaaaaa1/hide")

@@ -1,0 +1,7 @@
+{% if shelf and shelf.videos %}
+{% for video in shelf.videos %}
+{% with context="shelf" %}{% include "_video_card.html" %}{% endwith %}
+{% endfor %}
+{% else %}
+<p class="empty-shelf">No videos to rediscover yet.</p>
+{% endif %}

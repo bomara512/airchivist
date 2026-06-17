@@ -2,7 +2,7 @@ import re
 import sqlite3
 from flask import Flask, g
 from webapp import filters as _filters
-from webapp.db import init_webapp_tables, get_stats
+from webapp.db import init_webapp_tables, get_stats, get_watch_later_video_ids
 
 
 def _regexp(pattern, string):
@@ -27,6 +27,13 @@ def create_app(db_path: str) -> Flask:
         if db is None:
             return {}
         return {"stats": get_stats(db)}
+
+    @app.context_processor
+    def inject_watch_later_ids():
+        db = g.get("db")
+        if db is None:
+            return {"watch_later_ids": set()}
+        return {"watch_later_ids": get_watch_later_video_ids(db)}
 
     @app.teardown_appcontext
     def close_db(exc):
