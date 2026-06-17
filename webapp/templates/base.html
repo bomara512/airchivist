@@ -65,7 +65,7 @@
       hidePillMenu();
 
       var card = e.target.closest('.video-card');
-      if (!card) { hideCardMenu(); return; }
+      if (!card || card.closest('.hidden-videos-grid')) { hideCardMenu(); return; }
       e.preventDefault();
       activeCard = card;
       cardMenu.style.display = 'block';

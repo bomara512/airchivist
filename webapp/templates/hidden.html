@@ -2,8 +2,8 @@
 {% block title %}ViewTube — Hidden Videos{% endblock %}
 
 {% block content %}
-<div class="toolbar">
-  <h2 style="font-size:1.1rem;font-weight:600;color:#aaa">Hidden Videos ({{ total }})</h2>
+<div class="watch-later-header">
+  <h1>Hidden Videos <span class="queue-count">{{ total }}</span></h1>
   <form id="sort-form" method="get" action="{{ url_for('main.hidden') }}" style="display:flex;gap:0.5rem;align-items:center">
     <select name="sort_by" onchange="this.form.submit()">
       <option value="date_added"    {% if sort_by == 'date_added'    %}selected{% endif %}>Date Added</option>
@@ -18,19 +18,21 @@
 </div>
 
 {% if videos %}
-<div class="video-grid">
+<div class="video-grid hidden-videos-grid">
   {% for video in videos %}
-  <div class="video-card">
-    <a href="{{ video.url }}" class="thumb-link" target="_blank" rel="noopener noreferrer">
-      {% if video.thumbnail_url %}
-      <img src="{{ video.thumbnail_url }}" alt="{{ video.title }}" loading="lazy">
-      {% else %}
-      <div class="no-thumb"></div>
-      {% endif %}
-      {% if video.duration_seconds %}
-      <span class="duration-overlay">{{ video.duration_seconds | duration }}</span>
-      {% endif %}
-    </a>
+  <div class="video-card" data-video-id="{{ video.video_id }}">
+    <div class="thumb-wrap">
+      <a href="{{ video.url }}" class="thumb-link" target="_blank" rel="noopener noreferrer">
+        {% if video.thumbnail_url %}
+        <img src="{{ video.thumbnail_url }}" alt="{{ video.title }}" loading="lazy">
+        {% else %}
+        <div class="no-thumb"></div>
+        {% endif %}
+        {% if video.duration_seconds %}
+        <span class="duration-overlay">{{ video.duration_seconds | duration }}</span>
+        {% endif %}
+      </a>
+    </div>
     <div class="video-info">
       <a href="{{ video.url }}" class="video-title" target="_blank" rel="noopener noreferrer">
         {{ video.title or video.video_id }}
@@ -42,6 +44,13 @@
         <span>{{ video.yt_view_count | view_count }} views</span>
         <span>{{ video.date_added | date }}</span>
       </div>
+      {% if video.tags %}
+      <div class="video-tags" data-video-id="{{ video.video_id }}">
+        {% for tag_name in video.tags.split(',') %}
+        <a href="{{ url_for('main.index', tag=tag_name) }}" class="tag-pill" data-tag-name="{{ tag_name | e }}">{{ tag_name }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
       <div class="hidden-actions">
         <form action="{{ url_for('main.video_unhide', video_id=video.video_id) }}" method="post" style="display:inline">
           <button type="submit" class="btn-restore">Restore</button>
