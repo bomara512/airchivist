@@ -421,13 +421,13 @@ h1 { margin-top: 0; }
 .queue-remove-btn:hover { color: #fff; background: rgba(229, 57, 53, 0.85); }
 
 /* Watch Later page chrome */
-.watch-later-header {
+.page-header {
   margin-bottom: 2rem;
   border-bottom: 1px solid #333;
   padding-bottom: 1rem;
 }
 
-.watch-later-header h1 {
+.page-header h1 {
   margin: 0 0 0.5rem;
   display: flex;
   align-items: center;
