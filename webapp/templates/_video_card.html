@@ -17,7 +17,7 @@
     </a>
     {% if ctx == "watch_later" %}
     <button class="queue-remove-btn" data-video-id="{{ video.video_id }}" title="Remove from queue">✕</button>
-    {% else %}
+    {% elif ctx != "hidden" %}
     {% set in_wl = video.video_id in watch_later_ids %}
     <button class="watch-later-btn"
             data-video-id="{{ video.video_id }}"
@@ -46,20 +46,21 @@
       {% endif %}
     </div>
 
-    {% if ctx == "shelf" and video.reason %}
-    <p class="shelf-reason">{{ video.reason }}</p>
-    {% elif ctx == "main" %}
+    {# Base meta row — identical on every card #}
     <div class="video-meta">
       <span title="YouTube views{% if video.personal_view_count %} · opened {{ video.personal_view_count }}× from ViewTube{% endif %}">{{ video.yt_view_count | view_count }}{% if video.personal_view_count %} [{{ video.personal_view_count }}]{% endif %} views</span>
       <span title="Published {{ video.date_published[:10] if video.date_published else 'unknown' }}">{{ video.date_published | date }}</span>
       <span title="Added to library {{ video.date_added[:10] if video.date_added else 'unknown' }}">{{ video.date_added | date }}</span>
       {% if video.date_last_viewed %}<span title="Last opened from ViewTube {{ video.date_last_viewed[:10] }}">{{ video.date_last_viewed | date }}</span>{% endif %}
     </div>
-    {% elif ctx == "watch_later" %}
-    <div class="video-meta">
-      <span>{{ video.yt_view_count | view_count }} views</span>
-      {% if video.queue_added_at %}<span>Queued {{ video.queue_added_at | date }}</span>{% endif %}
-    </div>
+
+    {# Secondary meta line — context-specific #}
+    {% if ctx == "shelf" and video.reason %}
+    <p class="card-secondary-meta card-secondary-meta--italic">{{ video.reason }}</p>
+    {% elif ctx == "watch_later" and video.queue_added_at %}
+    <p class="card-secondary-meta">Queued {{ video.queue_added_at | date }}</p>
+    {% elif ctx == "hidden" and video.date_hidden %}
+    <p class="card-secondary-meta">Hidden {{ video.date_hidden | date }}</p>
     {% endif %}
 
     {% if video.tags %}
@@ -67,6 +68,18 @@
       {% for tag_name in video.tags.split(',') %}
       <a href="{{ url_for('main.index', tag=tag_name) }}" class="tag-pill" data-tag-name="{{ tag_name | e }}">{{ tag_name }}</a>
       {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if ctx == "hidden" %}
+    <div class="hidden-actions">
+      <form action="{{ url_for('main.video_unhide', video_id=video.video_id) }}" method="post" style="display:inline">
+        <button type="submit" class="btn-restore">Restore</button>
+      </form>
+      <form action="{{ url_for('main.video_delete', video_id=video.video_id) }}" method="post" style="display:inline"
+            onsubmit="return confirm('Permanently delete this video?')">
+        <button type="submit" class="btn-delete">Delete permanently</button>
+      </form>
     </div>
     {% endif %}
 

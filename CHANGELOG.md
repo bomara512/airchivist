@@ -4,6 +4,21 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Consistent video card metadata across all surfaces (2026-06-17)
+
+Every card now shows the same base meta row regardless of context:
+`views [personal_count] · published · added · last-viewed`
+
+Each surface adds one context-specific secondary line below it:
+- **Shelf** → `Never watched` / `Last viewed X days ago` (italic)
+- **Watch Later** → `Queued X`
+- **Hidden** → `Hidden X`
+- **Main** → no secondary line
+
+Hidden page cards now use `_video_card.html` with `context="hidden"`, eliminating the last hand-rolled card implementation. Hidden cards link through `/visit/` for consistency (records a view). Restore/Delete buttons rendered inside the unified card template for `hidden` context. `.shelf-reason` CSS class replaced by shared `.card-secondary-meta` / `.card-secondary-meta--italic`.
+
+---
+
 ### Unify video card UI across all surfaces (2026-06-16)
 
 Replaced three divergent card implementations (main list `_video_card.html`, JS-rendered rediscover shelf, hand-rolled watch-later list) with a single `_video_card.html` Jinja partial that renders context-appropriately via a `context` variable (`"main"` / `"shelf"` / `"watch_later"`).

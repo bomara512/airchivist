@@ -20,54 +20,7 @@
 {% if videos %}
 <div class="video-grid hidden-videos-grid">
   {% for video in videos %}
-  <div class="video-card" data-video-id="{{ video.video_id }}">
-    <div class="thumb-wrap">
-      <a href="{{ video.url }}" class="thumb-link" target="_blank" rel="noopener noreferrer">
-        {% if video.thumbnail_url %}
-        <img src="{{ video.thumbnail_url }}" alt="{{ video.title }}" loading="lazy">
-        {% else %}
-        <div class="no-thumb"></div>
-        {% endif %}
-        {% if video.duration_seconds %}
-        <span class="duration-overlay">{{ video.duration_seconds | duration }}</span>
-        {% endif %}
-      </a>
-    </div>
-    <div class="video-info">
-      <a href="{{ video.url }}" class="video-title" target="_blank" rel="noopener noreferrer">
-        {{ video.title or video.video_id }}
-      </a>
-      <div class="video-channel">
-        {% if video.channel_id %}
-        <a href="https://www.youtube.com/channel/{{ video.channel_id }}" class="channel-link" target="_blank" rel="noopener noreferrer">{{ video.channel_name or video.channel_id }}</a>
-        {% else %}
-        <span>{{ video.channel_name or '—' }}</span>
-        {% endif %}
-      </div>
-      <div class="video-meta">
-        <span>{{ video.yt_view_count | view_count }} views</span>
-        {% if video.personal_view_count %}<span title="Opened from ViewTube {{ video.personal_view_count }}×">{{ video.personal_view_count }}× watched</span>{% endif %}
-        <span>{{ video.date_added | date }}</span>
-        {% if video.date_hidden %}<span>Hidden {{ video.date_hidden | date }}</span>{% endif %}
-      </div>
-      {% if video.tags %}
-      <div class="video-tags" data-video-id="{{ video.video_id }}">
-        {% for tag_name in video.tags.split(',') %}
-        <a href="{{ url_for('main.index', tag=tag_name) }}" class="tag-pill" data-tag-name="{{ tag_name | e }}">{{ tag_name }}</a>
-        {% endfor %}
-      </div>
-      {% endif %}
-      <div class="hidden-actions">
-        <form action="{{ url_for('main.video_unhide', video_id=video.video_id) }}" method="post" style="display:inline">
-          <button type="submit" class="btn-restore">Restore</button>
-        </form>
-        <form action="{{ url_for('main.video_delete', video_id=video.video_id) }}" method="post" style="display:inline"
-              onsubmit="return confirm('Permanently delete this video?')">
-          <button type="submit" class="btn-delete">Delete permanently</button>
-        </form>
-      </div>
-    </div>
-  </div>
+  {% with context="hidden" %}{% include "_video_card.html" %}{% endwith %}
   {% endfor %}
 </div>
 

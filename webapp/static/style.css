@@ -293,13 +293,14 @@ h1 { margin-top: 0; }
   .video-carousel .video-card { flex: 0 0 100%; }
 }
 
-/* Shelf reason label (inside .video-info on shelf cards) */
-.shelf-reason {
-  margin: 0.2rem 0;
+/* Secondary meta line — context-specific label below the base meta row */
+.card-secondary-meta {
+  margin: 0.2rem 0 0;
   font-size: 0.75rem;
   color: #666;
-  font-style: italic;
 }
+
+.card-secondary-meta--italic { font-style: italic; }
 
 /* Queue position badge (overlaid on thumbnail for watch_later cards) */
 .queue-position-badge {
