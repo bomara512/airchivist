@@ -47,6 +47,19 @@ must be removed before the response ends — without being asked.
 - Exception: logging that is part of the intended production behaviour (e.g. a
   startup message or an explicit error handler) may stay.
 
+## Name CSS classes for their purpose, not their first use
+
+When a CSS class is introduced for one page and then reused on another,
+rename it to reflect the shared purpose before the second use lands.
+
+- A class named after a specific feature (`.watch-later-header`, `.shelf-card`)
+  is a signal that the abstraction hasn't been named yet — not that it belongs
+  to that feature.
+- If you find yourself writing `class="watch-later-X"` on a non-watch-later
+  page, stop and rename it to something generic (e.g. `.page-header`) in the
+  same response.
+- The same rule applies to JS handlers, template partials, and route names.
+
 ## Remove old approaches when replacing them
 
 When pivoting an implementation (different algorithm, different UI pattern,
