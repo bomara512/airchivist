@@ -264,6 +264,187 @@ class TestRediscoverShelfAPI:
 
 ---
 
+## Collapsed-State Redesign (2026-06-18)
+
+**Problem:** The original collapsed state (see "Toggling" above) kept the full bordered box, background, padding, and both header buttons (Refresh, toggle) visible — only the carousel and footer were hidden via `display: none`. This gave the collapsed shelf the same visual weight as an active section, and the Refresh button made no sense to show when there was nothing visible to refresh.
+
+**Decision:** Collapsed and expanded states now render structurally different chrome, not just hidden/shown content within the same box:
+
+- **Collapsed:** a single full-width line, no border/background/padding — just a disclosure affordance (e.g. `▸ Rediscover`). No Refresh button (removed entirely from the DOM in this state, not just hidden). The entire line is the click target to re-expand — chosen over a small icon-only target for a larger, easier-to-hit hitbox.
+- **Expanded:** unchanged from the original design — bordered box, Refresh + toggle buttons, carousel, footer.
+- **Transition:** instant swap between the two, no animation. Considered an animated height/opacity transition, but rejected: the two states have structurally different shapes (box has border/padding/radius, the collapsed row has none), so animating between them smoothly is fiddly and risks introducing a new jarring moment — and the complaint was about the resting collapsed state, not the act of toggling.
+- **Persistence:** unchanged — still stored in `localStorage` and restored on page load.
+
+**Implemented as designed** — see the plan below. CSS-only restructuring plus a small toggle-script rewrite; no HTML markup changes were needed.
+
+## Implementation Plan: Collapsed-State Redesign (2026-06-18)
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Make the rediscover shelf's collapsed state a minimal, full-width clickable disclosure row instead of the current bordered box with a hidden carousel.
+
+**Architecture:** CSS-only restructuring of the existing `.rediscover-shelf`/`.shelf-header` markup (no HTML changes needed — `.shelf-header` is already a full-width block element), plus a small rewrite of the existing toggle script in `webapp/templates/index.html` to (a) make the whole header the expand target when collapsed, (b) stop that click from re-triggering on the same gesture that just collapsed it, and (c) drop the now-dead `+`/`−` text-swapping since the toggle button is only ever visible in the expanded state.
+
+**Tech Stack:** Plain CSS, vanilla JS (no build step, no new dependencies — matches the rest of the codebase).
+
+---
+
+### Task 1: Collapsed-state CSS
+
+**Files:**
+- Modify: `webapp/static/style.css:293-340`
+
+- [ ] **Step 1: Replace the collapsed hide-rule and add the minimal-row styles**
+
+Find this block (style.css:301-302):
+```css
+.rediscover-shelf.collapsed .shelf-container,
+.rediscover-shelf.collapsed .shelf-footer { display: none; }
+```
+
+Replace it with:
+```css
+.rediscover-shelf.collapsed {
+  margin: 0.75rem 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
+.rediscover-shelf.collapsed .shelf-container,
+.rediscover-shelf.collapsed .shelf-footer,
+.rediscover-shelf.collapsed .shelf-controls { display: none; }
+
+.rediscover-shelf.collapsed .shelf-header {
+  margin-bottom: 0;
+  padding: 0.4rem 0.25rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.rediscover-shelf.collapsed .shelf-header:hover { background: #1a1a1a; }
+```
+
+- [ ] **Step 2: Add the disclosure chevron**
+
+Find this line (style.css:311):
+```css
+.shelf-header h2 { margin: 0; font-size: 1.1rem; }
+```
+
+Replace it with:
+```css
+.shelf-header h2 { margin: 0; font-size: 1.1rem; }
+
+.shelf-header h2::before {
+  content: "\25BE ";
+  display: inline-block;
+  font-size: 0.75em;
+  color: #999;
+}
+
+.rediscover-shelf.collapsed .shelf-header h2::before { content: "\25B8 "; }
+```
+
+(`\25BE` is `▾`, `\25B8` is `▸` — using CSS escapes instead of literal unicode characters in the stylesheet avoids any source-encoding ambiguity.)
+
+- [ ] **Step 3: Visual sanity check**
+
+Run: `grep -n "rediscover-shelf.collapsed\|shelf-header h2::before" webapp/static/style.css`
+Expected: 6 rule blocks total — the box override, the 3-selector hide rule, the header padding/cursor rule, the hover rule, and the two `::before` rules.
+
+---
+
+### Task 2: Toggle script rewrite
+
+**Files:**
+- Modify: `webapp/templates/index.html:264-278`
+
+- [ ] **Step 1: Replace the collapse/expand script block**
+
+Find this block (index.html:264-278):
+```javascript
+  // Shelf collapse/expand
+  var shelf = document.getElementById('rediscover-shelf');
+  var toggleBtn = document.getElementById('toggle-shelf-btn');
+  var COLLAPSED_KEY = 'rediscover-shelf-collapsed';
+
+  toggleBtn.addEventListener('click', function () {
+    var isCollapsed = shelf.classList.toggle('collapsed');
+    localStorage.setItem(COLLAPSED_KEY, isCollapsed ? 'true' : 'false');
+    toggleBtn.textContent = isCollapsed ? '+' : '−';
+  });
+
+  if (localStorage.getItem(COLLAPSED_KEY) === 'true') {
+    shelf.classList.add('collapsed');
+    toggleBtn.textContent = '+';
+  }
+})();
+```
+
+Replace it with:
+```javascript
+  // Shelf collapse/expand
+  var shelf = document.getElementById('rediscover-shelf');
+  var shelfHeader = shelf.querySelector('.shelf-header');
+  var toggleBtn = document.getElementById('toggle-shelf-btn');
+  var COLLAPSED_KEY = 'rediscover-shelf-collapsed';
+
+  function setShelfCollapsed(collapsed) {
+    shelf.classList.toggle('collapsed', collapsed);
+    localStorage.setItem(COLLAPSED_KEY, collapsed ? 'true' : 'false');
+  }
+
+  // Toggle button is only ever visible while expanded — its one job is to collapse.
+  toggleBtn.addEventListener('click', function (e) {
+    e.stopPropagation(); // don't let this bubble into shelfHeader's expand-on-click listener below
+    setShelfCollapsed(true);
+  });
+
+  // While collapsed, the whole header row (not just a small button) is the expand target.
+  shelfHeader.addEventListener('click', function () {
+    if (shelf.classList.contains('collapsed')) setShelfCollapsed(false);
+  });
+
+  if (localStorage.getItem(COLLAPSED_KEY) === 'true') {
+    setShelfCollapsed(true);
+  }
+})();
+```
+
+**Why `e.stopPropagation()` is required, not optional:** `toggleBtn` is a descendant of `shelfHeader`, so a click on it bubbles up to `shelfHeader`'s own click listener after `toggleBtn`'s handler runs. Without `stopPropagation()`, clicking the toggle button while expanded would: (1) `toggleBtn`'s handler runs first, calling `setShelfCollapsed(true)` — the `collapsed` class is now present; (2) the same click event bubbles to `shelfHeader`'s listener, which checks `classList.contains('collapsed')` — now true — and immediately calls `setShelfCollapsed(false)`, undoing step 1. Net effect without the fix: clicking the toggle button would appear to do nothing. This is a real bug to verify against, not a defensive afterthought — Step 2 below specifically checks for it.
+
+**Why the `+`/`−` text-swap is removed:** in the old design `toggleBtn` stayed visible in both states, so the symbol needed to reflect "what happens next." In the new design `.shelf-controls` (which contains `toggleBtn`) is hidden via CSS whenever `.collapsed` is set (Task 1, Step 1), so `toggleBtn` is only ever visible in the expanded state, where its action is always "collapse." A static `−` (already in the HTML as the button's text content) is correct in every state it's actually shown in — keeping the JS branch would be dead code per the project's "remove old approaches when replacing them" convention.
+
+- [ ] **Step 2: Manual verification in a browser**
+
+There's no JS test framework in this codebase yet (see `TODO.md` tech-debt list), so this is verified by hand:
+1. Start the app against a copy of real data: `cp viewtube.db /tmp/viewtube-verify.db && python -m webapp.cli --db /tmp/viewtube-verify.db --port 5099`
+2. Open `http://127.0.0.1:5099/` in a browser.
+3. Confirm expanded state is pixel-identical to before (box, Refresh button, toggle button, carousel, footer).
+4. Click the `−` toggle button. Confirm: box border/background/padding disappear, Refresh button disappears, carousel and footer disappear, only a thin `▸ Rediscover` line remains.
+5. Click anywhere on that thin line (not just on the chevron). Confirm it re-expands to the full box.
+6. Reload the page while expanded, click `−` again — confirm the toggle button collapse still works on a fresh state (this is the case `stopPropagation()` fixes; without it, clicking `−` would appear to do nothing).
+7. Reload the page after leaving it collapsed — confirm it restores collapsed (the thin row), not the box.
+8. Stop the server (`kill %1` or equivalent) and remove `/tmp/viewtube-verify.db`.
+
+---
+
+### Task 3: Documentation
+
+**Files:**
+- Modify: `plan-rediscover-shelf.md` (this file)
+- Modify: `CHANGELOG.md`
+
+- [ ] **Step 1:** In `plan-rediscover-shelf.md`, under "Collapsed-State Redesign (2026-06-18)" (added during brainstorming), add one line confirming implementation landed as designed, or note any deviation found during manual verification (Task 2, Step 2).
+
+- [ ] **Step 2:** Append a `CHANGELOG.md` entry dated 2026-06-18 (or the current date if this lands later) describing the change and at least one trade-off, per the project's "Always update the changelog" convention. Trade-off to mention: the collapsed-state click target is the *entire* header row, but the *expand* affordance is only a static chevron + label with no button styling — slightly less visually obvious as "clickable" than a real button, traded for the requested minimal/quiet look.
+
+- [ ] **Step 3:** Leave all changes staged but **do not run `git commit`** — this project's convention is to only commit when the user explicitly asks (see prior turns in this session).
+
+---
+
 ## Future Enhancements (Not in Scope)
 
 - Shuffle/reorder shelf without full refresh (new 20 from same pool)

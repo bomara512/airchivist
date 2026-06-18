@@ -4,6 +4,16 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Redesign rediscover shelf collapsed state (2026-06-18)
+
+Collapsed state used to keep the full bordered box (border, background, padding) and both header buttons (Refresh, toggle) visible — only the carousel and footer were hidden. Now collapsing strips the box chrome entirely and removes the Refresh button, leaving a single full-width line (`▸ Rediscover`) that's the click target to re-expand. No HTML changes were needed — purely a CSS restructuring plus a small rewrite of the existing toggle script (`webapp/templates/index.html`, `webapp/static/style.css`).
+
+The toggle button's old `+`/`−` text-swapping was removed as dead code: the button is now only ever visible in the expanded state (where its action is always "collapse"), so a static `−` is correct in every state it's shown in. Required adding `e.stopPropagation()` to the toggle button's click handler — without it, the click would bubble into the header's own click-to-expand listener and immediately undo the collapse.
+
+**Trade-off:** the expand affordance in the collapsed state is just a static chevron + label with no button styling, which is less visually obvious as "clickable" than a real button — accepted in exchange for the minimal/quiet look that was the point of this change.
+
+---
+
 ### Fix missing personal view count on Watch Later cards (2026-06-18)
 
 `get_watch_later_queue` built its `SELECT` column list by hand and omitted `v.personal_view_count`, so the `[N]` watched-count badge in `_video_card.html` silently never rendered for queued videos even though the shared template has always supported it. Root-caused by comparing against the three other card-producing queries (`get_all_videos` uses `v.*`; `get_hidden_videos` uses `v.*`; `get_current_rediscover_shelf` already explicitly selects the column) — `get_watch_later_queue` was the only one missing it. Added `v.personal_view_count` to its `SELECT`.
