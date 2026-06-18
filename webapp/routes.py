@@ -43,6 +43,7 @@ def index():
     tag = request.args.get("tag") or None
     search = request.args.get("search") or None
     group = request.args.get("group") or None
+    favourites_only = request.args.get("favourites") == "1"
     append = request.args.get("append") == "1"
     try:
         page = max(1, int(request.args.get("page", 1)))
@@ -50,12 +51,12 @@ def index():
         page = 1
 
     try:
-        total = _db.count_videos(g.db, channel=channel, tag=tag, search=search)
+        total = _db.count_videos(g.db, channel=channel, tag=tag, search=search, favourites_only=favourites_only)
         videos = _db.get_all_videos(
             g.db, sort_by=sort_by, sort_dir=sort_dir,
             channel=channel, tag=tag, search=search,
             page=page, page_size=PAGE_SIZE,
-            group=group,
+            group=group, favourites_only=favourites_only,
         )
     except ValueError:
         abort(400)
@@ -103,6 +104,7 @@ def index():
         current_tag=tag,
         current_search=search,
         group=group,
+        favourites_only=favourites_only,
         page=page,
         total_pages=total_pages,
         total=total,
@@ -397,6 +399,16 @@ def tags_llm_suggest_accept_noise(suggestion_id):
     rejected = [m for m in all_members if m not in set(members)]
     _db.accept_noise_and_dismiss_suggestion(g.db, suggestion_id, members, rejected)
     return redirect(url_for("main.tags"))
+
+
+@bp.route("/videos/<video_id>/favourite", methods=["POST"])
+def video_toggle_favourite(video_id):
+    video = _db.get_video_by_id(g.db, video_id)
+    if not video:
+        abort(404)
+    new_value = not video.get("is_favourite")
+    _db.set_favourite(g.db, video_id, new_value)
+    return jsonify({"is_favourite": new_value})
 
 
 @bp.route("/videos/<video_id>/hide", methods=["POST"])

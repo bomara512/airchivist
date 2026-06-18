@@ -24,6 +24,11 @@
             title="{{ 'Already in Watch Later' if in_wl else 'Add to Watch Later' }}"
             {% if in_wl %}disabled{% endif %}>⏱</button>
     {% endif %}
+    {% if ctx != "hidden" %}
+    <button class="favourite-btn {% if video.is_favourite %}favourite-btn--active{% endif %}"
+            data-video-id="{{ video.video_id }}"
+            title="{{ 'Remove from favourites' if video.is_favourite else 'Add to favourites' }}">★</button>
+    {% endif %}
   </div>
 
   <div class="video-info">

@@ -7,7 +7,7 @@
         hx-get="/"
         hx-target="#video-container"
         hx-push-url="true"
-        hx-trigger="change from:select, keyup changed delay:300ms from:input[name=search]">
+        hx-trigger="change from:select, change from:input[type=checkbox], keyup changed delay:300ms from:input[name=search]">
 
     <input name="search" value="{{ current_search or '' }}" placeholder="Search…"
            autocomplete="off">
@@ -57,6 +57,11 @@
       <option value="channel" {% if group == 'channel' %}selected{% endif %}>By channel</option>
       <option value="tag" {% if group == 'tag' %}selected{% endif %}>By tag</option>
     </select>
+
+    <label class="filter-toggle">
+      <input type="checkbox" name="favourites" value="1" {% if favourites_only %}checked{% endif %}>
+      Favourites
+    </label>
 
     <a href="/" class="reset-btn">Reset</a>
   </form>

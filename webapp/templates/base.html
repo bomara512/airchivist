@@ -168,6 +168,24 @@
         .then(function (r) { if (r.ok) card.remove(); });
     });
 
+    // Favourite toggle button
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.favourite-btn');
+      if (!btn) return;
+      var videoId = btn.dataset.videoId;
+      fetch('/videos/' + videoId + '/favourite', { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.is_favourite) {
+            btn.classList.add('favourite-btn--active');
+            btn.title = 'Remove from favourites';
+          } else {
+            btn.classList.remove('favourite-btn--active');
+            btn.title = 'Add to favourites';
+          }
+        });
+    });
+
     // Watch Later button — add to queue (main list and shelf cards)
     document.addEventListener('click', function (e) {
       var btn = e.target.closest('.watch-later-btn');

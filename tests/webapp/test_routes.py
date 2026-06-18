@@ -210,6 +210,28 @@ class TestApiHide:
         assert resp.status_code == 204
 
 
+class TestFavouriteToggle:
+    def test_toggle_on_returns_true(self, client):
+        resp = client.post("/videos/aaaaaaaaaa1/favourite")
+        assert resp.status_code == 200
+        assert resp.get_json()["is_favourite"] is True
+
+    def test_toggle_off_returns_false(self, client):
+        client.post("/videos/aaaaaaaaaa1/favourite")
+        resp = client.post("/videos/aaaaaaaaaa1/favourite")
+        assert resp.get_json()["is_favourite"] is False
+
+    def test_unknown_video_returns_404(self, client):
+        resp = client.post("/videos/XXXXXXXXXXX/favourite")
+        assert resp.status_code == 404
+
+    def test_favourites_filter_returns_only_favourites(self, client):
+        client.post("/videos/aaaaaaaaaa1/favourite")
+        resp = client.get("/?favourites=1", headers={"HX-Request": "true"})
+        assert b"Guitar Lesson 1" in resp.data
+        assert b"Thai Food Recipe" not in resp.data
+
+
 class TestRediscoverShelfRefresh:
     def test_returns_200_html(self, client):
         resp = client.post("/rediscover-shelf/refresh")

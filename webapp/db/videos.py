@@ -15,7 +15,7 @@ ALLOWED_SORT_COLUMNS = frozenset({
 ALLOWED_SORT_DIRS = frozenset({'asc', 'desc'})
 
 
-def _build_where(channel, tag, search):
+def _build_where(channel, tag, search, favourites_only=False):
     params = []
     clauses = ["v.fetch_status = 'ok'", "v.is_hidden = 0"]
     if channel:
@@ -37,8 +37,18 @@ def _build_where(channel, tag, search):
             "             JOIN tag_keywords tk ON tk.tag_id = vt.tag_id_fk WHERE REGEXP(?, tk.keyword)))"
         )
         params.extend([pattern, pattern, pattern, pattern])
+    if favourites_only:
+        clauses.append("v.is_favourite = 1")
     where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return where_sql, params
+
+
+def set_favourite(conn: sqlite3.Connection, video_id: str, value: bool) -> None:
+    conn.execute(
+        "UPDATE videos SET is_favourite = ? WHERE video_id = ?",
+        (1 if value else 0, video_id),
+    )
+    conn.commit()
 
 
 def get_all_videos(
@@ -51,13 +61,14 @@ def get_all_videos(
     page: int = 1,
     page_size: Optional[int] = None,
     group: Optional[str] = None,
+    favourites_only: bool = False,
 ) -> list:
     if sort_by not in ALLOWED_SORT_COLUMNS:
         raise ValueError(f"Invalid sort_by: {sort_by!r}")
     if sort_dir not in ALLOWED_SORT_DIRS:
         raise ValueError(f"Invalid sort_dir: {sort_dir!r}")
 
-    where_sql, params = _build_where(channel, tag, search)
+    where_sql, params = _build_where(channel, tag, search, favourites_only)
 
     limit_sql = ""
     if page_size is not None:
@@ -93,8 +104,9 @@ def count_videos(
     channel: Optional[str] = None,
     tag: Optional[str] = None,
     search: Optional[str] = None,
+    favourites_only: bool = False,
 ) -> int:
-    where_sql, params = _build_where(channel, tag, search)
+    where_sql, params = _build_where(channel, tag, search, favourites_only)
     sql = f"""
         SELECT COUNT(DISTINCT v.id)
         FROM videos v
