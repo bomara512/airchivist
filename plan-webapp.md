@@ -251,6 +251,11 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 | GET | `/hidden` | Hidden videos management page — Restore and Delete permanently per card |
 | GET | `/api/status` | CORS. `?url=<yt_url>` → `{status: not_found\|exists\|hidden, video_id, title}` |
 | POST | `/api/hide` | CORS. `{url}` → hides by URL → `{status: "hidden", title}` |
+| GET | `/watch-later` | Watch Later queue page, ordered by `position` |
+| POST | `/api/watch-later/add` | CORS. `{url}` → adds to end of queue |
+| POST | `/api/watch-later/remove` | CORS. `{url}` → removes from queue |
+| POST | `/api/watch-later/status` | CORS. `{url}` → `{in_queue: bool}` |
+| POST | `/videos/<id>/watch-later/reorder` | `{position}` → moves the video to that 1-indexed position via `reorder_watch_later`; 400 if `position` missing/non-int, 404 if not in queue |
 
 ### Tag Groups
 
@@ -336,6 +341,15 @@ Both modes produce a list of `{"tag": {"name": label}, "videos": [...]}` dicts c
 - **Grouped view**: standard Prev/Next links that swap the entire `#video-container`.
 - `page_url()` strips both `page` and `append` from the current query args before building the new URL, so `append=1` never accumulates.
 - Filter changes still reset to page 1 (page is not a form field).
+
+### Watch Later Drag-to-Reorder
+
+Cards on `/watch-later` carry `draggable="true"` (set only for `context="watch_later"` in `_video_card.html`). All drag handling is a single delegated listener block in `base.html`, using the native HTML5 drag-and-drop API — no vendored sortable library — consistent with the project's zero-JS-dependency convention.
+
+- `dragstart` is cancelled (`e.preventDefault()`) when the originating target is inside an `<a>` or `<button>`, so clicking the thumbnail link, title, tag pills, or the remove button still works; the rest of the card (meta row, secondary-meta line, whitespace) is the effective drag handle.
+- `dragover` reorders the DOM live using **index comparison**, not cursor Y-position-within-target-rect: if the dragged card's current index is before the hovered card's index, it's moved after the hovered card; otherwise moved before it. This is layout-agnostic and works correctly for the CSS grid (`auto-fill` columns) the queue uses — a midpoint-of-target-rect heuristic would only work for single-column lists.
+- `dragend` reindexes the `.queue-position-badge` numbers from DOM order and POSTs the final 1-indexed position to `/videos/<id>/watch-later/reorder`, which calls the existing `reorder_watch_later` DB function.
+- No optimistic-rollback handling on request failure — same trade-off already accepted elsewhere on this page (e.g. queue-remove).
 
 ### Template partials
 

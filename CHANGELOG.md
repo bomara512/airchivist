@@ -4,6 +4,16 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Drag-to-reorder Watch Later queue (2026-06-18)
+
+Wired up the existing (unused) `reorder_watch_later` DB function to the UI. New route `POST /videos/<id>/watch-later/reorder` accepts `{position}` and persists the move; `.video-card` is made `draggable="true"` only in `context="watch_later"`, with a delegated dragstart/dragover/dragend handler added to the existing vanilla-JS IIFE in `base.html`.
+
+Implemented with the native HTML5 drag-and-drop API rather than vendoring a sortable library, matching the project's zero-JS-dependency convention (only `htmx.min.js` is vendored). The `dragover` reorder logic compares DOM index of the dragged vs. hovered card (not cursor position within the target's bounding rect), which works correctly for the queue's CSS grid layout — a Y-midpoint heuristic would only be correct for a single-column list.
+
+**Trade-offs:** Drag-and-drop only — no keyboard/touch alternative, so reordering is unavailable on mobile or via assistive tech. No optimistic-rollback UI if the reorder POST fails (matches the existing queue-remove behavior on this page).
+
+---
+
 ### Consistent video card metadata across all surfaces (2026-06-17)
 
 Every card now shows the same base meta row regardless of context:
@@ -43,7 +53,7 @@ Added a dedicated Watch Later queue for bookmarking videos to watch later. Featu
 - Integration: ⏱ button on main video list cards and rediscover shelf cards (fade/disable on click)
 - Navigation: Watch Later link in main header between Tags and Hidden
 
-**Trade-offs:** No drag-to-reorder in UI (`reorder_watch_later` function exists but not wired); could be added later. Watches single video — no multi-select bulk operations. Page reloads when queue becomes empty (could use HTMX swap instead).
+**Trade-offs:** Watches single video — no multi-select bulk operations. Page reloads when queue becomes empty (could use HTMX swap instead). (Drag-to-reorder added later — see 2026-06-18 entry.)
 
 ---
 

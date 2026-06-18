@@ -1026,3 +1026,55 @@ class TestEditAliasAndApply:
             (tag_id,),
         ).fetchone()
         assert linked is not None
+
+
+class TestReorderWatchLater:
+    def _queue_ids(self, db_conn):
+        from webapp.db import get_watch_later_queue
+        return [v["video_id"] for v in get_watch_later_queue(db_conn)]
+
+    def test_move_down_shifts_intermediate_items_up(self, db_conn):
+        from webapp.db import add_to_watch_later, reorder_watch_later
+        for vid in ("aaaaaaaaaa1", "aaaaaaaaaa2", "aaaaaaaaaa3"):
+            add_to_watch_later(db_conn, vid)
+        db_conn.commit()
+
+        moved = reorder_watch_later(db_conn, "aaaaaaaaaa1", 3)
+        db_conn.commit()
+
+        assert moved is True
+        assert self._queue_ids(db_conn) == ["aaaaaaaaaa2", "aaaaaaaaaa3", "aaaaaaaaaa1"]
+
+    def test_move_up_shifts_intermediate_items_down(self, db_conn):
+        from webapp.db import add_to_watch_later, reorder_watch_later
+        for vid in ("aaaaaaaaaa1", "aaaaaaaaaa2", "aaaaaaaaaa3"):
+            add_to_watch_later(db_conn, vid)
+        db_conn.commit()
+
+        moved = reorder_watch_later(db_conn, "aaaaaaaaaa3", 1)
+        db_conn.commit()
+
+        assert moved is True
+        assert self._queue_ids(db_conn) == ["aaaaaaaaaa3", "aaaaaaaaaa1", "aaaaaaaaaa2"]
+
+    def test_position_clamped_to_queue_size(self, db_conn):
+        from webapp.db import add_to_watch_later, reorder_watch_later
+        for vid in ("aaaaaaaaaa1", "aaaaaaaaaa2"):
+            add_to_watch_later(db_conn, vid)
+        db_conn.commit()
+
+        moved = reorder_watch_later(db_conn, "aaaaaaaaaa1", 99)
+        db_conn.commit()
+
+        assert moved is True
+        assert self._queue_ids(db_conn) == ["aaaaaaaaaa2", "aaaaaaaaaa1"]
+
+    def test_unknown_video_returns_false(self, db_conn):
+        from webapp.db import reorder_watch_later
+        assert reorder_watch_later(db_conn, "XXXXXXXXXXX", 1) is False
+
+    def test_video_not_in_queue_returns_false(self, db_conn):
+        from webapp.db import add_to_watch_later, reorder_watch_later
+        add_to_watch_later(db_conn, "aaaaaaaaaa1")
+        db_conn.commit()
+        assert reorder_watch_later(db_conn, "aaaaaaaaaa2", 1) is False

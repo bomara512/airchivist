@@ -232,6 +232,30 @@ class TestFavouriteToggle:
         assert b"Thai Food Recipe" not in resp.data
 
 
+class TestWatchLaterReorder:
+    def test_reorder_moves_video_and_returns_204(self, client):
+        for vid in ("aaaaaaaaaa1", "aaaaaaaaaa2", "aaaaaaaaaa3"):
+            client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=" + vid})
+
+        resp = client.post("/videos/aaaaaaaaaa1/watch-later/reorder", json={"position": 3})
+        assert resp.status_code == 204
+
+        page = client.get("/watch-later")
+        ids_in_order = [m for m in ("aaaaaaaaaa1", "aaaaaaaaaa2", "aaaaaaaaaa3")
+                         if page.data.find(m.encode()) != -1]
+        positions = {vid: page.data.find(vid.encode()) for vid in ids_in_order}
+        assert positions["aaaaaaaaaa2"] < positions["aaaaaaaaaa3"] < positions["aaaaaaaaaa1"]
+
+    def test_missing_position_returns_400(self, client):
+        client.post("/api/watch-later/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.post("/videos/aaaaaaaaaa1/watch-later/reorder", json={})
+        assert resp.status_code == 400
+
+    def test_video_not_in_queue_returns_404(self, client):
+        resp = client.post("/videos/aaaaaaaaaa1/watch-later/reorder", json={"position": 1})
+        assert resp.status_code == 404
+
+
 class TestRediscoverShelfRefresh:
     def test_returns_200_html(self, client):
         resp = client.post("/rediscover-shelf/refresh")

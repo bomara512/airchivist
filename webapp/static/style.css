@@ -529,6 +529,11 @@ h1 { margin-top: 0; }
   gap: 1rem;
 }
 
+.watch-later-list .video-card { cursor: grab; }
+.watch-later-list .video-card a,
+.watch-later-list .video-card button { cursor: pointer; }
+.watch-later-list .video-card.dragging { opacity: 0.4; cursor: grabbing; }
+
 .empty-queue {
   text-align: center;
   padding: 4rem 2rem;

@@ -423,6 +423,18 @@ def video_unhide(video_id):
     return redirect(url_for("main.hidden"))
 
 
+@bp.route("/videos/<video_id>/watch-later/reorder", methods=["POST"])
+def watch_later_reorder(video_id):
+    data = request.get_json(silent=True) or {}
+    position = data.get("position")
+    if not isinstance(position, int):
+        abort(400)
+    moved = _db.reorder_watch_later(g.db, video_id, position)
+    if not moved:
+        abort(404)
+    return "", 204
+
+
 @bp.route("/videos/<video_id>/delete", methods=["POST"])
 def video_delete(video_id):
     _db.delete_video(g.db, video_id)

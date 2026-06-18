@@ -249,6 +249,50 @@
           }
         });
     });
+
+    // Drag-to-reorder Watch Later queue
+    var watchLaterList = document.querySelector('.watch-later-list');
+    if (watchLaterList) {
+      var dragCard = null;
+
+      watchLaterList.addEventListener('dragstart', function (e) {
+        var card = e.target.closest('.video-card');
+        if (!card) return;
+        if (e.target.closest('a, button')) { e.preventDefault(); return; }
+        dragCard = card;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      watchLaterList.addEventListener('dragover', function (e) {
+        if (!dragCard) return;
+        e.preventDefault();
+        var card = e.target.closest('.video-card');
+        if (!card || card === dragCard) return;
+        var cards = Array.prototype.slice.call(watchLaterList.children);
+        var dragIndex = cards.indexOf(dragCard);
+        var overIndex = cards.indexOf(card);
+        watchLaterList.insertBefore(dragCard, dragIndex < overIndex ? card.nextSibling : card);
+      });
+
+      watchLaterList.addEventListener('dragend', function () {
+        if (!dragCard) return;
+        dragCard.classList.remove('dragging');
+        var videoId = dragCard.dataset.videoId;
+        var cards = Array.prototype.slice.call(watchLaterList.querySelectorAll('.video-card'));
+        cards.forEach(function (c, idx) {
+          var badge = c.querySelector('.queue-position-badge');
+          if (badge) badge.textContent = idx + 1;
+        });
+        var newPosition = cards.indexOf(dragCard) + 1;
+        dragCard = null;
+        fetch('/videos/' + videoId + '/watch-later/reorder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ position: newPosition })
+        });
+      });
+    }
   })();
   </script>
 </body>

@@ -1,5 +1,5 @@
 {% set ctx = context | default("main") %}
-<div class="video-card" data-video-id="{{ video.video_id }}">
+<div class="video-card" data-video-id="{{ video.video_id }}" {% if ctx == "watch_later" %}draggable="true"{% endif %}>
 
   <div class="thumb-wrap">
     <a href="{{ url_for('main.visit', video_id=video.video_id) }}" class="thumb-link" target="_blank" rel="noopener noreferrer">
