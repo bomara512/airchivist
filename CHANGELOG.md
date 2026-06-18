@@ -4,6 +4,14 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Simplify rediscover shelf header controls (2026-06-18)
+
+Follow-up to the collapsed-state redesign below. The dedicated toggle button is gone — Refresh moves into that same square slot (`.shelf-icon-btn`, renamed from `.toggle-btn` since it now sizes the refresh button, not a toggle), shown as an icon (`↻`) instead of the text "Refresh", with `aria-label="Refresh shelf"` added since it's icon-only now. The "Rediscover" label itself is now the single toggle target for both expanding and collapsing. Since the label and the refresh button are siblings rather than nested, the `e.stopPropagation()` workaround from the previous redesign is no longer needed and was removed. The chevron also grew from `0.75em` to `1.3em` for visibility.
+
+**Trade-off:** the toggle action now has no visible button affordance at all — just a label that happens to be clickable — which is less discoverable at a glance than a dedicated button. Traded for a cleaner two-element header (label + one icon button) instead of three separate click targets.
+
+---
+
 ### Redesign rediscover shelf collapsed state (2026-06-18)
 
 Collapsed state used to keep the full bordered box (border, background, padding) and both header buttons (Refresh, toggle) visible — only the carousel and footer were hidden. Now collapsing strips the box chrome entirely and removes the Refresh button, leaving a single full-width line (`▸ Rediscover`) that's the click target to re-expand. No HTML changes were needed — purely a CSS restructuring plus a small rewrite of the existing toggle script (`webapp/templates/index.html`, `webapp/static/style.css`).

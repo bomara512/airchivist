@@ -108,11 +108,11 @@
     <h2>Rediscover</h2>
     <div class="shelf-controls">
       <button id="refresh-shelf-btn"
-              class="secondary-btn"
+              class="shelf-icon-btn"
+              aria-label="Refresh shelf"
               hx-post="/rediscover-shelf/refresh"
               hx-target="#shelf-carousel"
-              hx-swap="innerHTML">Refresh</button>
-      <button id="toggle-shelf-btn" class="toggle-btn" aria-label="Toggle shelf">−</button>
+              hx-swap="innerHTML">&#8635;</button>
     </div>
   </div>
 
@@ -263,8 +263,7 @@
 
   // Shelf collapse/expand
   var shelf = document.getElementById('rediscover-shelf');
-  var shelfHeader = shelf.querySelector('.shelf-header');
-  var toggleBtn = document.getElementById('toggle-shelf-btn');
+  var shelfLabel = shelf.querySelector('.shelf-header h2');
   var COLLAPSED_KEY = 'rediscover-shelf-collapsed';
 
   function setShelfCollapsed(collapsed) {
@@ -272,15 +271,11 @@
     localStorage.setItem(COLLAPSED_KEY, collapsed ? 'true' : 'false');
   }
 
-  // Toggle button is only ever visible while expanded — its one job is to collapse.
-  toggleBtn.addEventListener('click', function (e) {
-    e.stopPropagation(); // don't let this bubble into shelfHeader's expand-on-click listener below
-    setShelfCollapsed(true);
-  });
-
-  // While collapsed, the whole header row (not just a small button) is the expand target.
-  shelfHeader.addEventListener('click', function () {
-    if (shelf.classList.contains('collapsed')) setShelfCollapsed(false);
+  // The "Rediscover" label is the only toggle target, in both directions. It's a sibling
+  // of the refresh button (not an ancestor), so there's no event-bubbling path between them
+  // and no stopPropagation() needed.
+  shelfLabel.addEventListener('click', function () {
+    setShelfCollapsed(!shelf.classList.contains('collapsed'));
   });
 
   if (localStorage.getItem(COLLAPSED_KEY) === 'true') {

@@ -445,6 +445,280 @@ There's no JS test framework in this codebase yet (see `TODO.md` tech-debt list)
 
 ---
 
+## Header Controls Redesign (2026-06-18, follow-up)
+
+**Problem:** After the collapsed-state redesign above, the header still had two separate interactive elements (Refresh, toggle) plus a click-to-expand zone on the whole row when collapsed — three different click targets across two states.
+
+**Decision:**
+- The dedicated toggle button (`#toggle-shelf-btn`) is removed entirely. Refresh (`#refresh-shelf-btn`) takes over that same square slot (2rem × 2rem, red background — same visual treatment the toggle button had), with its label changed from the text "Refresh" to the icon `↻`, plus `aria-label="Refresh shelf"` since it's now icon-only.
+- Toggling (both expand and collapse) is now done by clicking the **"Rediscover"** label (the `<h2>`) specifically — not the whole header row, not a separate button. This is a narrower click target than the "whole line clickable" decision from the original collapsed-state redesign, but deliberate: there are now two independent interactive elements sharing the header row (label = toggle, icon = refresh), so the label needs an unambiguous boundary rather than overlapping with a whole-row click zone.
+- Because Refresh and the label are siblings (not nested) under `.shelf-header`, the `e.stopPropagation()` workaround from the previous redesign is no longer needed — there's no event-bubbling path between them to defend against. Removed as dead code rather than left in place "just in case."
+- Refresh still hides when collapsed (unchanged from the original decision) — confirmed explicitly rather than assumed, since the new layout made it a live question again.
+- The chevron (`▾`/`▸`) grows from `0.75em` to `1.3em`.
+
+**Implemented as designed** — see the plan below.
+
+### Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Replace the separate Refresh + toggle buttons with a single icon-only Refresh button (in the toggle button's old square slot) and make the "Rediscover" label itself the expand/collapse control.
+
+**Architecture:** Pure HTML/CSS/JS-in-template change to `webapp/templates/index.html` and `webapp/static/style.css` — no DB/route/Python involved. One button element is deleted, one is restyled and relabeled, one CSS class is renamed for its actual purpose (`.toggle-btn` → `.shelf-icon-btn`, since it now sizes the refresh button, not a toggle button), and the toggle script's two listeners collapse into one.
+
+**Tech Stack:** Plain CSS, vanilla JS, Jinja2 HTML — matches the rest of the codebase, no new dependencies.
+
+---
+
+#### Task 1: Markup — remove the toggle button, restyle Refresh as an icon button
+
+**Files:**
+- Modify: `webapp/templates/index.html:106-117`
+
+- [ ] **Step 1: Replace the shelf header markup**
+
+Find (index.html:106-117):
+```html
+<section class="rediscover-shelf" id="rediscover-shelf">
+  <div class="shelf-header">
+    <h2>Rediscover</h2>
+    <div class="shelf-controls">
+      <button id="refresh-shelf-btn"
+              class="secondary-btn"
+              hx-post="/rediscover-shelf/refresh"
+              hx-target="#shelf-carousel"
+              hx-swap="innerHTML">Refresh</button>
+      <button id="toggle-shelf-btn" class="toggle-btn" aria-label="Toggle shelf">−</button>
+    </div>
+  </div>
+```
+
+Replace with:
+```html
+<section class="rediscover-shelf" id="rediscover-shelf">
+  <div class="shelf-header">
+    <h2>Rediscover</h2>
+    <div class="shelf-controls">
+      <button id="refresh-shelf-btn"
+              class="shelf-icon-btn"
+              aria-label="Refresh shelf"
+              hx-post="/rediscover-shelf/refresh"
+              hx-target="#shelf-carousel"
+              hx-swap="innerHTML">&#8635;</button>
+    </div>
+  </div>
+```
+
+(`&#8635;` is `↻`, U+21BB CLOCKWISE OPEN CIRCLE ARROW — written as a numeric character reference rather than the literal glyph to avoid any template-file encoding ambiguity, matching the CSS escape approach already used for the chevron in style.css.)
+
+- [ ] **Step 2: Confirm the toggle button is gone and Refresh is icon-only**
+
+Run: `grep -n "toggle-shelf-btn\|refresh-shelf-btn" webapp/templates/index.html`
+Expected: one match only, for `refresh-shelf-btn`, with `class="shelf-icon-btn"` and `aria-label="Refresh shelf"` — no `toggle-shelf-btn` anywhere.
+
+---
+
+#### Task 2: CSS — rename `.toggle-btn` to `.shelf-icon-btn`, rework collapsed-header hover, grow the chevron
+
+**Files:**
+- Modify: `webapp/static/style.css:301-369` (exact end line for `.toggle-btn` may vary slightly — find the block by content, shown below)
+
+- [ ] **Step 1: Drop the now-dead hover/cursor rules from the collapsed header, keep the layout-only parts**
+
+Find (style.css:313-320):
+```css
+.rediscover-shelf.collapsed .shelf-header {
+  margin-bottom: 0;
+  padding: 0.4rem 0.25rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.rediscover-shelf.collapsed .shelf-header:hover { background: #1a1a1a; }
+```
+
+Replace with:
+```css
+.rediscover-shelf.collapsed .shelf-header {
+  margin-bottom: 0;
+  padding: 0.4rem 0.25rem;
+}
+```
+
+- [ ] **Step 2: Move the click affordance onto the label itself, grow the chevron**
+
+Find (style.css, now shifted up ~5 lines from Step 1's removal — find by content):
+```css
+.shelf-header h2 { margin: 0; font-size: 1.1rem; }
+
+.shelf-header h2::before {
+  content: "\25BE ";
+  display: inline-block;
+  font-size: 0.75em;
+  color: #999;
+}
+```
+
+Replace with:
+```css
+.shelf-header h2 { margin: 0; font-size: 1.1rem; cursor: pointer; }
+
+.shelf-header h2:hover { color: #fff; }
+
+.shelf-header h2::before {
+  content: "\25BE ";
+  display: inline-block;
+  font-size: 1.3em;
+  color: #999;
+}
+```
+
+- [ ] **Step 3: Rename `.toggle-btn` to `.shelf-icon-btn`**
+
+Find:
+```css
+.toggle-btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+```
+
+Replace with:
+```css
+.shelf-icon-btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+```
+
+- [ ] **Step 4: Confirm no orphaned `.toggle-btn` references remain anywhere**
+
+Run: `grep -rn "toggle-btn" webapp/`
+Expected: no matches at all (HTML reference removed in Task 1, CSS rule renamed in this step).
+
+Run: `grep -n "shelf-icon-btn\|shelf-header h2" webapp/static/style.css`
+Expected: `.shelf-icon-btn` rule present once; `.shelf-header h2`, `.shelf-header h2:hover`, and `.shelf-header h2::before` all present.
+
+---
+
+#### Task 3: JS — collapse the two toggle listeners into one, on the label
+
+**Files:**
+- Modify: `webapp/templates/index.html` (the shelf collapse/expand script block, currently around line 264 — find by content since Tasks 1-2 don't shift this)
+
+- [ ] **Step 1: Replace the toggle script**
+
+Find:
+```javascript
+  // Shelf collapse/expand
+  var shelf = document.getElementById('rediscover-shelf');
+  var shelfHeader = shelf.querySelector('.shelf-header');
+  var toggleBtn = document.getElementById('toggle-shelf-btn');
+  var COLLAPSED_KEY = 'rediscover-shelf-collapsed';
+
+  function setShelfCollapsed(collapsed) {
+    shelf.classList.toggle('collapsed', collapsed);
+    localStorage.setItem(COLLAPSED_KEY, collapsed ? 'true' : 'false');
+  }
+
+  // Toggle button is only ever visible while expanded — its one job is to collapse.
+  toggleBtn.addEventListener('click', function (e) {
+    e.stopPropagation(); // don't let this bubble into shelfHeader's expand-on-click listener below
+    setShelfCollapsed(true);
+  });
+
+  // While collapsed, the whole header row (not just a small button) is the expand target.
+  shelfHeader.addEventListener('click', function () {
+    if (shelf.classList.contains('collapsed')) setShelfCollapsed(false);
+  });
+
+  if (localStorage.getItem(COLLAPSED_KEY) === 'true') {
+    setShelfCollapsed(true);
+  }
+```
+
+Replace with:
+```javascript
+  // Shelf collapse/expand
+  var shelf = document.getElementById('rediscover-shelf');
+  var shelfLabel = shelf.querySelector('.shelf-header h2');
+  var COLLAPSED_KEY = 'rediscover-shelf-collapsed';
+
+  function setShelfCollapsed(collapsed) {
+    shelf.classList.toggle('collapsed', collapsed);
+    localStorage.setItem(COLLAPSED_KEY, collapsed ? 'true' : 'false');
+  }
+
+  // The "Rediscover" label is the only toggle target, in both directions. It's a sibling
+  // of the refresh button (not an ancestor), so there's no event-bubbling path between them
+  // and no stopPropagation() needed.
+  shelfLabel.addEventListener('click', function () {
+    setShelfCollapsed(!shelf.classList.contains('collapsed'));
+  });
+
+  if (localStorage.getItem(COLLAPSED_KEY) === 'true') {
+    setShelfCollapsed(true);
+  }
+```
+
+- [ ] **Step 2: Confirm the old listener variables and workaround are gone**
+
+Run: `grep -n "toggleBtn\|shelfHeader\|stopPropagation\|shelfLabel" webapp/templates/index.html`
+Expected: only `shelfLabel` matches (3 occurrences: declaration, the `querySelector` call, and the `addEventListener` line). No `toggleBtn`, `shelfHeader`, or `stopPropagation`.
+
+---
+
+#### Task 4: Verify and document
+
+**Files:**
+- Modify: `plan-rediscover-shelf.md` (this file)
+- Modify: `CHANGELOG.md`
+
+- [ ] **Step 1: Run the existing test suite (sanity check — no Python touched)**
+
+Run: `python -m pytest -q`
+Expected: `391 passed` (same count as before this change — this redesign touches no Python).
+
+- [ ] **Step 2: Structural verification against a copy of real data**
+
+```bash
+cp viewtube.db /tmp/viewtube-verify4.db
+python -m webapp.cli --db /tmp/viewtube-verify4.db --port 5096 &
+sleep 1.5
+curl -s http://127.0.0.1:5096/ | grep -o '<button id="refresh-shelf-btn"[^>]*>.\{0,40\}' 
+curl -s http://127.0.0.1:5096/ | grep -c 'toggle-shelf-btn'
+curl -s http://127.0.0.1:5096/static/style.css | grep -n "shelf-icon-btn\|toggle-btn"
+kill %1
+rm -f /tmp/viewtube-verify4.db
+```
+Expected: the first `curl` shows `class="shelf-icon-btn"` and `aria-label="Refresh shelf"` on the button tag; the second `curl -c` count is `0`; the third shows `shelf-icon-btn` present and zero lines containing the bare token `toggle-btn`.
+
+This only confirms the markup/CSS/JS are structurally correct as served — it does **not** verify the actual click behavior in a real browser (no browser automation tooling available in this environment, consistent with the rest of this session). Flag this explicitly to the user and suggest they manually click-test: clicking the label collapses/expands in both directions, and clicking the refresh icon does not toggle the shelf.
+
+- [ ] **Step 3: Update `plan-rediscover-shelf.md`**
+
+Add one line under "Header Controls Redesign (2026-06-18, follow-up)" confirming it was implemented as designed, or noting any deviation found during verification.
+
+- [ ] **Step 4: Append a `CHANGELOG.md` entry**
+
+Dated 2026-06-18 (or current date if later), describing: toggle button removed, Refresh moved into its slot as an icon button, label is now the single toggle target for both directions, `stopPropagation()` removed as no-longer-needed. Trade-off to note: the toggle action has no visible button affordance at all now (just a label that happens to be clickable) — slightly less discoverable than a dedicated button, traded for the cleaner two-element header layout.
+
+- [ ] **Step 5: Leave changes staged, do not commit**
+
+This project's convention (established throughout this session) is to only run `git commit` when the user explicitly asks.
+
+---
+
 ## Future Enhancements (Not in Scope)
 
 - Shuffle/reorder shelf without full refresh (new 20 from same pool)
