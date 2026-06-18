@@ -25,7 +25,7 @@
 - [ ] Notes field per video — freeform text to add while watching
 - [ ] Playlists / collections — group videos manually beyond tags
 - [ ] Bulk tag assignment — select multiple videos and tag them at once
-- [ ] Archive button — hide videos from main view without deleting them
+- ~~Archive button — hide videos from main view without deleting them (Hide does this)~~
 - [ ] Tag distillation — consolidate many similar tags into a single canonical concept for cleaner search and grouping
 - [ ] Show ungrouped canonical tags on the /tags page — canonical tags not assigned to any tag group are currently invisible unless you use Auto-assign
 - [ ] Creator pages support — full support for bookmarking and tracking YouTube creator channels (not just videos)
