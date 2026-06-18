@@ -151,6 +151,22 @@ def get_stats(conn: sqlite3.Connection) -> dict:
     }
 
 
+def _remove_from_rediscover_shelf(conn: sqlite3.Connection, video_id: str) -> None:
+    """Remove a single video from the active shelf's video_ids JSON (no commit)."""
+    row = conn.execute(
+        "SELECT id, video_ids FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
+    ).fetchone()
+    if not row:
+        return
+    video_ids = json.loads(row["video_ids"])
+    if video_id in video_ids:
+        video_ids = [v for v in video_ids if v != video_id]
+        conn.execute(
+            "UPDATE rediscover_shelf SET video_ids = ? WHERE id = ?",
+            (json.dumps(video_ids), row["id"]),
+        )
+
+
 def record_visit(conn: sqlite3.Connection, video_id: str) -> None:
     now = datetime.now(timezone.utc).isoformat()
     conn.execute(
@@ -158,18 +174,7 @@ def record_visit(conn: sqlite3.Connection, video_id: str) -> None:
         "date_last_viewed = ? WHERE video_id = ?",
         (now, video_id),
     )
-    # Remove from rediscover shelf if present — viewed videos don't need rediscovering
-    row = conn.execute(
-        "SELECT id, video_ids FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
-    ).fetchone()
-    if row:
-        video_ids = json.loads(row["video_ids"])
-        if video_id in video_ids:
-            video_ids = [v for v in video_ids if v != video_id]
-            conn.execute(
-                "UPDATE rediscover_shelf SET video_ids = ? WHERE id = ?",
-                (json.dumps(video_ids), row["id"]),
-            )
+    _remove_from_rediscover_shelf(conn, video_id)
     conn.commit()
 
 
@@ -422,6 +427,7 @@ def add_to_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
         "INSERT INTO watch_later (video_id_fk, position, added_at) VALUES (?, ?, ?)",
         (video["id"], max_pos + 1, now),
     )
+    _remove_from_rediscover_shelf(conn, video_id)
     conn.commit()
     return True
 
