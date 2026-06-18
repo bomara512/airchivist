@@ -119,3 +119,22 @@ in the same response — without being asked.
   and the order matters.
 - For each entry: what changed, and at least one implication (pro or con).
 - Be honest about trade-offs — note downsides even when the decision was correct.
+
+## Invoke superpowers skills before implementing
+
+Before writing any implementation code in this project, invoke the relevant
+`superpowers` skill via the Skill tool — do not go straight from the request
+to editing files.
+
+- New feature, component, or behaviour change → `superpowers:brainstorming`
+  first to pin down scope/design, then `superpowers:test-driven-development`
+  while implementing (failing test before the code that makes it pass).
+- Bug, test failure, or unexpected behaviour → `superpowers:systematic-debugging`
+  before proposing a fix.
+- Multi-step task that needs a written plan → `superpowers:writing-plans`, then
+  `superpowers:executing-plans` or `superpowers:subagent-driven-development`.
+- Wrapping up a branch → `superpowers:requesting-code-review` before declaring
+  done.
+- Only skip this when the user explicitly asks for a quick/direct change
+  (e.g. "just do X, skip the process") or the task is too small to have a
+  failing-test step (pure docs/config/changelog edits).
