@@ -112,8 +112,7 @@ async function doDelete(viewtubeUrl, videoId) {
 
 function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
   if (data.status === 'not_found') {
-    root.innerHTML = `<button id="btn-add" class="action-btn">Add to ViewTube</button>`;
-    document.getElementById('btn-add').addEventListener('click', () => doAdd(viewtubeUrl, tabUrl, tabTitle));
+    doAdd(viewtubeUrl, tabUrl, tabTitle);
     return;
   }
 
