@@ -47,6 +47,23 @@ must be removed before the response ends — without being asked.
 - Exception: logging that is part of the intended production behaviour (e.g. a
   startup message or an explicit error handler) may stay.
 
+## Never use `rowid` with `sqlite3.Row` — use the named primary key
+
+When updating a row fetched with `sqlite3.Row`, always select and reference
+the table's named `id` column (or whichever `INTEGER PRIMARY KEY` column
+exists), never `rowid`. The `rowid` pseudo-column is not accessible by name
+via `sqlite3.Row` key lookup and raises `IndexError` at runtime.
+
+```python
+# Wrong
+row = conn.execute("SELECT rowid, ... FROM t ...").fetchone()
+conn.execute("UPDATE t ... WHERE rowid = ?", (row["rowid"],))
+
+# Right
+row = conn.execute("SELECT id, ... FROM t ...").fetchone()
+conn.execute("UPDATE t ... WHERE id = ?", (row["id"],))
+```
+
 ## Name CSS classes for their purpose, not their first use
 
 When a CSS class is introduced for one page and then reused on another,
