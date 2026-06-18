@@ -110,27 +110,31 @@
       <button id="refresh-shelf-btn"
               class="shelf-icon-btn"
               aria-label="Refresh shelf"
+              title="Refresh"
               hx-post="/rediscover-shelf/refresh"
               hx-target="#shelf-carousel"
               hx-swap="innerHTML">&#8635;</button>
     </div>
   </div>
 
-  <div class="shelf-container" id="shelf-container">
-    <button class="carousel-arrow carousel-arrow--prev" id="shelf-prev" aria-label="Previous">&#8249;</button>
-    <div class="shelf-viewport">
-      <div class="shelf-track" id="shelf-carousel">
-        {% include "_shelf_cards.html" %}
+  <div class="shelf-body">
+    <div class="shelf-container" id="shelf-container">
+      <button class="carousel-arrow carousel-arrow--prev" id="shelf-prev" aria-label="Previous">&#8249;</button>
+      <div class="shelf-viewport">
+        <div class="shelf-track" id="shelf-carousel">
+          {% include "_shelf_cards.html" %}
+        </div>
       </div>
+      <button class="carousel-arrow carousel-arrow--next" id="shelf-next" aria-label="Next">&#8250;</button>
     </div>
-    <button class="carousel-arrow carousel-arrow--next" id="shelf-next" aria-label="Next">&#8250;</button>
-  </div>
 
-  <div class="shelf-footer">
-    <p>Refreshes automatically in <span id="expires-in">{{ expires_label }}</span></p>
+    <div class="shelf-footer">
+      <p>Refreshes automatically in <span id="expires-in">{{ expires_label }}</span></p>
+    </div>
   </div>
 </section>
 
+<h2 class="section-label">Videos</h2>
 <div id="video-container">
   {% include "_video_container.html" %}
 </div>

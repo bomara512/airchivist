@@ -4,6 +4,48 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Favouriting from Rediscover or Watch Later marks watched and removes from the list (2026-06-18)
+
+Marking a video as a favourite while viewing it on the rediscover shelf or the Watch Later page now also marks it watched (new `POST /videos/<id>/mark-watched` route, reusing the existing `record_visit` DB function — same increment-`personal_view_count`/set-`date_last_viewed` logic `/visit/<id>` already uses) and removes it from whichever list it was favourited from: fades it out of the shelf carousel, or removes it from the watch later queue via the existing remove endpoint. `record_visit` already drops the video from the persisted rediscover shelf as a side effect, so this also survives a page reload, not just the in-page DOM removal. Un-favouriting does nothing special, and this only applies on the shelf and Watch Later page — the main list and Archived page are unaffected.
+
+While wiring this up, extracted two small JS helpers (`fadeOutShelfCards`, `removeFromWatchLaterUI`) in `base.html` that were about to become a third copy-pasted instance of existing logic — the shelf-card fade-out and the watch-later removal/reindex sequence were each already duplicated once. Minor side effect: the shelf-card fade-out used to be 0.3s in one place and 0.2s in another; both are now 0.2s for consistency.
+
+**Trade-off:** the mark-watched call is fire-and-forget (no error handling if it fails) — same pattern already used elsewhere in this file (e.g. the watch-later-add button), consistent rather than newly risky.
+
+---
+
+### Fix slight vertical shift of the Rediscover label on toggle (2026-06-18)
+
+`.shelf-header` is a flex row with `align-items: center`; its height is set by its tallest child. With the refresh button only present in the expanded state (`.shelf-controls` is `display: none` when collapsed), the row's height shrunk when collapsing — from the button's 32px down to the `<h2>` line's own (smaller) height — and the centered label shifted up by roughly half that difference. Fixed with `min-height: 2rem` on `.shelf-header`, matching `.shelf-icon-btn`'s height, so the row's cross-axis size never depends on which children are present. Coupled to the icon button's current size — if that size ever changes, this value needs to move with it.
+
+---
+
+### Add hover tooltip to rediscover refresh button (2026-06-18)
+
+Added `title="Refresh"` to the now icon-only (`↻`) refresh button, matching the existing convention elsewhere in this codebase (e.g. the watch-later and favourite icon buttons) of using `title` for hover tooltips on icon-only controls.
+
+---
+
+### Add a "Videos" section label above the main list (2026-06-18)
+
+A plain `<h2 class="section-label">Videos</h2>` now sits above `#video-container`, styled to match the "Rediscover" label's weight (same font-size, no border/box) rather than reusing the heavier `.page-header` treatment from other pages (border-bottom + 2rem margin) — this isn't a standalone page heading, just a lightweight section break so the rediscover shelf and the main video list read as two distinct sections instead of one continuous block. `.section-label` is named generically rather than e.g. `.videos-label` since it's a reusable pattern, not tied to this one use.
+
+---
+
+### Adjust rediscover shelf spacing (2026-06-18)
+
+Two small gaps: more horizontal space between the chevron icon and the "Rediscover" label (moved from a trailing space in the CSS `content` string to an explicit `margin-right`, which is easier to tune), and more vertical space below the shelf before the main video grid, in both collapsed and expanded states, so the shelf reads as a distinct section rather than visually attached to the grid.
+
+---
+
+### Fix jarring header jump when toggling the rediscover shelf (2026-06-18)
+
+The "Rediscover" label visually shifted position every time you clicked it, because the box's padding (1rem, applied to everything inside `.rediscover-shelf` including the header) dropped to 0 on collapse — so the thing you just clicked moved out from under your cursor. Fixed by moving the box styling (padding/background/border/border-radius) off `.rediscover-shelf` and onto a new wrapper, `.shelf-body`, around just the carousel and footer. The header is now a sibling of `.shelf-body` rather than a padded child of the box, so it renders identically — and stays put — in both states. Collapsing also simplified from a 4-property override back to a single `display: none` on `.shelf-body`.
+
+**Side effect (intentional improvement):** the label now aligns with the toolbar/search bar above it and with `.page-header h1` on other pages, instead of being extra-inset by the box's own padding.
+
+---
+
 ### Simplify rediscover shelf header controls (2026-06-18)
 
 Follow-up to the collapsed-state redesign below. The dedicated toggle button is gone — Refresh moves into that same square slot (`.shelf-icon-btn`, renamed from `.toggle-btn` since it now sizes the refresh button, not a toggle), shown as an icon (`↻`) instead of the text "Refresh", with `aria-label="Refresh shelf"` added since it's icon-only now. The "Rediscover" label itself is now the single toggle target for both expanding and collapsing. Since the label and the refresh button are siblings rather than nested, the `e.stopPropagation()` workaround from the previous redesign is no longer needed and was removed. The chevron also grew from `0.75em` to `1.3em` for visibility.

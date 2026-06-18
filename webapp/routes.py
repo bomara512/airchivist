@@ -411,6 +411,15 @@ def video_toggle_favourite(video_id):
     return jsonify({"is_favourite": new_value})
 
 
+@bp.route("/videos/<video_id>/mark-watched", methods=["POST"])
+def video_mark_watched(video_id):
+    video = _db.get_video_by_id(g.db, video_id)
+    if not video:
+        abort(404)
+    _db.record_visit(g.db, video_id)
+    return "", 204
+
+
 @bp.route("/videos/<video_id>/hide", methods=["POST"])
 def video_hide(video_id):
     _db.hide_video(g.db, video_id)

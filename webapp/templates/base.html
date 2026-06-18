@@ -49,16 +49,47 @@
 
   <script>
   (function () {
+    // Fade out and remove all carousel cards (real + clones) for a video on the rediscover shelf
+    function fadeOutShelfCards(videoId) {
+      document.querySelectorAll('#shelf-carousel .video-card[data-video-id="' + videoId + '"]').forEach(function (c) {
+        c.style.transition = 'opacity 0.2s';
+        c.style.opacity = '0';
+        setTimeout(function () { c.remove(); }, 200);
+      });
+    }
+
+    // Remove a video from the watch later queue (server + DOM), reindexing positions and the count badge
+    function removeFromWatchLaterUI(videoId, card) {
+      fetch('/api/watch-later/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'https://www.youtube.com/watch?v=' + videoId })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.status !== 'removed') return;
+          card.style.opacity = '0.5';
+          setTimeout(function () {
+            card.remove();
+            document.querySelectorAll('.queue-position-badge').forEach(function (badge, idx) {
+              badge.textContent = idx + 1;
+            });
+            var countEl = document.querySelector('.count-badge');
+            if (countEl) {
+              var remaining = document.querySelectorAll('.watch-later-list .video-card').length;
+              countEl.textContent = remaining;
+              if (remaining === 0) location.reload();
+            }
+          }, 200);
+        });
+    }
+
     // Fade out shelf cards (real + clones) when a shelf video link is clicked
     document.addEventListener('click', function (e) {
       var link = e.target.closest('#shelf-carousel .thumb-link, #shelf-carousel .video-title');
       if (!link) return;
       var videoId = link.closest('.video-card').dataset.videoId;
-      document.querySelectorAll('#shelf-carousel .video-card[data-video-id="' + videoId + '"]').forEach(function (c) {
-        c.style.transition = 'opacity 0.3s';
-        c.style.opacity = '0';
-        setTimeout(function () { c.remove(); }, 300);
-      });
+      fadeOutShelfCards(videoId);
     });
 
     // Delete confirmation modal
@@ -185,6 +216,22 @@
               b.title = 'Add to favourites';
             }
           });
+
+          if (!data.is_favourite) return;
+
+          // Favouriting from the rediscover shelf or watch later implies you've
+          // watched it — mark it watched and drop it from whichever list it came from.
+          var onShelf = !!btn.closest('#shelf-carousel');
+          var onWatchLater = !!btn.closest('.watch-later-list');
+          if (!onShelf && !onWatchLater) return;
+
+          fetch('/videos/' + videoId + '/mark-watched', { method: 'POST' });
+
+          if (onShelf) {
+            fadeOutShelfCards(videoId);
+          } else {
+            removeFromWatchLaterUI(videoId, btn.closest('.video-card'));
+          }
         });
     });
 
@@ -203,12 +250,7 @@
         .then(function (data) {
           if (data.status === 'added' || data.status === 'already_in_queue') {
             if (onShelf) {
-              // Remove all carousel cards (real + clones) for this video
-              document.querySelectorAll('#shelf-carousel .video-card[data-video-id="' + videoId + '"]').forEach(function (c) {
-                c.style.opacity = '0';
-                c.style.transition = 'opacity 0.2s';
-                setTimeout(function () { c.remove(); }, 200);
-              });
+              fadeOutShelfCards(videoId);
             } else {
               btn.disabled = true;
               btn.title = 'Already in Watch Later';
@@ -221,33 +263,7 @@
     document.addEventListener('click', function (e) {
       var btn = e.target.closest('.queue-remove-btn');
       if (!btn) return;
-      var videoId = btn.dataset.videoId;
-      var card = btn.closest('.video-card');
-      fetch('/api/watch-later/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: 'https://www.youtube.com/watch?v=' + videoId })
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          if (data.status === 'removed') {
-            card.style.opacity = '0.5';
-            setTimeout(function () {
-              card.remove();
-              // Reindex position badges
-              document.querySelectorAll('.queue-position-badge').forEach(function (badge, idx) {
-                badge.textContent = idx + 1;
-              });
-              // Update header count
-              var countEl = document.querySelector('.count-badge');
-              if (countEl) {
-                var remaining = document.querySelectorAll('.watch-later-list .video-card').length;
-                countEl.textContent = remaining;
-                if (remaining === 0) location.reload();
-              }
-            }, 200);
-          }
-        });
+      removeFromWatchLaterUI(btn.dataset.videoId, btn.closest('.video-card'));
     });
 
     // Drag-to-reorder Watch Later queue

@@ -719,6 +719,186 @@ This project's convention (established throughout this session) is to only run `
 
 ---
 
+## Fix Header Jump on Toggle (2026-06-18, second follow-up)
+
+**Problem:** `.rediscover-shelf`'s box padding (1rem, expanded) applied to everything inside it, including `.shelf-header`. Collapsing dropped that padding to 0, so the header — and the "Rediscover" label that's now the click target — visually shifted position on every toggle. Jarring specifically because the thing you just clicked moves under your cursor.
+
+**Decision:** Move the box styling (padding, background, border, border-radius) off `.rediscover-shelf` and onto a new wrapper, `.shelf-body`, around just the carousel + footer. `.shelf-header` becomes a sibling of `.shelf-body` rather than a padded child of the box — it renders identically in both states, so it never moves. Collapsing becomes a single `display: none` on `.shelf-body` instead of the previous 4-property override (padding/background/border/border-radius back to none) on `.rediscover-shelf` itself.
+
+**Side effect (intentional improvement, not a regression):** the label now aligns with the toolbar/search bar above it and with `.page-header h1` on other pages (all three sit directly in `main`'s page-level padding) rather than being extra-inset by the box's own 1rem padding. The carousel/footer content keeps its own 1rem inset inside the box — a standard "heading above a card" layout.
+
+**Implemented as designed** — see the plan below.
+
+### Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Eliminate the header position jump by moving the box's visual chrome onto a new `.shelf-body` wrapper, leaving `.shelf-header` always unboxed.
+
+**Architecture:** One HTML wrap (carousel + footer inside a new `<div class="shelf-body">`) and a CSS move (box properties relocate from `.rediscover-shelf` to `.shelf-body`; collapsed-state override simplifies to one `display: none` instead of four property resets).
+
+**Tech Stack:** Plain CSS, Jinja2 HTML — no JS changes needed this time (the toggle script already just flips the `.collapsed` class; it doesn't know or care what that class affects).
+
+---
+
+#### Task 1: Wrap carousel + footer in `.shelf-body`
+
+**Files:**
+- Modify: `webapp/templates/index.html:106-131`
+
+- [ ] **Step 1: Add the wrapper div**
+
+Find (index.html:118-131):
+```html
+  </div>
+
+  <div class="shelf-container" id="shelf-container">
+    <button class="carousel-arrow carousel-arrow--prev" id="shelf-prev" aria-label="Previous">&#8249;</button>
+    <div class="shelf-viewport">
+      <div class="shelf-track" id="shelf-carousel">
+        {% include "_shelf_cards.html" %}
+      </div>
+    </div>
+    <button class="carousel-arrow carousel-arrow--next" id="shelf-next" aria-label="Next">&#8250;</button>
+  </div>
+
+  <div class="shelf-footer">
+    <p>Refreshes automatically in <span id="expires-in">{{ expires_label }}</span></p>
+  </div>
+```
+
+Replace with:
+```html
+  </div>
+
+  <div class="shelf-body">
+    <div class="shelf-container" id="shelf-container">
+      <button class="carousel-arrow carousel-arrow--prev" id="shelf-prev" aria-label="Previous">&#8249;</button>
+      <div class="shelf-viewport">
+        <div class="shelf-track" id="shelf-carousel">
+          {% include "_shelf_cards.html" %}
+        </div>
+      </div>
+      <button class="carousel-arrow carousel-arrow--next" id="shelf-next" aria-label="Next">&#8250;</button>
+    </div>
+
+    <div class="shelf-footer">
+      <p>Refreshes automatically in <span id="expires-in">{{ expires_label }}</span></p>
+    </div>
+  </div>
+```
+
+(The closing `</div>` for `.shelf-header` stays exactly where it is — only what comes after it changes.)
+
+- [ ] **Step 2: Confirm the wrapper is in place and nothing else moved**
+
+Run: `grep -n "shelf-body\|shelf-header\|shelf-container\|shelf-footer" webapp/templates/index.html`
+Expected: `shelf-body` appears twice (opening div and the closing comment context), `shelf-header` once, `shelf-container` and `shelf-footer` each still appear with their original `id`/class intact, now nested one level deeper.
+
+---
+
+#### Task 2: Move box styling to `.shelf-body`, simplify the collapsed override
+
+**Files:**
+- Modify: `webapp/static/style.css:293-317`
+
+- [ ] **Step 1: Strip the box properties off `.rediscover-shelf` and its collapsed override**
+
+Find (style.css:293-317):
+```css
+.rediscover-shelf {
+  margin: 1.5rem 0 2rem;
+  padding: 1rem;
+  background: #0d0d0d;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+
+.rediscover-shelf.collapsed {
+  margin: 0.75rem 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
+.rediscover-shelf.collapsed .shelf-container,
+.rediscover-shelf.collapsed .shelf-footer,
+.rediscover-shelf.collapsed .shelf-controls { display: none; }
+
+.rediscover-shelf.collapsed .shelf-header {
+  margin-bottom: 0;
+  padding: 0.4rem 0.25rem;
+}
+```
+
+Replace with:
+```css
+.rediscover-shelf {
+  margin: 1.5rem 0 2rem;
+}
+
+.rediscover-shelf.collapsed {
+  margin: 0.75rem 0;
+}
+
+.rediscover-shelf.collapsed .shelf-body,
+.rediscover-shelf.collapsed .shelf-controls { display: none; }
+
+.rediscover-shelf.collapsed .shelf-header {
+  margin-bottom: 0;
+}
+
+.shelf-body {
+  padding: 1rem;
+  background: #0d0d0d;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+```
+
+(`.shelf-header` itself gets no padding in either state now — previously it only had padding in the collapsed case, which was itself a smaller version of the same jump bug. Zero padding in both states means zero position change.)
+
+- [ ] **Step 2: Confirm the box properties moved, not duplicated**
+
+Run: `grep -n "^\.rediscover-shelf\|^\.shelf-body" webapp/static/style.css`
+Expected: `.rediscover-shelf { margin: 1.5rem 0 2rem; }` and `.rediscover-shelf.collapsed { margin: 0.75rem 0; }` with no `padding`/`background`/`border` on either — those properties now appear only under `.shelf-body { ... }`.
+
+---
+
+#### Task 3: Verify and document
+
+**Files:**
+- Modify: `plan-rediscover-shelf.md` (this file)
+- Modify: `CHANGELOG.md`
+
+- [ ] **Step 1: Run the test suite (sanity check, no Python touched)**
+
+Run: `python -m pytest -q`
+Expected: `391 passed`.
+
+- [ ] **Step 2: Structural verification against a copy of real data**
+
+```bash
+cp viewtube.db /tmp/viewtube-verify5.db
+python -m webapp.cli --db /tmp/viewtube-verify5.db --port 5094 &
+sleep 1.5
+curl -s http://127.0.0.1:5094/ | grep -A2 'class="shelf-header"' | tail -1
+curl -s http://127.0.0.1:5094/ | grep -c 'class="shelf-body"'
+curl -s http://127.0.0.1:5094/static/style.css | grep -n "^\.rediscover-shelf \|^\.shelf-body"
+kill %1
+rm -f /tmp/viewtube-verify5.db
+```
+Expected: the `.shelf-header` div is immediately followed by `<div class="shelf-body">` (count of 1), and the CSS shows box properties under `.shelf-body` only. As before, this confirms structure only — not the actual absence of a visual jump, which needs a real browser. Tell the user this explicitly.
+
+- [ ] **Step 3: Update `plan-rediscover-shelf.md` and `CHANGELOG.md`**
+
+Add a confirmation line under "Fix Header Jump on Toggle" noting it was implemented as designed (or any deviation found). Append a `CHANGELOG.md` entry dated 2026-06-18 describing the `.shelf-body` wrapper, why it fixes the jump, and the alignment side-effect (label now lines up with the toolbar/page headers instead of being box-inset).
+
+- [ ] **Step 4: Leave changes staged, do not commit** — per this project's established convention.
+
+---
+
 ## Future Enhancements (Not in Scope)
 
 - Shuffle/reorder shelf without full refresh (new 20 from same pool)

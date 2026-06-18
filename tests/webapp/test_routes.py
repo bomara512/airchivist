@@ -55,6 +55,21 @@ class TestVisitRoute:
         assert resp.status_code == 404
 
 
+class TestMarkWatchedRoute:
+    def test_returns_204(self, client):
+        resp = client.post("/videos/aaaaaaaaaa1/mark-watched")
+        assert resp.status_code == 204
+
+    def test_increments_personal_view_count(self, client):
+        client.post("/videos/aaaaaaaaaa1/mark-watched")
+        resp = client.get("/")
+        assert b"[1]" in resp.data
+
+    def test_unknown_video_returns_404(self, client):
+        resp = client.post("/videos/doesnotexist/mark-watched")
+        assert resp.status_code == 404
+
+
 class TestHideRoute:
     def test_hide_returns_204(self, client):
         resp = client.post("/videos/aaaaaaaaaa1/hide")
