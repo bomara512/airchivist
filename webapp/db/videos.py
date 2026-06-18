@@ -255,6 +255,12 @@ def hide_video(conn: sqlite3.Connection, video_id: str) -> None:
         "UPDATE videos SET is_hidden = 1, date_hidden = ? WHERE video_id = ?",
         (now, video_id),
     )
+    # Remove from watch later — hidden videos shouldn't remain queued
+    conn.execute("""
+        DELETE FROM watch_later WHERE video_id_fk = (
+            SELECT id FROM videos WHERE video_id = ?
+        )
+    """, (video_id,))
     conn.commit()
 
 
