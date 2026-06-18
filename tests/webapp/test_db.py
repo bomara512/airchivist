@@ -1078,3 +1078,14 @@ class TestReorderWatchLater:
         add_to_watch_later(db_conn, "aaaaaaaaaa1")
         db_conn.commit()
         assert reorder_watch_later(db_conn, "aaaaaaaaaa2", 1) is False
+
+
+class TestGetWatchLaterQueue:
+    def test_includes_personal_view_count(self, db_conn):
+        from webapp.db import add_to_watch_later, get_watch_later_queue
+        add_to_watch_later(db_conn, "aaaaaaaaaa2")  # seeded with personal_view_count=3
+        db_conn.commit()
+
+        queue = get_watch_later_queue(db_conn)
+
+        assert queue[0]["personal_view_count"] == 3

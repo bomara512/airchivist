@@ -484,7 +484,8 @@ def get_watch_later_queue(conn: sqlite3.Connection) -> list:
     """Get all videos in the watch later queue, ordered by position."""
     rows = conn.execute("""
         SELECT v.video_id, v.title, v.channel_name, v.channel_id, v.thumbnail_url,
-               v.yt_view_count, v.duration_seconds, v.date_published, v.date_added,
+               v.yt_view_count, v.personal_view_count, v.duration_seconds,
+               v.date_published, v.date_added,
                v.date_last_viewed, wl.position, wl.added_at AS queue_added_at,
                GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END) AS tags
         FROM watch_later wl

@@ -4,6 +4,14 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ---
 
+### Fix missing personal view count on Watch Later cards (2026-06-18)
+
+`get_watch_later_queue` built its `SELECT` column list by hand and omitted `v.personal_view_count`, so the `[N]` watched-count badge in `_video_card.html` silently never rendered for queued videos even though the shared template has always supported it. Root-caused by comparing against the three other card-producing queries (`get_all_videos` uses `v.*`; `get_hidden_videos` uses `v.*`; `get_current_rediscover_shelf` already explicitly selects the column) â€” `get_watch_later_queue` was the only one missing it. Added `v.personal_view_count` to its `SELECT`.
+
+The Rediscover shelf appearing to lack the badge is not a bug: the shelf algorithm deliberately prioritizes never-watched videos (`personal_view_count = 0`), so the badge correctly stays hidden for most shelf entries by design.
+
+---
+
 ### Drag-to-reorder Watch Later queue (2026-06-18)
 
 Wired up the existing (unused) `reorder_watch_later` DB function to the UI. New route `POST /videos/<id>/watch-later/reorder` accepts `{position}` and persists the move; `.video-card` is made `draggable="true"` only in `context="watch_later"`, with a delegated dragstart/dragover/dragend handler added to the existing vanilla-JS IIFE in `base.html`.
