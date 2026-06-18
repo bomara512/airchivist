@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}ViewTube — Hidden Videos{% endblock %}
+{% block title %}ViewTube — Archived Videos{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1>Hidden Videos <span class="count-badge">{{ total }}</span></h1>
+  <h1>Archived Videos <span class="count-badge">{{ total }}</span></h1>
   <form id="sort-form" method="get" action="{{ url_for('main.hidden') }}" style="display:flex;gap:0.5rem;align-items:center">
     <select name="sort_by" onchange="this.form.submit()">
       <option value="date_added"    {% if sort_by == 'date_added'    %}selected{% endif %}>Date Added</option>
@@ -33,6 +33,6 @@
 {% endif %}
 
 {% else %}
-<p class="empty-state">No hidden videos.</p>
+<p class="empty-state">No archived videos.</p>
 {% endif %}
 {% endblock %}

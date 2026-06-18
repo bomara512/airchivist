@@ -107,7 +107,7 @@ class TestHiddenPage:
 
     def test_empty_state(self, client):
         resp = client.get("/hidden")
-        assert b"No hidden videos" in resp.data
+        assert b"No archived videos" in resp.data
 
     def test_restore_action(self, client):
         client.post("/videos/aaaaaaaaaa1/hide")
@@ -122,7 +122,7 @@ class TestHiddenPage:
 
     def test_nav_hidden_link_absent_when_none(self, client):
         resp = client.get("/")
-        assert b"Hidden" not in resp.data
+        assert b"Archived" not in resp.data
 
 
 class TestApiStatus:

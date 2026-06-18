@@ -84,14 +84,14 @@ async function doHide(viewtubeUrl, tabUrl, alsoUnbookmark) {
     return;
   }
   if (data.status !== 'hidden') {
-    root.innerHTML = `<div class="status error">&#10007; ${esc(data.error || 'Hide failed')}</div>`;
+    root.innerHTML = `<div class="status error">&#10007; ${esc(data.error || 'Archive failed')}</div>`;
     return;
   }
   if (alsoUnbookmark) {
     const matches = await browser.bookmarks.search({ url: tabUrl });
     await Promise.all(matches.map(b => browser.bookmarks.remove(b.id)));
   }
-  root.innerHTML = `<div class="status success">Hidden: ${esc(data.title)}</div>`;
+  root.innerHTML = `<div class="status success">Archived: ${esc(data.title)}</div>`;
 }
 
 async function doRestore(viewtubeUrl, videoId) {
@@ -119,7 +119,7 @@ function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
   if (data.status === 'exists') {
     root.innerHTML = `
       <div class="status success" style="margin-bottom:0.5rem">&#10003; ${esc(data.title)}</div>
-      <button id="btn-hide" class="action-btn action-btn--danger">Hide from ViewTube</button>
+      <button id="btn-hide" class="action-btn action-btn--danger">Archive</button>
       <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
         <input type="checkbox" id="chk-unbookmark" style="margin-right:0.3rem">
         Also remove browser bookmark
@@ -134,7 +134,7 @@ function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
 
   if (data.status === 'hidden') {
     root.innerHTML = `
-      <div class="status error" style="margin-bottom:0.5rem">&#8856; Hidden: ${esc(data.title)}</div>
+      <div class="status error" style="margin-bottom:0.5rem">&#8856; Archived: ${esc(data.title)}</div>
       <button id="btn-restore" class="action-btn">Restore to ViewTube</button>
       <button id="btn-delete" class="action-btn action-btn--danger" style="margin-top:0.25rem">Delete permanently</button>
     `;

@@ -65,7 +65,7 @@
     {% elif ctx == "watch_later" and video.queue_added_at %}
     <p class="card-secondary-meta">Queued {{ video.queue_added_at | date }}</p>
     {% elif ctx == "hidden" and video.date_hidden %}
-    <p class="card-secondary-meta">Hidden {{ video.date_hidden | date }}</p>
+    <p class="card-secondary-meta">Archived {{ video.date_hidden | date }}</p>
     {% endif %}
 
     {% if video.tags %}
