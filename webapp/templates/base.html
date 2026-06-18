@@ -49,16 +49,16 @@
 
   <script>
   (function () {
-    // Fade out shelf card when its video link is clicked (opens in new tab; shelf stays open)
+    // Fade out shelf cards (real + clones) when a shelf video link is clicked
     document.addEventListener('click', function (e) {
       var link = e.target.closest('#shelf-carousel .thumb-link, #shelf-carousel .video-title');
       if (!link) return;
-      var card = link.closest('.video-card');
-      if (card) {
-        card.style.transition = 'opacity 0.3s';
-        card.style.opacity = '0';
-        setTimeout(function () { card.remove(); }, 300);
-      }
+      var videoId = link.closest('.video-card').dataset.videoId;
+      document.querySelectorAll('#shelf-carousel .video-card[data-video-id="' + videoId + '"]').forEach(function (c) {
+        c.style.transition = 'opacity 0.3s';
+        c.style.opacity = '0';
+        setTimeout(function () { c.remove(); }, 300);
+      });
     });
 
     // Delete confirmation modal
@@ -168,7 +168,7 @@
         .then(function (r) { if (r.ok) card.remove(); });
     });
 
-    // Favourite toggle button
+    // Favourite toggle button — update all cards with same video_id (handles carousel clones)
     document.addEventListener('click', function (e) {
       var btn = e.target.closest('.favourite-btn');
       if (!btn) return;
@@ -176,13 +176,15 @@
       fetch('/videos/' + videoId + '/favourite', { method: 'POST' })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data.is_favourite) {
-            btn.classList.add('favourite-btn--active');
-            btn.title = 'Remove from favourites';
-          } else {
-            btn.classList.remove('favourite-btn--active');
-            btn.title = 'Add to favourites';
-          }
+          document.querySelectorAll('.favourite-btn[data-video-id="' + videoId + '"]').forEach(function (b) {
+            if (data.is_favourite) {
+              b.classList.add('favourite-btn--active');
+              b.title = 'Remove from favourites';
+            } else {
+              b.classList.remove('favourite-btn--active');
+              b.title = 'Add to favourites';
+            }
+          });
         });
     });
 
@@ -199,26 +201,14 @@
       })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data.status === 'added') {
+          if (data.status === 'added' || data.status === 'already_in_queue') {
             if (onShelf) {
-              var card = btn.closest('.video-card');
-              if (card) {
-                card.style.opacity = '0';
-                card.style.transition = 'opacity 0.2s';
-                setTimeout(function () { card.remove(); }, 200);
-              }
-            } else {
-              btn.disabled = true;
-              btn.title = 'Already in Watch Later';
-            }
-          } else if (data.status === 'already_in_queue') {
-            if (onShelf) {
-              var card = btn.closest('.video-card');
-              if (card) {
-                card.style.opacity = '0';
-                card.style.transition = 'opacity 0.2s';
-                setTimeout(function () { card.remove(); }, 200);
-              }
+              // Remove all carousel cards (real + clones) for this video
+              document.querySelectorAll('#shelf-carousel .video-card[data-video-id="' + videoId + '"]').forEach(function (c) {
+                c.style.opacity = '0';
+                c.style.transition = 'opacity 0.2s';
+                setTimeout(function () { c.remove(); }, 200);
+              });
             } else {
               btn.disabled = true;
               btn.title = 'Already in Watch Later';

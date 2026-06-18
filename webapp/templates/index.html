@@ -82,9 +82,13 @@
   </div>
 
   <div class="shelf-container" id="shelf-container">
-    <div class="video-carousel" id="shelf-carousel">
-      {% include "_shelf_cards.html" %}
+    <button class="carousel-arrow carousel-arrow--prev" id="shelf-prev" aria-label="Previous">&#8249;</button>
+    <div class="shelf-viewport">
+      <div class="shelf-track" id="shelf-carousel">
+        {% include "_shelf_cards.html" %}
+      </div>
     </div>
+    <button class="carousel-arrow carousel-arrow--next" id="shelf-next" aria-label="Next">&#8250;</button>
   </div>
 
   <div class="shelf-footer">
@@ -98,13 +102,137 @@
 
 <script>
 (function () {
-  // Shelf collapse/expand (localStorage state)
-  const shelf = document.getElementById('rediscover-shelf');
-  const toggleBtn = document.getElementById('toggle-shelf-btn');
-  const COLLAPSED_KEY = 'rediscover-shelf-collapsed';
+  var GAP = 16; // matches 1rem gap in .shelf-track
+
+  function getVisible(w) {
+    if (w >= 1200) return 4;
+    if (w >= 900)  return 3;
+    if (w >= 600)  return 2;
+    return 1;
+  }
+
+  var carouselOffset = null;
+  var carouselRealCount = null;
+  var carouselVis = null;
+
+  function initCarousel() {
+    var track = document.getElementById('shelf-carousel');
+    var viewport = document.querySelector('.shelf-viewport');
+    if (!track || !viewport) return;
+
+    // Remove clones from any previous init
+    Array.from(track.querySelectorAll('[data-clone]')).forEach(function (c) { c.remove(); });
+
+    var realCards = Array.from(track.children).filter(function (c) {
+      return c.classList.contains('video-card');
+    });
+    var n = realCards.length;
+    if (n === 0) return;
+
+    var vis = getVisible(viewport.offsetWidth);
+    carouselVis = vis;
+    carouselRealCount = n;
+
+    function cardWidth() {
+      var v = getVisible(viewport.offsetWidth);
+      return (viewport.offsetWidth - (v - 1) * GAP) / v;
+    }
+
+    function stepSize() { return cardWidth() + GAP; }
+
+    function setWidths() {
+      var cw = cardWidth();
+      Array.from(track.children).forEach(function (c) {
+        if (c.classList.contains('video-card')) {
+          c.style.width = cw + 'px';
+          c.style.flexShrink = '0';
+        }
+      });
+    }
+
+    // Prepend clones of last `vis` real cards (for backward wrap)
+    realCards.slice(-vis).reverse().forEach(function (c) {
+      var cl = c.cloneNode(true);
+      cl.dataset.clone = '1';
+      track.prepend(cl);
+    });
+
+    // Append clones of first `vis` real cards (for forward wrap)
+    realCards.slice(0, vis).forEach(function (c) {
+      var cl = c.cloneNode(true);
+      cl.dataset.clone = '1';
+      track.appendChild(cl);
+    });
+
+    var offset = vis; // start at first real card
+    carouselOffset = offset;
+
+    setWidths();
+
+    function moveTo(animate) {
+      track.style.transition = animate ? 'transform 0.35s ease' : 'none';
+      track.style.transform = 'translateX(' + (-(offset * stepSize())) + 'px)';
+      if (!animate) track.offsetHeight; // force reflow to apply instantly
+    }
+
+    moveTo(false);
+
+    var animating = false;
+
+    function go(dir) {
+      if (animating) return;
+      animating = true;
+      offset += dir;
+      carouselOffset = offset;
+      moveTo(true);
+
+      track.addEventListener('transitionend', function onEnd() {
+        track.removeEventListener('transitionend', onEnd);
+        if (offset >= vis + n) {
+          offset -= n;
+        } else if (offset < vis) {
+          offset += n;
+        }
+        carouselOffset = offset;
+        moveTo(false);
+        animating = false;
+      }, { once: true });
+    }
+
+    document.getElementById('shelf-prev').onclick = function () { go(-1); };
+    document.getElementById('shelf-next').onclick = function () { go(1); };
+
+    // Expose resize handler
+    window._carouselResize = function () {
+      setWidths();
+      moveTo(false);
+    };
+  }
+
+  initCarousel();
+
+  // Re-init after HTMX shelf refresh
+  document.body.addEventListener('htmx:afterSwap', function (e) {
+    if (e.detail.target && e.detail.target.id === 'shelf-carousel') {
+      initCarousel();
+    }
+  });
+
+  var resizeTimer;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      if (window._carouselResize) window._carouselResize();
+    }, 100);
+  });
+
+  // Shelf collapse/expand
+  var shelf = document.getElementById('rediscover-shelf');
+  var toggleBtn = document.getElementById('toggle-shelf-btn');
+  var COLLAPSED_KEY = 'rediscover-shelf-collapsed';
 
   toggleBtn.addEventListener('click', function () {
-    const isCollapsed = shelf.classList.toggle('collapsed');
+    var isCollapsed = shelf.classList.toggle('collapsed');
     localStorage.setItem(COLLAPSED_KEY, isCollapsed ? 'true' : 'false');
     toggleBtn.textContent = isCollapsed ? '+' : '−';
   });
