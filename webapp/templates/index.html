@@ -2,6 +2,13 @@
 {% block title %}ViewTube — {{ stats.total_videos }} videos{% endblock %}
 
 {% block content %}
+{% set active_filter_count = (current_channel is not none) | int
+    + (current_tag is not none) | int
+    + (sort_by != 'date_added') | int
+    + (sort_dir != 'desc') | int
+    + (group is not none and group != '') | int
+    + favourites_only | int %}
+
 <div class="toolbar">
   <form id="filter-form"
         hx-get="/"
@@ -9,64 +16,92 @@
         hx-push-url="true"
         hx-trigger="change from:select, change from:input[type=checkbox], keyup changed delay:300ms from:input[name=search]">
 
-    <input name="search" value="{{ current_search or '' }}" placeholder="Search…"
-           autocomplete="off">
+    <div class="toolbar-row">
+      <input name="search" value="{{ current_search or '' }}" placeholder="Search…"
+             autocomplete="off" style="flex:1">
+      <button type="button" id="filter-toggle-btn" class="secondary-btn">
+        Filters{% if active_filter_count %} <span class="filter-badge">{{ active_filter_count }}</span>{% endif %}
+      </button>
+      <a href="/" class="reset-btn">Reset</a>
+    </div>
 
-    <select name="channel">
-      <option value="">All channels</option>
-      {% for ch in channels %}
-      <option value="{{ ch }}" {% if ch == current_channel %}selected{% endif %}>{{ ch }}</option>
-      {% endfor %}
-    </select>
+    <div class="filter-panel" id="filter-panel">
+      <select name="channel">
+        <option value="">All channels</option>
+        {% for ch in channels %}
+        <option value="{{ ch }}" {% if ch == current_channel %}selected{% endif %}>{{ ch }}</option>
+        {% endfor %}
+      </select>
 
-    {% if canonical_tags %}
-    <select name="tag">
-      <option value="">All tags</option>
-      {% for group in canonical_tags %}
-        {% if group.name %}
-        <optgroup label="{{ group.name }}">
+      {% if canonical_tags %}
+      <select name="tag">
+        <option value="">All tags</option>
+        {% for group in canonical_tags %}
+          {% if group.name %}
+          <optgroup label="{{ group.name }}">
+            {% for tag_name in group.tags %}
+            <option value="{{ tag_name }}" {% if tag_name == current_tag %}selected{% endif %}>{{ tag_name }}</option>
+            {% endfor %}
+          </optgroup>
+          {% else %}
           {% for tag_name in group.tags %}
           <option value="{{ tag_name }}" {% if tag_name == current_tag %}selected{% endif %}>{{ tag_name }}</option>
           {% endfor %}
-        </optgroup>
-        {% else %}
-        {% for tag_name in group.tags %}
-        <option value="{{ tag_name }}" {% if tag_name == current_tag %}selected{% endif %}>{{ tag_name }}</option>
+          {% endif %}
         {% endfor %}
-        {% endif %}
-      {% endfor %}
-    </select>
-    {% endif %}
+      </select>
+      {% endif %}
 
-    <select name="sort_by">
-      <option value="date_added"          {% if sort_by == 'date_added'          %}selected{% endif %}>Date Added</option>
-      <option value="title"               {% if sort_by == 'title'               %}selected{% endif %}>Title</option>
-      <option value="yt_view_count"       {% if sort_by == 'yt_view_count'       %}selected{% endif %}>YouTube Views</option>
-      <option value="personal_view_count" {% if sort_by == 'personal_view_count' %}selected{% endif %}>Times Watched</option>
-      <option value="date_last_viewed"    {% if sort_by == 'date_last_viewed'    %}selected{% endif %}>Last Viewed</option>
-      <option value="date_published"      {% if sort_by == 'date_published'      %}selected{% endif %}>Date Published</option>
-    </select>
+      <select name="sort_by">
+        <option value="date_added"          {% if sort_by == 'date_added'          %}selected{% endif %}>Date Added</option>
+        <option value="title"               {% if sort_by == 'title'               %}selected{% endif %}>Title</option>
+        <option value="yt_view_count"       {% if sort_by == 'yt_view_count'       %}selected{% endif %}>YouTube Views</option>
+        <option value="personal_view_count" {% if sort_by == 'personal_view_count' %}selected{% endif %}>Times Watched</option>
+        <option value="date_last_viewed"    {% if sort_by == 'date_last_viewed'    %}selected{% endif %}>Last Viewed</option>
+        <option value="date_published"      {% if sort_by == 'date_published'      %}selected{% endif %}>Date Published</option>
+      </select>
 
-    <select name="sort_dir">
-      <option value="desc" {% if sort_dir == 'desc' %}selected{% endif %}>Desc</option>
-      <option value="asc"  {% if sort_dir == 'asc'  %}selected{% endif %}>Asc</option>
-    </select>
+      <select name="sort_dir">
+        <option value="desc" {% if sort_dir == 'desc' %}selected{% endif %}>Desc</option>
+        <option value="asc"  {% if sort_dir == 'asc'  %}selected{% endif %}>Asc</option>
+      </select>
 
-    <select name="group">
-      <option value="" {% if not group %}selected{% endif %}>No grouping</option>
-      <option value="channel" {% if group == 'channel' %}selected{% endif %}>By channel</option>
-      <option value="tag" {% if group == 'tag' %}selected{% endif %}>By tag</option>
-    </select>
+      <select name="group">
+        <option value="" {% if not group %}selected{% endif %}>No grouping</option>
+        <option value="channel" {% if group == 'channel' %}selected{% endif %}>By channel</option>
+        <option value="tag" {% if group == 'tag' %}selected{% endif %}>By tag</option>
+      </select>
 
-    <label class="filter-toggle">
-      <input type="checkbox" name="favourites" value="1" {% if favourites_only %}checked{% endif %}>
-      Favourites
-    </label>
+      <label class="filter-toggle">
+        <input type="checkbox" name="favourites" value="1" {% if favourites_only %}checked{% endif %}>
+        Favourites
+      </label>
+    </div>
 
-    <a href="/" class="reset-btn">Reset</a>
   </form>
-
 </div>
+
+<script>
+(function () {
+  var btn = document.getElementById('filter-toggle-btn');
+  var panel = document.getElementById('filter-panel');
+  var PANEL_KEY = 'filter-panel-open';
+  var hasActive = {{ 'true' if active_filter_count else 'false' }};
+
+  function setOpen(open) {
+    panel.classList.toggle('is-open', open);
+    btn.classList.toggle('secondary-btn--active', open);
+    try { localStorage.setItem(PANEL_KEY, open ? '1' : '0'); } catch (e) {}
+  }
+
+  var shouldOpen = hasActive || localStorage.getItem(PANEL_KEY) === '1';
+  setOpen(shouldOpen);
+
+  btn.addEventListener('click', function () {
+    setOpen(!panel.classList.contains('is-open'));
+  });
+})();
+</script>
 
 <section class="rediscover-shelf" id="rediscover-shelf">
   <div class="shelf-header">
