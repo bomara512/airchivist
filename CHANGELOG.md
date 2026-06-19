@@ -4,6 +4,14 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Hide rediscover carousel arrows when nothing to scroll to (2026-06-19)
+
+The carousel always showed prev/next arrows and built wraparound clones even when there were fewer real videos than fit in one view — and the unused viewport space would have shown the start of the clone strip (a duplicate-looking card), not empty space. Now `initCarousel()` checks `realCount > visibleCount` (the existing 4/3/2/1 responsive breakpoint) and, when false, skips the clone/transform machinery entirely, renders the real cards as a static row, and hides both arrows. This is reactive to window resize (re-checked on every resize, not just at load) since visible-count is breakpoint-driven and can change independent of the shelf's video count. Also fixes a latent gap where the empty-shelf case left the arrows visible but silently inert. Removed three write-only state variables discovered to be dead code while rewriting this function.
+
+**Trade-off:** cards in the under-full case keep the same per-card width a full row would have, leaving a trailing gap rather than stretching to fill the row — chosen for consistent card sizing over a fuller-looking row.
+
+---
+
 ### Add a remove-from-Rediscover button (2026-06-19)
 
 New ✕ button on shelf cards, to the right of the ⏱ watch-later button, that removes a video from the current rediscover shelf without touching `personal_view_count` or `date_last_viewed` — distinct from favouriting (which intentionally marks watched) or visiting. New `remove_from_rediscover_shelf` DB function (a thin public wrapper around the private helper `record_visit`/`add_to_watch_later` already used internally) and `POST /videos/<id>/rediscover-shelf/remove` route.

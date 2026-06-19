@@ -899,6 +899,17 @@ Add a confirmation line under "Fix Header Jump on Toggle" noting it was implemen
 
 ---
 
+## Hide Carousel Arrows When Nothing to Scroll To (2026-06-19)
+
+**Problem:** The carousel always showed prev/next arrows and always built wraparound clones, even when the shelf had fewer real videos than the current viewport's visible slot count (e.g. 2 real videos on a 4-wide desktop layout). There was nothing to scroll to, and worse, the unused slots in the viewport would have shown the *start of the wraparound clone strip* — a duplicate of the first real card — rather than empty space.
+
+**Decision:**
+- `initCarousel()` computes `needsCarousel = realCount > visibleCount` (visible count is the existing 4/3/2/1 breakpoint logic, based on viewport width). When false, the function skips building wraparound clones entirely and renders the real cards as a plain static row — no transform, no scroll — and hides both arrow buttons (`display: none`). When the shelf is empty (0 real cards), the arrows are likewise hidden (a pre-existing latent gap: arrows used to stay visible-but-inert when the shelf was empty, since `initCarousel` returned before attaching click handlers in that case — now both empty and under-full cases are unified under the same `needsCarousel` check).
+- **Card width in the under-full case:** cards keep the *same per-card width* a full row would use (computed from the breakpoint's visible-count, not the actual real count), rather than stretching to fill the row evenly. Leaves a trailing gap when under-full; chosen for visual consistency over a per-shelf-size-dependent card width.
+- **Reactive to resize, not computed once:** visible-count is breakpoint-driven (1200/900/600px), so whether arrows are needed can change as the window is resized, independent of the shelf's video count. The resize handler now checks whether the breakpoint crossed the `needsCarousel` threshold and, if so, calls `initCarousel()` again (full rebuild — clones, handlers, arrow visibility) instead of the lightweight width/position-only resize used when the mode hasn't changed.
+- **Practical scope:** the shelf pool is normally up to 20 videos, so in practice this matters mainly for small/new libraries, or once videos have been removed from the current shelf via the remove-from-Rediscover button — i.e. exactly the case it was built to anticipate, not a hypothetical.
+- Removed three write-only module state variables (`carouselOffset`, `carouselRealCount`, `carouselVis`) discovered to be dead while rewriting this function — set but never read anywhere in the codebase.
+
 ## Future Enhancements (Not in Scope)
 
 - Shuffle/reorder shelf without full refresh (new 20 from same pool)

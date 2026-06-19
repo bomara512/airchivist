@@ -150,27 +150,33 @@
     return 1;
   }
 
-  var carouselOffset = null;
-  var carouselRealCount = null;
-  var carouselVis = null;
-
   function initCarousel() {
     var track = document.getElementById('shelf-carousel');
     var viewport = document.querySelector('.shelf-viewport');
+    var prevBtn = document.getElementById('shelf-prev');
+    var nextBtn = document.getElementById('shelf-next');
     if (!track || !viewport) return;
 
-    // Remove clones from any previous init
+    // Remove clones from any previous init, and any handler bound by a previous mode
     Array.from(track.querySelectorAll('[data-clone]')).forEach(function (c) { c.remove(); });
+    prevBtn.onclick = null;
+    nextBtn.onclick = null;
 
     var realCards = Array.from(track.children).filter(function (c) {
       return c.classList.contains('video-card');
     });
     var n = realCards.length;
-    if (n === 0) return;
+    if (n === 0) {
+      prevBtn.style.display = 'none';
+      nextBtn.style.display = 'none';
+      return;
+    }
 
     var vis = getVisible(viewport.offsetWidth);
-    carouselVis = vis;
-    carouselRealCount = n;
+    var needsCarousel = n > vis;
+
+    prevBtn.style.display = needsCarousel ? '' : 'none';
+    nextBtn.style.display = needsCarousel ? '' : 'none';
 
     function cardWidth() {
       var v = getVisible(viewport.offsetWidth);
@@ -189,6 +195,25 @@
       });
     }
 
+    // Re-init fully if the visible breakpoint crossed the real-card-count threshold
+    // (e.g. resizing from a 4-wide layout where everything fit down to 3-wide where it doesn't)
+    function modeChanged() {
+      return (n > getVisible(viewport.offsetWidth)) !== needsCarousel;
+    }
+
+    if (!needsCarousel) {
+      // All cards fit in one view — keep the same per-card width a full row would have
+      // (so cards don't resize depending on how many are present), just no scrolling.
+      setWidths();
+      track.style.transition = 'none';
+      track.style.transform = 'translateX(0)';
+      window._carouselResize = function () {
+        if (modeChanged()) { initCarousel(); return; }
+        setWidths();
+      };
+      return;
+    }
+
     // Prepend clones of last `vis` real cards (for backward wrap)
     realCards.slice(-vis).reverse().forEach(function (c) {
       var cl = c.cloneNode(true);
@@ -204,7 +229,6 @@
     });
 
     var offset = vis; // start at first real card
-    carouselOffset = offset;
 
     setWidths();
 
@@ -222,7 +246,6 @@
       if (animating) return;
       animating = true;
       offset += dir;
-      carouselOffset = offset;
       moveTo(true);
 
       track.addEventListener('transitionend', function onEnd() {
@@ -232,17 +255,17 @@
         } else if (offset < vis) {
           offset += n;
         }
-        carouselOffset = offset;
         moveTo(false);
         animating = false;
       }, { once: true });
     }
 
-    document.getElementById('shelf-prev').onclick = function () { go(-1); };
-    document.getElementById('shelf-next').onclick = function () { go(1); };
+    prevBtn.onclick = function () { go(-1); };
+    nextBtn.onclick = function () { go(1); };
 
     // Expose resize handler
     window._carouselResize = function () {
+      if (modeChanged()) { initCarousel(); return; }
       setWidths();
       moveTo(false);
     };
