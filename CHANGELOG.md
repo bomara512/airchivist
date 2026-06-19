@@ -4,6 +4,16 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Add a remove-from-Rediscover button (2026-06-19)
+
+New ✕ button on shelf cards, to the right of the ⏱ watch-later button, that removes a video from the current rediscover shelf without touching `personal_view_count` or `date_last_viewed` — distinct from favouriting (which intentionally marks watched) or visiting. New `remove_from_rediscover_shelf` DB function (a thin public wrapper around the private helper `record_visit`/`add_to_watch_later` already used internally) and `POST /videos/<id>/rediscover-shelf/remove` route.
+
+Restructured the top-right thumbnail overlay buttons (`.watch-later-btn`, `.queue-remove-btn`, now also `.shelf-remove-btn`) from each being individually absolutely-positioned into a single `.thumb-actions-right` flex wrapper, since shelf cards now need two buttons side by side in that corner rather than one. This also simplified the hover-opacity rule from two selectors to one (`.thumb-wrap:hover .thumb-actions-right button`).
+
+**Trade-off:** there was no existing test coverage at all for any rediscover-shelf DB function before this change (a pre-existing gap, not introduced here) — added tests for the new function and route, but the gap remains for the older shelf functions (`generate_rediscover_shelf`, `get_current_rediscover_shelf`, etc.).
+
+---
+
 ### Favouriting from Rediscover or Watch Later marks watched and removes from the list (2026-06-18)
 
 Marking a video as a favourite while viewing it on the rediscover shelf or the Watch Later page now also marks it watched (new `POST /videos/<id>/mark-watched` route, reusing the existing `record_visit` DB function — same increment-`personal_view_count`/set-`date_last_viewed` logic `/visit/<id>` already uses) and removes it from whichever list it was favourited from: fades it out of the shelf carousel, or removes it from the watch later queue via the existing remove endpoint. `record_visit` already drops the video from the persisted rediscover shelf as a side effect, so this also survives a page reload, not just the in-page DOM removal. Un-favouriting does nothing special, and this only applies on the shelf and Watch Later page — the main list and Archived page are unaffected.

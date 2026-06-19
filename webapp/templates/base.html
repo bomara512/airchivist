@@ -266,6 +266,15 @@
       removeFromWatchLaterUI(btn.dataset.videoId, btn.closest('.video-card'));
     });
 
+    // Remove from Rediscover shelf button — no view count / last-viewed change
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.shelf-remove-btn');
+      if (!btn) return;
+      var videoId = btn.dataset.videoId;
+      fetch('/videos/' + videoId + '/rediscover-shelf/remove', { method: 'POST' })
+        .then(function (r) { if (r.ok) fadeOutShelfCards(videoId); });
+    });
+
     // Drag-to-reorder Watch Later queue
     var watchLaterList = document.querySelector('.watch-later-list');
     if (watchLaterList) {

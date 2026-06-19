@@ -15,15 +15,20 @@
       <span class="queue-position-badge">{{ position }}</span>
       {% endif %}
     </a>
-    {% if ctx == "watch_later" %}
-    <button class="queue-remove-btn" data-video-id="{{ video.video_id }}" title="Remove from queue">✕</button>
-    {% elif ctx != "hidden" %}
-    {% set in_wl = video.video_id in watch_later_ids %}
-    <button class="watch-later-btn"
-            data-video-id="{{ video.video_id }}"
-            title="{{ 'Already in Watch Later' if in_wl else 'Add to Watch Later' }}"
-            {% if in_wl %}disabled{% endif %}>⏱</button>
-    {% endif %}
+    <div class="thumb-actions-right">
+      {% if ctx == "watch_later" %}
+      <button class="queue-remove-btn" data-video-id="{{ video.video_id }}" title="Remove from queue">✕</button>
+      {% elif ctx != "hidden" %}
+      {% set in_wl = video.video_id in watch_later_ids %}
+      <button class="watch-later-btn"
+              data-video-id="{{ video.video_id }}"
+              title="{{ 'Already in Watch Later' if in_wl else 'Add to Watch Later' }}"
+              {% if in_wl %}disabled{% endif %}>⏱</button>
+      {% if ctx == "shelf" %}
+      <button class="shelf-remove-btn" data-video-id="{{ video.video_id }}" title="Remove from Rediscover">✕</button>
+      {% endif %}
+      {% endif %}
+    </div>
     {% if ctx != "hidden" %}
     <button class="favourite-btn {% if video.is_favourite %}favourite-btn--active{% endif %}"
             data-video-id="{{ video.video_id }}"

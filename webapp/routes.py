@@ -420,6 +420,15 @@ def video_mark_watched(video_id):
     return "", 204
 
 
+@bp.route("/videos/<video_id>/rediscover-shelf/remove", methods=["POST"])
+def video_remove_from_rediscover_shelf(video_id):
+    video = _db.get_video_by_id(g.db, video_id)
+    if not video:
+        abort(404)
+    _db.remove_from_rediscover_shelf(g.db, video_id)
+    return "", 204
+
+
 @bp.route("/videos/<video_id>/hide", methods=["POST"])
 def video_hide(video_id):
     _db.hide_video(g.db, video_id)

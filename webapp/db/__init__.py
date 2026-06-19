@@ -80,6 +80,7 @@ from webapp.db.videos import (
     is_rediscover_shelf_expired,
     record_visit,
     refresh_rediscover_shelf,
+    remove_from_rediscover_shelf,
     remove_from_watch_later,
     reorder_watch_later,
     unhide_video,
@@ -114,5 +115,5 @@ __all__ = [
     "get_stats", "get_video_by_id", "get_videos_status_batch", "set_favourite", "get_watch_later_count",
     "get_watch_later_queue", "get_watch_later_video_ids", "hide_video", "is_in_watch_later",
     "is_rediscover_shelf_expired", "record_visit", "refresh_rediscover_shelf",
-    "remove_from_watch_later", "reorder_watch_later", "unhide_video",
+    "remove_from_rediscover_shelf", "remove_from_watch_later", "reorder_watch_later", "unhide_video",
 ]

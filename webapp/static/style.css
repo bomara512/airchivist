@@ -490,11 +490,18 @@ h1 { margin-top: 0; }
 .filter-toggle input { cursor: pointer; }
 
 /* Watch Later / Remove buttons — thumbnail overlay (top-right corner) */
-.watch-later-btn,
-.queue-remove-btn {
+.thumb-actions-right {
   position: absolute;
   top: 6px;
   right: 6px;
+  display: flex;
+  gap: 0.3rem;
+  z-index: 1;
+}
+
+.watch-later-btn,
+.queue-remove-btn,
+.shelf-remove-btn {
   background: rgba(0, 0, 0, 0.75);
   border: none;
   border-radius: 4px;
@@ -509,16 +516,15 @@ h1 { margin-top: 0; }
   padding: 0;
   opacity: 0;
   transition: opacity 0.15s, color 0.15s, background 0.15s;
-  z-index: 1;
 }
 
-.thumb-wrap:hover .watch-later-btn,
-.thumb-wrap:hover .queue-remove-btn { opacity: 1; }
+.thumb-wrap:hover .thumb-actions-right button { opacity: 1; }
 
 .watch-later-btn:hover:not(:disabled) { color: #fff; background: rgba(0, 153, 255, 0.85); }
 .watch-later-btn:disabled { opacity: 0.5 !important; cursor: default; color: #4caf50; }
 
-.queue-remove-btn:hover { color: #fff; background: rgba(229, 57, 53, 0.85); }
+.queue-remove-btn:hover,
+.shelf-remove-btn:hover { color: #fff; background: rgba(229, 57, 53, 0.85); }
 
 /* Watch Later page chrome */
 .page-header {

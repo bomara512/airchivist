@@ -70,6 +70,46 @@ class TestMarkWatchedRoute:
         assert resp.status_code == 404
 
 
+class TestRemoveFromRediscoverShelfRoute:
+    def _shelf_video_ids(self, client):
+        import json
+        import sqlite3
+        conn = sqlite3.connect(client.application.config["DATABASE"])
+        row = conn.execute(
+            "SELECT video_ids FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
+        ).fetchone()
+        conn.close()
+        return json.loads(row[0])
+
+    def test_returns_204(self, client):
+        client.post("/rediscover-shelf/refresh")
+        resp = client.post("/videos/aaaaaaaaaa1/rediscover-shelf/remove")
+        assert resp.status_code == 204
+
+    def test_removes_video_from_shelf(self, client):
+        client.post("/rediscover-shelf/refresh")
+        assert "aaaaaaaaaa1" in self._shelf_video_ids(client)
+        client.post("/videos/aaaaaaaaaa1/rediscover-shelf/remove")
+        assert "aaaaaaaaaa1" not in self._shelf_video_ids(client)
+
+    def test_does_not_increment_personal_view_count(self, client):
+        import sqlite3
+        client.post("/rediscover-shelf/refresh")
+        client.post("/videos/aaaaaaaaaa1/rediscover-shelf/remove")
+        conn = sqlite3.connect(client.application.config["DATABASE"])
+        row = conn.execute(
+            "SELECT personal_view_count, date_last_viewed FROM videos WHERE video_id=?",
+            ("aaaaaaaaaa1",),
+        ).fetchone()
+        conn.close()
+        assert row[0] == 0
+        assert row[1] is None
+
+    def test_unknown_video_returns_404(self, client):
+        resp = client.post("/videos/doesnotexist/rediscover-shelf/remove")
+        assert resp.status_code == 404
+
+
 class TestHideRoute:
     def test_hide_returns_204(self, client):
         resp = client.post("/videos/aaaaaaaaaa1/hide")

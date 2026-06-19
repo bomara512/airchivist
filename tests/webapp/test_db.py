@@ -262,6 +262,52 @@ class TestRecordVisit:
         record_visit(db_conn, "doesnotexist")  # must not raise
 
 
+class TestRemoveFromRediscoverShelf:
+    def _seed_shelf(self, db_conn, video_ids):
+        import json
+        db_conn.execute(
+            "INSERT INTO rediscover_shelf (generated_at, expires_at, pool, video_ids) "
+            "VALUES ('2026-01-01T00:00:00+00:00', '2099-01-01T00:00:00+00:00', '[]', ?)",
+            (json.dumps(video_ids),),
+        )
+        db_conn.commit()
+
+    def test_removes_video_from_active_shelf(self, db_conn):
+        from webapp.db import remove_from_rediscover_shelf
+        import json
+        self._seed_shelf(db_conn, ["aaaaaaaaaa1", "aaaaaaaaaa2"])
+        remove_from_rediscover_shelf(db_conn, "aaaaaaaaaa1")
+        row = db_conn.execute(
+            "SELECT video_ids FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
+        ).fetchone()
+        assert json.loads(row["video_ids"]) == ["aaaaaaaaaa2"]
+
+    def test_does_not_change_personal_view_count_or_last_viewed(self, db_conn):
+        from webapp.db import remove_from_rediscover_shelf
+        self._seed_shelf(db_conn, ["aaaaaaaaaa1"])
+        remove_from_rediscover_shelf(db_conn, "aaaaaaaaaa1")
+        row = db_conn.execute(
+            "SELECT personal_view_count, date_last_viewed FROM videos WHERE video_id=?",
+            ("aaaaaaaaaa1",),
+        ).fetchone()
+        assert row["personal_view_count"] == 0
+        assert row["date_last_viewed"] is None
+
+    def test_no_active_shelf_does_nothing(self, db_conn):
+        from webapp.db import remove_from_rediscover_shelf
+        remove_from_rediscover_shelf(db_conn, "aaaaaaaaaa1")  # must not raise
+
+    def test_video_not_in_shelf_does_nothing(self, db_conn):
+        from webapp.db import remove_from_rediscover_shelf
+        import json
+        self._seed_shelf(db_conn, ["aaaaaaaaaa2"])
+        remove_from_rediscover_shelf(db_conn, "aaaaaaaaaa1")
+        row = db_conn.execute(
+            "SELECT video_ids FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
+        ).fetchone()
+        assert json.loads(row["video_ids"]) == ["aaaaaaaaaa2"]
+
+
 class TestCreateTag:
     def test_creates_tag_row(self, db_conn):
         tag_id = create_tag(db_conn, "coding")

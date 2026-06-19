@@ -246,6 +246,7 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 | POST | `/tags/llm/suggest` | Trigger LLM suggestion generation |
 | POST | `/tags/llm/suggest/<id>/dismiss` | Dismiss a single LLM suggestion card |
 | POST | `/videos/<id>/mark-watched` | Calls `record_visit` without redirecting; 404 if video not found; returns 204 |
+| POST | `/videos/<id>/rediscover-shelf/remove` | Removes from the active shelf only — does not touch `personal_view_count`/`date_last_viewed`; 404 if video not found; returns 204 |
 | POST | `/videos/<id>/hide` | Soft-delete: set `is_hidden = 1`; returns 204 (used by right-click JS and extension) |
 | POST | `/videos/<id>/unhide` | Restore hidden video; redirects to `/hidden` |
 | POST | `/videos/<id>/delete` | Hard delete; `video_tags` rows cascade; redirects to `/hidden` |

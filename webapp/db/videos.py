@@ -179,6 +179,12 @@ def _remove_from_rediscover_shelf(conn: sqlite3.Connection, video_id: str) -> No
         )
 
 
+def remove_from_rediscover_shelf(conn: sqlite3.Connection, video_id: str) -> None:
+    """Remove a video from the active rediscover shelf only — no view count or last-viewed change."""
+    _remove_from_rediscover_shelf(conn, video_id)
+    conn.commit()
+
+
 def record_visit(conn: sqlite3.Connection, video_id: str) -> None:
     now = datetime.now(timezone.utc).isoformat()
     conn.execute(
