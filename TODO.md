@@ -25,6 +25,7 @@
 - [ ] Notes field per video — freeform text to add while watching
 - [ ] Playlists / collections — group videos manually beyond tags
 - [ ] Bulk tag assignment — select multiple videos and tag them at once
+- [ ] Manually add a tag to a single existing video — direct affordance (e.g. from the main list/card), for videos that arrived with thin/noise-only metadata and never got a canonical tag
 - ~~Archive button — hide videos from main view without deleting them (Hide does this)~~
 - [ ] Tag distillation — consolidate many similar tags into a single canonical concept for cleaner search and grouping
 - [ ] Show ungrouped canonical tags on the /tags page — canonical tags not assigned to any tag group are currently invisible unless you use Auto-assign
