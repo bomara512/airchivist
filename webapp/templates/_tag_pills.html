@@ -1,0 +1,7 @@
+{% if video.tags %}
+<div class="video-tags" data-video-id="{{ video.video_id }}">
+  {% for tag_name in video.tags.split(',') %}
+  <a href="{{ url_for('main.index', tag=tag_name) }}" class="tag-pill" data-tag-name="{{ tag_name | e }}">{{ tag_name }}</a>
+  {% endfor %}
+</div>
+{% endif %}

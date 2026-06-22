@@ -45,7 +45,18 @@
 
   <div id="video-card-menu" class="context-menu">
     <button id="video-card-hide">Archive video</button>
+    <button id="video-card-add-tag">Add tag…</button>
   </div>
+
+  <div id="video-card-add-tag-popover" class="context-menu add-tag-popover">
+    <input id="video-card-add-tag-input" class="popover-input" list="canonical-tag-datalist" placeholder="Tag name…" aria-label="Tag name" autocomplete="off">
+  </div>
+
+  <datalist id="canonical-tag-datalist">
+    {% for name in canonical_tag_names %}
+    <option value="{{ name }}">
+    {% endfor %}
+  </datalist>
 
   <script>
   (function () {
@@ -159,9 +170,10 @@
       hidePillMenu();
 
       var card = e.target.closest('.video-card');
-      if (!card || card.closest('.hidden-videos-grid')) { hideCardMenu(); return; }
+      if (!card) { hideCardMenu(); return; }
       e.preventDefault();
       activeCard = card;
+      document.getElementById('video-card-hide').style.display = card.closest('.hidden-videos-grid') ? 'none' : '';
       cardMenu.style.display = 'block';
       var x = Math.min(e.clientX, window.innerWidth - cardMenu.offsetWidth - 8);
       var y = Math.min(e.clientY, window.innerHeight - cardMenu.offsetHeight - 8);
@@ -172,10 +184,11 @@
     document.addEventListener('click', function (e) {
       if (!pillMenu.contains(e.target)) hidePillMenu();
       if (!cardMenu.contains(e.target)) hideCardMenu();
+      if (!addTagPopover.contains(e.target)) hideAddTagPopover();
     });
 
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') { hidePillMenu(); hideCardMenu(); }
+      if (e.key === 'Escape') { hidePillMenu(); hideCardMenu(); hideAddTagPopover(); }
     });
 
     document.getElementById('tag-pill-remove').addEventListener('click', function () {
@@ -197,6 +210,60 @@
       hideCardMenu();
       fetch('/videos/' + videoId + '/hide', { method: 'POST' })
         .then(function (r) { if (r.ok) card.remove(); });
+    });
+
+    // Add tag to video — inline popover from the card context menu
+    var addTagPopover = document.getElementById('video-card-add-tag-popover');
+    var addTagInput = document.getElementById('video-card-add-tag-input');
+    var addTagVideoId = null;
+
+    function hideAddTagPopover() { addTagPopover.style.display = 'none'; addTagVideoId = null; }
+
+    document.getElementById('video-card-add-tag').addEventListener('click', function (e) {
+      e.stopPropagation(); // don't let this bubble into the outside-click handler above and immediately hide the popover it's about to show
+      if (!activeCard) return;
+      var rect = cardMenu.getBoundingClientRect();
+      addTagVideoId = activeCard.dataset.videoId;
+      hideCardMenu();
+      addTagPopover.style.left = rect.left + 'px';
+      addTagPopover.style.top = rect.top + 'px';
+      addTagPopover.style.display = 'block';
+      addTagInput.value = '';
+      addTagInput.focus();
+    });
+
+    function submitAddTag() {
+      var tagName = addTagInput.value.trim();
+      var videoId = addTagVideoId;
+      hideAddTagPopover();
+      if (!tagName || !videoId) return;
+      fetch('/videos/' + videoId + '/tags/add', {
+        method: 'POST',
+        body: new URLSearchParams({ tag_name: tagName })
+      })
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (html) {
+          if (html === null) return;
+          document.querySelectorAll('.video-card[data-video-id="' + videoId + '"]').forEach(function (card) {
+            var infoDiv = card.querySelector('.video-info');
+            var existingTags = infoDiv.querySelector('.video-tags');
+            var hiddenActions = infoDiv.querySelector('.hidden-actions');
+            // _tag_pills.html renders nothing when a video has no tags yet (no .video-tags
+            // to replace), and on the Hidden page the pills must land before .hidden-actions,
+            // not at the end of .video-info, to match server-rendered order.
+            if (existingTags) {
+              existingTags.outerHTML = html;
+            } else if (hiddenActions) {
+              hiddenActions.insertAdjacentHTML('beforebegin', html);
+            } else {
+              infoDiv.insertAdjacentHTML('beforeend', html);
+            }
+          });
+        });
+    }
+
+    addTagInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submitAddTag(); }
     });
 
     // Favourite toggle button — update all cards with same video_id (handles carousel clones)

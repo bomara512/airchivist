@@ -363,6 +363,21 @@ class TestVideoTagAssociations:
         assert "guitar" not in tags
 
 
+class TestGetCanonicalTagsForVideo:
+    def test_excludes_raw_tags(self, db_conn):
+        from webapp.db import get_canonical_tags_for_video
+        # aaaaaaaaaa1 has seed tag 'guitar' (id=1), which is raw (is_canonical=0)
+        tags = get_canonical_tags_for_video(db_conn, "aaaaaaaaaa1")
+        assert tags == []
+
+    def test_returns_canonical_tags_only(self, db_conn):
+        from webapp.db import get_canonical_tags_for_video, create_canonical_tag, add_video_tag
+        canonical_id = create_canonical_tag(db_conn, "music")
+        add_video_tag(db_conn, "aaaaaaaaaa1", canonical_id)
+        tags = get_canonical_tags_for_video(db_conn, "aaaaaaaaaa1")
+        assert tags == ["music"]
+
+
 class TestApplyAliases:
     def _add_canonical(self, db_conn, name):
         db_conn.execute("INSERT INTO tags (name, is_canonical) VALUES (?, 1)", (name,))

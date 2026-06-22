@@ -4,6 +4,23 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Add a right-click "Add tag…" action for manually tagging a single video (2026-06-22)
+
+New backend route, partial, global datalist, and context-menu UI letting a tag be attached to any video without leaving the page or using the bookmarklet/extension. Came up while debugging a video that ended up with zero canonical tags — there was previously no way to give a video a tag directly; the only existing mechanisms were automatic alias-matching at ingest time and the `/tags` admin page's unclassified-pool flow, which only works on raw tags that already exist on 2+ videos.
+
+Extracted the inline tag-pills markup out of `_video_card.html` into a new `_tag_pills.html` partial (pure refactor, verified non-regressive against the full suite before writing new tests) so the pill-rendering logic has one source of truth shared by the initial page render and the new route's response. Added `POST /videos/<video_id>/tags/add`, which reuses the existing `create_canonical_tag` (idempotent — creates new or promotes an existing raw tag) and `add_video_tag` (`INSERT OR IGNORE`) DB functions and re-renders `_tag_pills.html` with the video's current canonical tags. A new context processor injects the full canonical tag name list into one global `<datalist id="canonical-tag-datalist">` in `base.html` (not duplicated per card), powering autocomplete that is canonical-only — mirroring the existing `/tags` page pattern and avoiding surfacing the much larger, mostly-junk raw tag pool.
+
+On the frontend, the video card's right-click menu gained an "Add tag…" item that opens an inline popover (text input bound to the global datalist) positioned at the menu's location; Enter submits to the new route and the response HTML replaces/inserts the card's tag pills directly without a page reload, updating every on-page instance of that video (carousel clones included). Also decoupled the card menu's Hidden-page exclusion: right-clicking a card inside `.hidden-videos-grid` now opens the menu (previously suppressed entirely), with "Archive video" hidden there since a hidden video can't be hidden again, while "Add tag…" remains available everywhere.
+
+**Implications**
+- **+** Tags can now be added in a couple of clicks, uniformly across the main grid, Watch Later, the Rediscover shelf, and the Hidden page — closing a real gap for videos with thin/noise-only source metadata.
+- **+** The pill-rendering logic now has a single source of truth, so future markup changes only need to happen in one place.
+- **−** Typing a tag name that matches an existing *raw* (non-canonical) tag promotes it to canonical for every other video that already carries it, not just the one being tagged — pre-existing `create_canonical_tag` behavior, not a new risk, but now reachable from a much more casual, frequent entry point than the `/tags` admin page.
+- **−** The "Add tag…" button's click handler needs `e.stopPropagation()` to avoid the document-level outside-click handler immediately closing the popover it just opened — a subtle bubbling interaction worth remembering if more menu-triggered popovers are added later (the same pattern was already fixed once for the rediscover-shelf toggle button).
+- **−** No JS test coverage for the new popover/click interaction — no JS test framework exists yet in this codebase (tracked separately as tech debt); coverage here is DB/route-layer tests plus structural `curl`/`grep` verification against a copy of real data, not real-browser click-testing.
+
+---
+
 ### Hide rediscover carousel arrows when nothing to scroll to (2026-06-19)
 
 The carousel always showed prev/next arrows and built wraparound clones even when there were fewer real videos than fit in one view — and the unused viewport space would have shown the start of the clone strip (a duplicate-looking card), not empty space. Now `initCarousel()` checks `realCount > visibleCount` (the existing 4/3/2/1 responsive breakpoint) and, when false, skips the clone/transform machinery entirely, renders the real cards as a static row, and hides both arrows. This is reactive to window resize (re-checked on every resize, not just at load) since visible-count is breakpoint-driven and can change independent of the shelf's video count. Also fixes a latent gap where the empty-shelf case left the arrows visible but silently inert. Removed three write-only state variables discovered to be dead code while rewriting this function.

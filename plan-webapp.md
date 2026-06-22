@@ -250,6 +250,7 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 | POST | `/videos/<id>/hide` | Soft-delete: set `is_hidden = 1`; returns 204 (used by right-click JS and extension) |
 | POST | `/videos/<id>/unhide` | Restore hidden video; redirects to `/hidden` |
 | POST | `/videos/<id>/delete` | Hard delete; `video_tags` rows cascade; redirects to `/hidden` |
+| POST | `/videos/<id>/tags/add` | form `tag_name`; creates or promotes a canonical tag and attaches it to the video; 400 if blank, 404 if video not found; returns rendered tag-pills HTML |
 | GET | `/hidden` | Hidden videos management page — Restore and Delete permanently per card |
 | GET | `/api/status` | CORS. `?url=<yt_url>` → `{status: not_found\|exists\|hidden, video_id, title}` |
 | POST | `/api/hide` | CORS. `{url}` → hides by URL → `{status: "hidden", title}` |

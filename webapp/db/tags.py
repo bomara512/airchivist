@@ -42,6 +42,18 @@ def get_tags_for_video(conn: sqlite3.Connection, video_id: str) -> list[str]:
     return [r[0] for r in rows]
 
 
+def get_canonical_tags_for_video(conn: sqlite3.Connection, video_id: str) -> list[str]:
+    """Same as get_tags_for_video, but filtered to canonical tags only —
+    matches what _video_card.html actually displays."""
+    rows = conn.execute("""
+        SELECT t.name FROM tags t
+        JOIN video_tags vt ON vt.tag_id_fk = t.id
+        JOIN videos v ON v.id = vt.video_id_fk
+        WHERE v.video_id = ? AND t.is_canonical = 1
+    """, (video_id,)).fetchall()
+    return [r[0] for r in rows]
+
+
 def create_tag(conn: sqlite3.Connection, name: str) -> int:
     name = name.strip().lower()
     existing = conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()

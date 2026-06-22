@@ -451,3 +451,53 @@ class TestApiWatchLaterStatus:
         assert resp.status_code == 204
 
 
+class TestAddTagRoute:
+    def _seed_canonical(self, client, name):
+        import sqlite3
+        conn = sqlite3.connect(client.application.config["DATABASE"])
+        conn.execute("INSERT INTO tags (name, is_canonical) VALUES (?, 1)", (name,))
+        conn.commit()
+        conn.close()
+
+    def test_attach_existing_canonical_tag(self, client):
+        self._seed_canonical(client, "music")
+        resp = client.post("/videos/aaaaaaaaaa1/tags/add", data={"tag_name": "music"})
+        assert resp.status_code == 200
+        assert b'data-tag-name="music"' in resp.data
+
+    def test_creates_brand_new_tag(self, client):
+        resp = client.post("/videos/aaaaaaaaaa1/tags/add", data={"tag_name": "synthwave"})
+        assert resp.status_code == 200
+        assert b'data-tag-name="synthwave"' in resp.data
+
+    def test_promotes_existing_raw_tag_and_affects_other_videos(self, client):
+        # seed tag 'guitar' (id=1) is raw, used by both aaaaaaaaaa1 and aaaaaaaaaa3
+        resp = client.post("/videos/aaaaaaaaaa1/tags/add", data={"tag_name": "guitar"})
+        assert resp.status_code == 200
+        assert b'data-tag-name="guitar"' in resp.data
+        import sqlite3
+        conn = sqlite3.connect(client.application.config["DATABASE"])
+        rows = conn.execute(
+            "SELECT t.name FROM tags t JOIN video_tags vt ON vt.tag_id_fk = t.id "
+            "JOIN videos v ON v.id = vt.video_id_fk "
+            "WHERE v.video_id = 'aaaaaaaaaa3' AND t.is_canonical = 1"
+        ).fetchall()
+        conn.close()
+        assert ("guitar",) in rows
+
+    def test_idempotent_reattach(self, client):
+        self._seed_canonical(client, "music")
+        client.post("/videos/aaaaaaaaaa1/tags/add", data={"tag_name": "music"})
+        resp = client.post("/videos/aaaaaaaaaa1/tags/add", data={"tag_name": "music"})
+        assert resp.status_code == 200
+        assert resp.data.count(b'data-tag-name="music"') == 1
+
+    def test_blank_tag_name_returns_400(self, client):
+        resp = client.post("/videos/aaaaaaaaaa1/tags/add", data={"tag_name": "   "})
+        assert resp.status_code == 400
+
+    def test_unknown_video_returns_404(self, client):
+        resp = client.post("/videos/doesnotexist/tags/add", data={"tag_name": "music"})
+        assert resp.status_code == 404
+
+

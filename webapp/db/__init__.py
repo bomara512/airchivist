@@ -44,6 +44,7 @@ from webapp.db.tags import (
     get_canonical_tags,
     get_canonical_tags_for_filter,
     get_canonical_tags_for_filter_grouped,
+    get_canonical_tags_for_video,
     get_related_unclassified_tags,
     get_tag_keywords,
     get_tags_for_video,
@@ -104,7 +105,8 @@ __all__ = [
     # tags
     "add_video_tag", "collapse_case_variants", "create_canonical_tag", "create_tag",
     "delete_tag", "get_all_tags", "get_canonical_tags", "get_canonical_tags_for_filter",
-    "get_canonical_tags_for_filter_grouped", "get_related_unclassified_tags", "get_tag_keywords",
+    "get_canonical_tags_for_filter_grouped", "get_canonical_tags_for_video",
+    "get_related_unclassified_tags", "get_tag_keywords",
     "get_tags_for_video", "get_tags_with_keywords", "get_unclassified_tags",
     "get_video_titles_for_tag", "mark_tag_noise", "mark_tags_noise_bulk", "remove_video_tag",
     "set_tag_keywords",

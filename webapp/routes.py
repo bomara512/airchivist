@@ -133,6 +133,20 @@ def video_remove_tag(video_id):
     return "", 204
 
 
+@bp.route("/videos/<video_id>/tags/add", methods=["POST"])
+def video_add_tag(video_id):
+    tag_name = request.form.get("tag_name", "").strip()
+    if not tag_name:
+        abort(400)
+    video = _db.get_video_by_id(g.db, video_id)
+    if not video:
+        abort(404)
+    tag_id = _db.create_canonical_tag(g.db, tag_name)
+    _db.add_video_tag(g.db, video_id, tag_id)
+    tags = _db.get_canonical_tags_for_video(g.db, video_id)
+    return render_template("_tag_pills.html", video={"video_id": video_id, "tags": ",".join(tags)})
+
+
 @bp.route("/visit/<video_id>")
 def visit(video_id):
     row = _db.get_video_by_id(g.db, video_id)

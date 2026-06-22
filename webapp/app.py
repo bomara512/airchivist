@@ -2,7 +2,7 @@ import re
 import sqlite3
 from flask import Flask, g
 from webapp import filters as _filters
-from webapp.db import init_webapp_tables, get_stats, get_watch_later_video_ids
+from webapp.db import init_webapp_tables, get_stats, get_watch_later_video_ids, get_canonical_tags_for_filter
 
 
 def _regexp(pattern, string):
@@ -34,6 +34,13 @@ def create_app(db_path: str) -> Flask:
         if db is None:
             return {"watch_later_ids": set()}
         return {"watch_later_ids": get_watch_later_video_ids(db)}
+
+    @app.context_processor
+    def inject_canonical_tag_names():
+        db = g.get("db")
+        if db is None:
+            return {"canonical_tag_names": []}
+        return {"canonical_tag_names": get_canonical_tags_for_filter(db)}
 
     @app.teardown_appcontext
     def close_db(exc):
