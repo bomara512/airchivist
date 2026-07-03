@@ -4,6 +4,16 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Extension: show Add-to-ViewTube prompt with optional Watch Later checkbox (2026-07-02)
+
+When the extension popup is opened on a YouTube video not yet in ViewTube, it now renders a prompt ("Add to ViewTube" button + "Also add to Watch Later" checkbox) rather than firing the add immediately. Clicking the button triggers the add; if the checkbox is ticked, `/api/watch-later/add` is called sequentially after the ViewTube add succeeds (sequential because the endpoint 404s if the video is not yet in the DB). `already_in_queue` (409) is treated as success so re-adding an already-queued video does not surface an error.
+
+**Implications**
+- **+** Users can enqueue a video in Watch Later at the same moment they add it, without a second popup interaction.
+- **+** Follows the existing opt-in checkbox pattern from the Archive flow ("Also remove browser bookmark").
+- **−** The extra click is minor friction for the common case (add without Watch Later) — this is the cost of the explicit intent model.
+- **−** Watch Later failure is surfaced as a secondary status line but does not prevent the popup auto-close; the user may not notice if the queueing silently failed.
+
 ### Add a right-click "Add tag…" action for manually tagging a single video (2026-06-22)
 
 New backend route, partial, global datalist, and context-menu UI letting a tag be attached to any video without leaving the page or using the bookmarklet/extension. Came up while debugging a video that ended up with zero canonical tags — there was previously no way to give a video a tag directly; the only existing mechanisms were automatic alias-matching at ingest time and the `/tags` admin page's unclassified-pool flow, which only works on raw tags that already exist on 2+ videos.
