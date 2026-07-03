@@ -37,7 +37,7 @@ async function checkStatus(viewtubeUrl, tabUrl) {
   return resp.json();
 }
 
-async function doAdd(viewtubeUrl, tabUrl, tabTitle) {
+async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false) {
   const root = document.getElementById('root');
   root.innerHTML = '<div class="status">Adding…</div>';
   const [bookmarkResult, vtResult] = await Promise.allSettled([
@@ -53,8 +53,27 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle) {
   const bookmarkOk = bookmarkResult.status === 'fulfilled';
   const vtData = vtResult.status === 'fulfilled' ? vtResult.value : null;
   const viewtubeOk = vtData && ['added', 'exists'].includes(vtData.status);
+
+  let watchLaterOk = null;
+  if (alsoWatchLater && viewtubeOk) {
+    try {
+      const wlResp = await fetch(`${viewtubeUrl}/api/watch-later/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: tabUrl }),
+      });
+      const wlData = await wlResp.json();
+      watchLaterOk = ['added', 'already_in_queue'].includes(wlData.status);
+    } catch {
+      watchLaterOk = false;
+    }
+  }
+
   if (bookmarkOk && viewtubeOk) {
-    root.innerHTML = `<div class="status success">&#10003; ${esc(vtData.title || tabTitle)}</div>`;
+    const lines = [`&#10003; ${esc(vtData.title || tabTitle)}`];
+    if (watchLaterOk === true) lines.push('+ Added to Watch Later');
+    if (watchLaterOk === false) lines.push('&#10007; Watch Later failed');
+    root.innerHTML = `<div class="status success">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
     setTimeout(() => window.close(), 1500);
     return;
   }
@@ -64,6 +83,8 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle) {
   if (viewtubeOk) lines.push('&#10003; Added to ViewTube');
   else if (vtResult.status === 'rejected') lines.push(`&#10007; ViewTube unreachable`);
   else lines.push(`&#10007; ViewTube: ${esc(vtData?.error || 'unknown error')}`);
+  if (alsoWatchLater && watchLaterOk === true) lines.push('&#10003; Added to Watch Later');
+  if (alsoWatchLater && watchLaterOk === false) lines.push('&#10007; Watch Later failed');
   const cls = (bookmarkOk || viewtubeOk) ? 'partial' : 'error';
   root.innerHTML = `<div class="status ${cls}">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
 }
