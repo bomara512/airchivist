@@ -133,7 +133,17 @@ async function doDelete(viewtubeUrl, videoId) {
 
 function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
   if (data.status === 'not_found') {
-    doAdd(viewtubeUrl, tabUrl, tabTitle);
+    root.innerHTML = `
+      <button id="btn-add" class="action-btn">Add to ViewTube</button>
+      <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
+        <input type="checkbox" id="chk-watch-later" style="margin-right:0.3rem">
+        Also add to Watch Later
+      </label>
+    `;
+    document.getElementById('btn-add').addEventListener('click', () => {
+      const alsoWatchLater = document.getElementById('chk-watch-later').checked;
+      doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater);
+    });
     return;
   }
 
