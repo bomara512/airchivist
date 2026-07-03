@@ -71,7 +71,7 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false) {
 
   if (bookmarkOk && viewtubeOk) {
     const lines = [`&#10003; ${esc(vtData.title || tabTitle)}`];
-    if (watchLaterOk === true) lines.push('+ Added to Watch Later');
+    if (watchLaterOk === true) lines.push('&#10003; Added to Watch Later');
     if (watchLaterOk === false) lines.push('&#10007; Watch Later failed');
     root.innerHTML = `<div class="status success">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
     setTimeout(() => window.close(), 1500);
