@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from crawler.datastore import Datastore
-from crawler.models import Bookmark, VideoMetadata
+from crawler.models import Bookmark, ChannelMetadata, VideoMetadata
 
 
 def _make_metadata(video_id="abc12345678", **kwargs):
@@ -288,9 +288,6 @@ class TestMisc:
             ds.upsert_video(_make_metadata("vid1111111a"), _make_bookmark("vid1111111a"))
             ds.upsert_video(_make_metadata("vid2222222b"), _make_bookmark("vid2222222b"))
             assert ds.count_videos() == 2
-
-
-from crawler.models import ChannelMetadata
 
 
 def _make_channel_meta(channel_id="UCtest123", **kwargs):

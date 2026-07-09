@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS channels (
     description      TEXT,
     subscriber_count INTEGER,
     thumbnail_url    TEXT,
+    fetch_error      TEXT,
     fetch_status     TEXT NOT NULL DEFAULT 'ok',
     date_added       TEXT NOT NULL DEFAULT (date('now'))
 );
@@ -228,20 +229,21 @@ class Datastore:
         self._conn.execute(
             """
             INSERT INTO channels (channel_id, channel_name, channel_url, description,
-                                  subscriber_count, thumbnail_url, fetch_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                                  subscriber_count, thumbnail_url, fetch_error, fetch_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(channel_id) DO UPDATE SET
                 channel_name     = excluded.channel_name,
                 channel_url      = excluded.channel_url,
                 description      = excluded.description,
                 subscriber_count = excluded.subscriber_count,
                 thumbnail_url    = excluded.thumbnail_url,
+                fetch_error      = excluded.fetch_error,
                 fetch_status     = excluded.fetch_status
             """,
             (
                 meta.channel_id, meta.channel_name, meta.channel_url,
                 meta.description, meta.subscriber_count, meta.thumbnail_url,
-                meta.fetch_status,
+                meta.fetch_error, meta.fetch_status,
             ),
         )
         self._conn.commit()
