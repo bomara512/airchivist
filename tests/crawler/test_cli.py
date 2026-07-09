@@ -198,6 +198,20 @@ class TestCliChannelBookmarks:
         called_url = mock_ch.call_args[0][0]
         assert "rickastley" in called_url
 
+    def test_channel_bookmark_skipped_on_second_run(self, tmp_path):
+        """Second run skips @handle channel already fetched (source_url match)."""
+        out = tmp_path / "out.db"
+        mock_ch = MagicMock(return_value=_GOOD_CHANNEL_META)
+        _run_main(["-i", str(FIXTURES / "sample_bookmarks.json"), "-o", str(out)],
+                  mock_channel_fetch=mock_ch)
+        first_call_count = mock_ch.call_count
+
+        mock_ch2 = MagicMock(return_value=_GOOD_CHANNEL_META)
+        _run_main(["-i", str(FIXTURES / "sample_bookmarks.json"), "-o", str(out)],
+                  mock_channel_fetch=mock_ch2)
+        assert mock_ch2.call_count == 0, "channel should be skipped on second run"
+        _ = first_call_count  # used above
+
 
 class TestCliChannelStubSideEffect:
     def test_video_processing_creates_channel_stub(self, tmp_path):

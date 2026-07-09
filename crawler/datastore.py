@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS channels (
     description      TEXT,
     subscriber_count INTEGER,
     thumbnail_url    TEXT,
+    source_url       TEXT,
     fetch_error      TEXT,
     fetch_status     TEXT NOT NULL DEFAULT 'ok',
     date_added       TEXT NOT NULL DEFAULT (date('now'))
@@ -225,25 +226,27 @@ class Datastore:
     def count_videos(self) -> int:
         return self._conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
 
-    def upsert_channel(self, meta: ChannelMetadata) -> None:
+    def upsert_channel(self, meta: ChannelMetadata, source_url: Optional[str] = None) -> None:
         self._conn.execute(
             """
-            INSERT INTO channels (channel_id, channel_name, channel_url, description,
-                                  subscriber_count, thumbnail_url, fetch_error, fetch_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO channels
+                (channel_id, channel_name, channel_url, description,
+                 subscriber_count, thumbnail_url, source_url, fetch_error, fetch_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(channel_id) DO UPDATE SET
                 channel_name     = excluded.channel_name,
                 channel_url      = excluded.channel_url,
                 description      = excluded.description,
                 subscriber_count = excluded.subscriber_count,
                 thumbnail_url    = excluded.thumbnail_url,
+                source_url       = COALESCE(excluded.source_url, channels.source_url),
                 fetch_error      = excluded.fetch_error,
                 fetch_status     = excluded.fetch_status
             """,
             (
                 meta.channel_id, meta.channel_name, meta.channel_url,
                 meta.description, meta.subscriber_count, meta.thumbnail_url,
-                meta.fetch_error, meta.fetch_status,
+                source_url, meta.fetch_error, meta.fetch_status,
             ),
         )
         self._conn.commit()
@@ -273,10 +276,14 @@ class Datastore:
         ).fetchall()
         return [r[0] for r in rows]
 
-    def has_full_channel_record(self, channel_url: str) -> bool:
+    def has_full_channel_record(self, url: str) -> bool:
         return self._conn.execute(
-            "SELECT 1 FROM channels WHERE channel_url = ? AND description IS NOT NULL",
-            (channel_url,),
+            """
+            SELECT 1 FROM channels
+            WHERE (channel_url = ? OR source_url = ?)
+              AND description IS NOT NULL
+            """,
+            (url, url),
         ).fetchone() is not None
 
     def close(self) -> None:

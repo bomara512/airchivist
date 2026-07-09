@@ -4,6 +4,23 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-07-08
+
+### fix(crawler): store `source_url` to fix `@handle` channel idempotency
+
+- Added `source_url TEXT` column to the `channels` table in both `crawler/datastore.py` (`_SCHEMA`) and `webapp/db/schema.py` (DDL + ALTER TABLE migration for existing databases).
+- `upsert_channel(meta, source_url=None)` now accepts an optional `source_url` and stores it in the database. `COALESCE(excluded.source_url, channels.source_url)` ensures a subsequent call without a source_url never clears a previously stored bookmark URL.
+- `has_full_channel_record(url)` now checks `channel_url = ? OR source_url = ?` so an `@handle` bookmark URL stored as `source_url` is matched on second run, preventing redundant yt-dlp fetches.
+- CLI channel-bookmark loop now passes `bookmark.url` as `source_url` when calling `upsert_channel()`.
+- Added `TestHasFullChannelRecord` test class (5 cases) and one new CLI test (`test_channel_bookmark_skipped_on_second_run`); also strengthened the existing `TestUpsertChannelStub.test_does_not_overwrite_description_after_full_upsert` with a `thumbnail_url` assertion.
+
+**Implications**
+- **+** Channels bookmarked via `@handle` URLs are now skipped on re-runs, eliminating wasteful yt-dlp round-trips.
+- **+** The fix is backward-compatible: existing rows simply have `source_url = NULL` and continue to match by `channel_url` as before.
+- **−** The ALTER TABLE migration runs at webapp startup; production DBs that cannot tolerate brief schema migrations need a maintenance window (extremely unlikely to matter at this scale).
+
+---
+
 ## 2026-07-02
 
 ### Creator Pages Support — Schema & Crawler (Phase 1)

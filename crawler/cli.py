@@ -86,7 +86,7 @@ def main() -> None:
                 except Exception as exc:
                     logger.error("Unexpected error fetching channel %s: %s", bookmark.url, exc)
                     continue
-                ds.upsert_channel(ch_meta)
+                ds.upsert_channel(ch_meta, source_url=bookmark.url)
 
             if args.backfill_channels:
                 backfill_ids = ds.get_channel_ids_for_backfill()

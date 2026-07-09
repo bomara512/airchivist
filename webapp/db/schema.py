@@ -70,17 +70,19 @@ def init_webapp_tables(db_path: str) -> None:
             description      TEXT,
             subscriber_count INTEGER,
             thumbnail_url    TEXT,
+            source_url       TEXT,
             fetch_error      TEXT,
             fetch_status     TEXT NOT NULL DEFAULT 'ok',
             date_added       TEXT NOT NULL DEFAULT (date('now'))
         );
     """)
     for col, ddl in [
-        ("is_canonical", "ALTER TABLE tags    ADD COLUMN is_canonical BOOLEAN NOT NULL DEFAULT 0"),
-        ("is_noise",     "ALTER TABLE tags    ADD COLUMN is_noise     BOOLEAN NOT NULL DEFAULT 0"),
-        ("is_hidden",    "ALTER TABLE videos  ADD COLUMN is_hidden    BOOLEAN NOT NULL DEFAULT 0"),
+        ("is_canonical", "ALTER TABLE tags     ADD COLUMN is_canonical BOOLEAN NOT NULL DEFAULT 0"),
+        ("is_noise",     "ALTER TABLE tags     ADD COLUMN is_noise     BOOLEAN NOT NULL DEFAULT 0"),
+        ("is_hidden",    "ALTER TABLE videos   ADD COLUMN is_hidden    BOOLEAN NOT NULL DEFAULT 0"),
         ("date_hidden",   "ALTER TABLE videos  ADD COLUMN date_hidden   TEXT"),
         ("is_favourite",  "ALTER TABLE videos  ADD COLUMN is_favourite  BOOLEAN NOT NULL DEFAULT 0"),
+        ("source_url",    "ALTER TABLE channels ADD COLUMN source_url   TEXT"),
     ]:
         try:
             conn.execute(ddl)
