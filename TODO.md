@@ -38,6 +38,7 @@
 
 ## Metadata / Quality of life
 
+- [ ] Find duplicates — detect and surface videos that appear more than once in the library
 - [ ] Detect and flag dead videos (deleted/private) with a badge rather than silently hiding them
 - ~~Rating system for videos — favourite toggle (★) on video cards with filter~~
 - [ ] Import from YouTube Watch Later playlist or a public playlist URL
