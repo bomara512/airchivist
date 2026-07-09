@@ -44,6 +44,16 @@
               "uri": "https://youtu.be/9bZkp7q19f0"
             },
             {
+              "guid": "channelbm1_",
+              "title": "Rick Astley Official",
+              "id": 9,
+              "dateAdded": 1635000000000000,
+              "lastModified": 1700000000000000,
+              "type": "text/x-moz-place",
+              "typeCode": 1,
+              "uri": "https://www.youtube.com/@rickastley"
+            },
+            {
               "guid": "bookmark3___",
               "title": "Python Docs",
               "id": 6,

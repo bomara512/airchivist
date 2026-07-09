@@ -5,7 +5,7 @@ from pathlib import Path
 
 from crawler.bookmark_parser import parse
 from crawler.datastore import Datastore
-from crawler.metadata_fetcher import fetch_metadata
+from crawler.metadata_fetcher import fetch_channel_metadata, fetch_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,11 @@ def main() -> None:
     parser.add_argument("--delay", type=float, default=1.5, metavar="SECONDS",
                         help="Seconds between yt-dlp requests (default: 1.5)")
     parser.add_argument("--limit", type=int, default=None, metavar="N",
-                        help="Only process the first N YouTube bookmarks")
+                        help="Only process the first N YouTube video bookmarks")
     parser.add_argument("--force-refresh", action="store_true",
                         help="Re-fetch metadata even for already-stored videos")
+    parser.add_argument("--backfill-channels", action="store_true",
+                        help="Fetch full metadata for channels that only have stub records")
     parser.add_argument("--log-level", default="INFO",
                         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
                         help="Logging level (default: INFO)")
@@ -44,14 +46,15 @@ def main() -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(2)
 
-    yt_bookmarks = [b for b in bookmarks if b.youtube_video_id]
+    video_bookmarks = [b for b in bookmarks if b.youtube_video_id]
+    channel_bookmarks = [b for b in bookmarks if b.youtube_channel_url]
     if args.limit is not None:
-        yt_bookmarks = yt_bookmarks[: args.limit]
+        video_bookmarks = video_bookmarks[: args.limit]
 
     try:
         with Datastore(args.output) as ds:
-            total = len(yt_bookmarks)
-            for i, bookmark in enumerate(yt_bookmarks, 1):
+            total = len(video_bookmarks)
+            for i, bookmark in enumerate(video_bookmarks, 1):
                 vid_id = bookmark.youtube_video_id
                 print(f"[{i}/{total}] {vid_id}", flush=True)
 
@@ -66,6 +69,34 @@ def main() -> None:
                     continue
 
                 ds.upsert_video(metadata, bookmark)
+                if metadata.channel_id and metadata.channel_name:
+                    channel_url = f"https://www.youtube.com/channel/{metadata.channel_id}"
+                    ds.upsert_channel_stub(
+                        metadata.channel_id, metadata.channel_name, channel_url
+                    )
+
+            ch_total = len(channel_bookmarks)
+            for i, bookmark in enumerate(channel_bookmarks, 1):
+                print(f"[channel {i}/{ch_total}] {bookmark.url}", flush=True)
+                try:
+                    ch_meta = fetch_channel_metadata(bookmark.url, delay=args.delay)
+                except Exception as exc:
+                    logger.error("Unexpected error fetching channel %s: %s", bookmark.url, exc)
+                    continue
+                ds.upsert_channel(ch_meta)
+
+            if args.backfill_channels:
+                backfill_ids = ds.get_channel_ids_for_backfill()
+                bf_total = len(backfill_ids)
+                for i, channel_id in enumerate(backfill_ids, 1):
+                    url = f"https://www.youtube.com/channel/{channel_id}"
+                    print(f"[backfill {i}/{bf_total}] {channel_id}", flush=True)
+                    try:
+                        ch_meta = fetch_channel_metadata(url, delay=args.delay)
+                    except Exception as exc:
+                        logger.error("Unexpected error backfilling %s: %s", channel_id, exc)
+                        continue
+                    ds.upsert_channel(ch_meta)
 
     except KeyboardInterrupt:
         print("\nInterrupted. Progress saved.", file=sys.stderr)

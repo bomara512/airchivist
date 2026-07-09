@@ -6,9 +6,18 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 from crawler import cli
-from crawler.models import VideoMetadata
+from crawler.models import ChannelMetadata, VideoMetadata
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+_GOOD_CHANNEL_META = ChannelMetadata(
+    channel_id="UCuAXFkgsw1L7xaCfnd5JJOw",
+    channel_name="RickAstleyVEVO",
+    channel_url="https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw",
+    description="The official Rick Astley channel",
+    subscriber_count=4_000_000,
+    thumbnail_url="https://yt3.ggpht.com/rick.jpg",
+)
 
 _GOOD_METADATA = VideoMetadata(
     video_id="dQw4w9WgXcQ",
@@ -20,16 +29,19 @@ _GOOD_METADATA = VideoMetadata(
 )
 
 
-def _run_main(args: list[str], mock_fetch=None):
+def _run_main(args: list[str], mock_fetch=None, mock_channel_fetch=None):
     if mock_fetch is None:
         mock_fetch = MagicMock(return_value=_GOOD_METADATA)
+    if mock_channel_fetch is None:
+        mock_channel_fetch = MagicMock(return_value=_GOOD_CHANNEL_META)
     with patch("crawler.cli.fetch_metadata", mock_fetch):
-        with patch.object(sys, "argv", ["crawler"] + args):
-            try:
-                cli.main()
-                return 0
-            except SystemExit as e:
-                return e.code
+        with patch("crawler.cli.fetch_channel_metadata", mock_channel_fetch):
+            with patch.object(sys, "argv", ["crawler"] + args):
+                try:
+                    cli.main()
+                    return 0
+                except SystemExit as e:
+                    return e.code
 
 
 class TestCliExitCodes:
@@ -154,3 +166,129 @@ class TestCliErrorHandling:
         ])
         captured = capsys.readouterr()
         assert "[1/" in captured.out
+
+
+class TestCliChannelBookmarks:
+    def test_channel_bookmark_stored_in_channels_table(self, tmp_path):
+        out = tmp_path / "out.db"
+        _run_main(["-i", str(FIXTURES / "sample_bookmarks.json"), "-o", str(out)])
+        conn = sqlite3.connect(str(out))
+        row = conn.execute(
+            "SELECT * FROM channels WHERE channel_id = 'UCuAXFkgsw1L7xaCfnd5JJOw'"
+        ).fetchone()
+        conn.close()
+        assert row is not None
+
+    def test_channel_bookmark_has_full_metadata(self, tmp_path):
+        out = tmp_path / "out.db"
+        _run_main(["-i", str(FIXTURES / "sample_bookmarks.json"), "-o", str(out)])
+        conn = sqlite3.connect(str(out))
+        row = conn.execute(
+            "SELECT description FROM channels WHERE channel_id = 'UCuAXFkgsw1L7xaCfnd5JJOw'"
+        ).fetchone()
+        conn.close()
+        assert row[0] == "The official Rick Astley channel"
+
+    def test_fetch_channel_metadata_called_for_channel_bookmark(self, tmp_path):
+        out = tmp_path / "out.db"
+        mock_ch = MagicMock(return_value=_GOOD_CHANNEL_META)
+        _run_main(["-i", str(FIXTURES / "sample_bookmarks.json"), "-o", str(out)],
+                  mock_channel_fetch=mock_ch)
+        mock_ch.assert_called()
+        called_url = mock_ch.call_args[0][0]
+        assert "rickastley" in called_url
+
+
+class TestCliChannelStubSideEffect:
+    def test_video_processing_creates_channel_stub(self, tmp_path):
+        out = tmp_path / "out.db"
+        video_only_json = tmp_path / "video_only.json"
+        video_only_json.write_text("""{
+  "guid": "root________", "title": "", "id": 1,
+  "dateAdded": 1600000000000000, "lastModified": 1700000000000000,
+  "type": "text/x-moz-place-container", "root": "placesRoot",
+  "children": [{"guid": "bm1", "title": "V", "id": 2,
+    "dateAdded": 1620000000000000, "lastModified": 1700000000000000,
+    "type": "text/x-moz-place", "typeCode": 1,
+    "uri": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}]
+}""")
+        meta = MagicMock(return_value=VideoMetadata(
+            video_id="dQw4w9WgXcQ",
+            url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            channel_name="RickAstleyVEVO",
+            channel_id="UCuAXFkgsw1L7xaCfnd5JJOw",
+            fetch_status="ok",
+        ))
+        _run_main(["-i", str(video_only_json), "-o", str(out)], mock_fetch=meta)
+        conn = sqlite3.connect(str(out))
+        row = conn.execute(
+            "SELECT channel_name FROM channels WHERE channel_id = 'UCuAXFkgsw1L7xaCfnd5JJOw'"
+        ).fetchone()
+        conn.close()
+        assert row is not None
+
+    def test_stub_has_no_description(self, tmp_path):
+        out = tmp_path / "out.db"
+        video_only_json = tmp_path / "video_only.json"
+        video_only_json.write_text("""{
+  "guid": "root________", "title": "", "id": 1,
+  "dateAdded": 1600000000000000, "lastModified": 1700000000000000,
+  "type": "text/x-moz-place-container", "root": "placesRoot",
+  "children": [{"guid": "bm1", "title": "V", "id": 2,
+    "dateAdded": 1620000000000000, "lastModified": 1700000000000000,
+    "type": "text/x-moz-place", "typeCode": 1,
+    "uri": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}]
+}""")
+        meta = MagicMock(return_value=VideoMetadata(
+            video_id="dQw4w9WgXcQ",
+            url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            channel_name="RickAstleyVEVO",
+            channel_id="UCuAXFkgsw1L7xaCfnd5JJOw",
+            fetch_status="ok",
+        ))
+        _run_main(["-i", str(video_only_json), "-o", str(out)], mock_fetch=meta)
+        conn = sqlite3.connect(str(out))
+        row = conn.execute(
+            "SELECT description FROM channels WHERE channel_id = 'UCuAXFkgsw1L7xaCfnd5JJOw'"
+        ).fetchone()
+        conn.close()
+        assert row[0] is None
+
+
+class TestCliBackfillChannels:
+    def test_backfill_fetches_full_metadata_for_stubs(self, tmp_path):
+        out = tmp_path / "out.db"
+        video_only_json = tmp_path / "video_only.json"
+        video_only_json.write_text("""{
+  "guid": "root________", "title": "", "id": 1,
+  "dateAdded": 1600000000000000, "lastModified": 1700000000000000,
+  "type": "text/x-moz-place-container", "root": "placesRoot",
+  "children": [{"guid": "bm1", "title": "V", "id": 2,
+    "dateAdded": 1620000000000000, "lastModified": 1700000000000000,
+    "type": "text/x-moz-place", "typeCode": 1,
+    "uri": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}]
+}""")
+        first_meta = MagicMock(return_value=VideoMetadata(
+            video_id="dQw4w9WgXcQ",
+            url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            channel_name="RickAstleyVEVO",
+            channel_id="UCuAXFkgsw1L7xaCfnd5JJOw",
+            fetch_status="ok",
+        ))
+        _run_main(["-i", str(video_only_json), "-o", str(out)], mock_fetch=first_meta)
+
+        mock_ch = MagicMock(return_value=_GOOD_CHANNEL_META)
+        _run_main(["-i", str(video_only_json), "-o", str(out), "--backfill-channels"],
+                  mock_fetch=MagicMock(return_value=VideoMetadata(
+                      video_id="dQw4w9WgXcQ",
+                      url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                      fetch_status="ok",
+                  )),
+                  mock_channel_fetch=mock_ch)
+        mock_ch.assert_called()
+        conn = sqlite3.connect(str(out))
+        row = conn.execute(
+            "SELECT description FROM channels WHERE channel_id = 'UCuAXFkgsw1L7xaCfnd5JJOw'"
+        ).fetchone()
+        conn.close()
+        assert row[0] == "The official Rick Astley channel"
