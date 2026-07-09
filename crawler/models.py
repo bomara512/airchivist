@@ -23,6 +23,10 @@ _YT_ID_RE = re.compile(
     r'([A-Za-z0-9_-]{11})'
 )
 
+_YT_CHANNEL_RE = re.compile(
+    r'youtube\.com/(?:channel/(UC[A-Za-z0-9_-]+)|(?:c|user)/([^/?#]+)|@([^/?#]+))'
+)
+
 
 @dataclass
 class Bookmark:
@@ -34,6 +38,10 @@ class Bookmark:
     def youtube_video_id(self) -> Optional[str]:
         m = _YT_ID_RE.search(self.url)
         return m.group(1) if m else None
+
+    @property
+    def youtube_channel_url(self) -> Optional[str]:
+        return self.url if _YT_CHANNEL_RE.search(self.url) else None
 
 
 @dataclass
@@ -56,3 +64,15 @@ class VideoMetadata:
     def __post_init__(self):
         if self.yt_view_count is not None and self.yt_view_count < 0:
             raise ValueError("yt_view_count must be non-negative")
+
+
+@dataclass
+class ChannelMetadata:
+    channel_id: str
+    channel_name: str
+    channel_url: str
+    description: Optional[str] = None
+    subscriber_count: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+    fetch_status: str = FetchStatus.OK
+    fetch_error: Optional[str] = None

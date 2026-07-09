@@ -1,5 +1,6 @@
 import pytest
-from crawler.models import Bookmark, VideoMetadata
+import re
+from crawler.models import Bookmark, VideoMetadata, ChannelMetadata, _YT_CHANNEL_RE
 from datetime import datetime
 
 
@@ -102,3 +103,88 @@ class TestVideoMetadata:
         m2 = VideoMetadata(video_id="bbb", url="https://youtube.com/watch?v=bbb")
         m1.yt_categories.append("Music")
         assert m2.yt_categories == []
+
+
+class TestYtChannelRe:
+    def test_matches_at_handle(self):
+        assert _YT_CHANNEL_RE.search("https://www.youtube.com/@rickastley")
+
+    def test_matches_at_handle_with_path(self):
+        assert _YT_CHANNEL_RE.search("https://www.youtube.com/@rickastley/videos")
+
+    def test_matches_c_prefix(self):
+        assert _YT_CHANNEL_RE.search("https://www.youtube.com/c/RickAstleyVEVO")
+
+    def test_matches_user_prefix(self):
+        assert _YT_CHANNEL_RE.search("https://www.youtube.com/user/RickAstleyVEVO")
+
+    def test_matches_channel_id(self):
+        assert _YT_CHANNEL_RE.search(
+            "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
+        )
+
+    def test_does_not_match_video_url(self):
+        assert not _YT_CHANNEL_RE.search(
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        )
+
+    def test_does_not_match_non_youtube(self):
+        assert not _YT_CHANNEL_RE.search("https://vimeo.com/@rickastley")
+
+    def test_does_not_match_shorts_url(self):
+        assert not _YT_CHANNEL_RE.search(
+            "https://www.youtube.com/shorts/dQw4w9WgXcQ"
+        )
+
+
+class TestBookmarkYoutubeChannelUrl:
+    def test_returns_url_for_at_handle(self):
+        b = Bookmark(url="https://www.youtube.com/@rickastley", title="Rick")
+        assert b.youtube_channel_url == "https://www.youtube.com/@rickastley"
+
+    def test_returns_url_for_channel_id(self):
+        url = "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
+        b = Bookmark(url=url, title="Rick")
+        assert b.youtube_channel_url == url
+
+    def test_returns_none_for_video_bookmark(self):
+        b = Bookmark(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ", title="V")
+        assert b.youtube_channel_url is None
+
+    def test_returns_none_for_non_youtube(self):
+        b = Bookmark(url="https://docs.python.org/3/", title="Docs")
+        assert b.youtube_channel_url is None
+
+
+class TestChannelMetadata:
+    def test_construct_required_fields(self):
+        m = ChannelMetadata(
+            channel_id="UCuAXFkgsw1L7xaCfnd5JJOw",
+            channel_name="RickAstleyVEVO",
+            channel_url="https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw",
+        )
+        assert m.channel_id == "UCuAXFkgsw1L7xaCfnd5JJOw"
+        assert m.channel_name == "RickAstleyVEVO"
+        assert m.fetch_status == "ok"
+
+    def test_optional_fields_default_to_none(self):
+        m = ChannelMetadata(
+            channel_id="UCabc", channel_name="Test", channel_url="https://youtube.com/channel/UCabc"
+        )
+        assert m.description is None
+        assert m.subscriber_count is None
+        assert m.thumbnail_url is None
+        assert m.fetch_error is None
+
+    def test_full_construction(self):
+        m = ChannelMetadata(
+            channel_id="UCabc",
+            channel_name="Test",
+            channel_url="https://youtube.com/channel/UCabc",
+            description="A channel",
+            subscriber_count=42000,
+            thumbnail_url="https://example.com/thumb.jpg",
+            fetch_status="ok",
+        )
+        assert m.subscriber_count == 42000
+        assert m.description == "A channel"
