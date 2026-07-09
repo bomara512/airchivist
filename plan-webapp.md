@@ -57,7 +57,18 @@ viewtube/
 
 ## Database Layer
 
-`webapp/db.py` contains pure functions — no class, no ORM — that accept a `sqlite3.Connection`. The connection is injected via Flask's `g` object, opened in `before_request` and closed in `teardown_appcontext`.
+`webapp/db/` is a package with domain-focused submodules. Each module contains pure functions — no class, no ORM — that accept a `sqlite3.Connection`. The connection is injected via Flask's `g` object, opened in `before_request` and closed in `teardown_appcontext`. Core submodules:
+
+| File | Responsibility |
+|---|---|
+| `__init__.py` | Re-exports public API from all submodules |
+| `videos.py` | Video CRUD, filtering, pagination, stats |
+| `tags.py` | Tag management, canonical tags, noise, aliases |
+| `groups.py` | Tag group CRUD and membership |
+| `aliases.py` | Alias engine: add, delete, cleanup, retroactive apply |
+| `suggestions.py` | LLM suggestion storage and retrieval |
+| `channels.py` | Channel CRUD and lookup |
+| `schema.py` | `init_webapp_tables` (creates/migrates all tables) |
 
 ### Functions in `db.py`
 
@@ -71,7 +82,11 @@ def count_videos(conn, channel=None, tag=None, search=None) -> int
 
 def get_video_by_id(conn, video_id: str) -> dict | None
 
-def get_all_channels(conn) -> list[str]              # distinct non-null channel_name values, alphabetized
+def get_video_channel_names(conn) -> list[str]       # distinct non-null channel_name values from videos, alphabetized (for filter dropdown)
+
+def get_all_channels(conn) -> list[dict]             # all channels from channels table with full metadata (channel_id, name, url, description, etc.)
+
+def get_channel(conn, channel_id: str) -> dict | None # single channel by channel_id
 
 def get_canonical_tags_for_filter(conn) -> list[str] # canonical tag names that have ≥1 video, for the filter dropdown
 
@@ -137,6 +152,41 @@ SET personal_view_count = personal_view_count + 1,
     date_last_viewed = ?
 WHERE video_id = ?
 ```
+
+---
+
+## Channels Table (Creator Pages — Phase 1)
+
+`webapp/db/schema.py` includes DDL for the `channels` table:
+
+```sql
+CREATE TABLE IF NOT EXISTS channels (
+    channel_id      TEXT PRIMARY KEY,
+    channel_name    TEXT NOT NULL,
+    channel_url     TEXT NOT NULL,
+    description     TEXT,
+    subscriber_count INTEGER,
+    thumbnail_url   TEXT,
+    fetch_status    TEXT NOT NULL DEFAULT 'ok',
+    fetch_error     TEXT,
+    date_added      TEXT NOT NULL,
+    UNIQUE(channel_url)
+);
+```
+
+### Channel Record Tiers
+
+- **Full record**: populated from channel bookmark fetches or `--backfill-channels` CLI flag. Includes `description`, `subscriber_count`, and `thumbnail_url`.
+- **Stub record**: created automatically as a side effect of video processing. Contains only `channel_id`, `channel_name`, and `channel_url`. Never overwrites rich fields if a full record already exists.
+
+### No Foreign Key from Videos
+
+`videos.channel_id TEXT` joins to `channels` via string comparison, not a SQL FK constraint. This avoids migration complexity and allows the two tables to evolve independently, but means the DB cannot enforce referential integrity.
+
+### Channel CRUD Functions (in `webapp/db/channels.py`)
+
+- `get_all_channels(conn) -> list[dict]` — returns all channels with full metadata
+- `get_channel(conn, channel_id: str) -> dict | None` — single channel lookup
 
 ---
 
@@ -374,6 +424,35 @@ Cards on `/watch-later` carry `draggable="true"` (set only for `context="watch_l
 
 ## CLI / Startup Interface
 
+File: `crawler/cli.py`
+
+### Main Crawler Command
+
+```
+Usage: python -m crawler.cli [OPTIONS]
+
+Options:
+  --bookmarks FILE                 Firefox bookmarks JSON file [required]
+  --db FILE                        Path to the ViewTube SQLite database [required]
+  --delay SECONDS                  Delay between yt-dlp fetches (default: 1)
+  --force-refresh                  Re-fetch videos and channels even if already in DB
+  --backfill-channels              Fetch full metadata for all channels missing description (opt-in, expensive)
+  -h, --help                       Show this message and exit
+
+Exit codes:
+  0   Clean shutdown
+  1   Bookmarks file not found
+  2   Database file not found
+```
+
+The crawler now processes bookmarks in two phases:
+1. **Video loop**: iterates bookmarks, fetches metadata for YouTube videos, creates stub channel records as a side effect
+2. **Channel loop** (new): iterates all unique bookmarks with `youtube_channel_url` property, fetches full channel metadata via `fetch_channel_metadata()`, upserts full channel records (idempotent — skips channels with non-null description unless `--force-refresh` is set)
+
+`--backfill-channels` is separate: run the crawler normally first, then run with this flag to enrich all stub-only channels (those missing description) in one opt-in pass. Makes one yt-dlp call per unique channel — expensive for large libraries, so opt-in only.
+
+### Web Server Command
+
 File: `webapp/cli.py`
 
 ```
@@ -384,6 +463,7 @@ Options:
   --host HOST   Host to bind to (default: 127.0.0.1)
   --port PORT   Port to listen on (default: 5000)
   --debug       Enable Flask debug mode (auto-reload)
+  --normalize-tags  Merge case-duplicate tags and exit (one-time admin)
   -h, --help    Show this message and exit
 
 Exit codes:

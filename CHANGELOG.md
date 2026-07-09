@@ -4,15 +4,26 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
-### Crawler: add channels table and Datastore channel methods (2026-07-08)
+## 2026-07-02
 
-New `channels` SQLite table in the crawler database to store full metadata about YouTube channels: `channel_id` (PRIMARY KEY), `channel_name`, `channel_url`, `description`, `subscriber_count`, `thumbnail_url`, `fetch_status`, and `date_added`. Three new `Datastore` methods: `upsert_channel(ChannelMetadata)` for full channel records with all fields, `upsert_channel_stub(channel_id, channel_name, channel_url)` for partial records that don't overwrite rich fields when a full record exists, and `get_channel_ids_for_backfill()` to identify channels referenced in videos but not yet fully fetched (either missing from the table or missing `description`).
+### Creator Pages Support — Schema & Crawler (Phase 1)
+
+- Added `channels` table to both `crawler/datastore.py` and `webapp/db/schema.py`. Two tiers of record: **stub** (free, from video processing side effect — no description/subscriber_count) and **full** (from channel bookmarks or `--backfill-channels`).
+- Added `ChannelMetadata` dataclass and `Bookmark.youtube_channel_url` property in `crawler/models.py`. Supports all four YouTube channel URL forms (`/@handle`, `/c/name`, `/channel/UCxxx`, `/user/name`).
+- Added `fetch_channel_metadata()` in `crawler/metadata_fetcher.py` using yt-dlp with `extract_flat: True` to read channel-level metadata without iterating individual videos.
+- Crawler CLI now processes channel bookmarks in a new loop after the video loop. Channel bookmarks are idempotent: channels with an existing full record (non-null description) are skipped unless `--force-refresh` is set.
+- Every video fetch creates a stub channel record as a side effect using `upsert_channel_stub()`, which deliberately never overwrites `description`, `subscriber_count`, or `thumbnail_url` set by a prior full fetch.
+- New `--backfill-channels` CLI flag: fetches full metadata (one yt-dlp call per unique channel) for all channels missing description. Expensive for large libraries — opt-in only.
+- Renamed `get_all_channels()` in `webapp/db/videos.py` to `get_video_channel_names()` (it returns `list[str]` for the filter dropdown). New `get_all_channels()` in `webapp/db/channels.py` returns `list[dict]` of full channel entity rows.
+- **Trade-off:** No FK from `videos` to `channels` — joined via `channel_id TEXT`. Avoids migration complexity and lets the two tables evolve independently, but loses referential integrity.
+- **Trade-off:** Channel stubs use `fetch_status = 'ok'` rather than a pending state. Backfill candidates are identified by `description IS NULL`, not `fetch_status`. This means the status field cannot distinguish "stub-ok" from "fully-fetched-ok" without inspecting description.
 
 **Implications**
 - **+** Foundation for creator pages support — channels can now be stored and tracked alongside videos.
 - **+** Stub-vs-full logic allows the crawler to incrementally build channel records without losing data when a stub is written after a full fetch.
+- **+** `--backfill-channels` allows opt-in full enrichment of existing channel records without blocking the main crawl.
 - **−** Migration required for existing databases: running the crawler will automatically create the new table on next init, but existing live DBs need manual schema update or DB recreation.
-- **−** No webapp layer yet — the channels table exists but is not yet exposed via the web interface.
+- **−** No UI or routes yet — the channels table exists in the database but is not yet exposed via the web interface.
 
 ---
 
