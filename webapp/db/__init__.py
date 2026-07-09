@@ -22,6 +22,10 @@ from webapp.db.groups import (
     get_ungrouped_canonicals,
     remove_canonical_from_group,
 )
+from webapp.db.channels import (
+    get_all_channels,
+    get_channel,
+)
 from webapp.db.schema import init_webapp_tables
 from webapp.db.suggestions import (
     accept_noise_and_dismiss_suggestion,
@@ -65,7 +69,7 @@ from webapp.db.videos import (
     count_videos,
     delete_video,
     generate_rediscover_shelf,
-    get_all_channels,
+    get_video_channel_names,
     get_all_videos,
     get_current_rediscover_shelf,
     get_hidden_videos,
@@ -110,10 +114,12 @@ __all__ = [
     "get_tags_for_video", "get_tags_with_keywords", "get_unclassified_tags",
     "get_video_titles_for_tag", "mark_tag_noise", "mark_tags_noise_bulk", "remove_video_tag",
     "set_tag_keywords",
+    # channels
+    "get_all_channels", "get_channel",
     # videos
     "ALLOWED_SORT_COLUMNS", "ALLOWED_SORT_DIRS", "add_to_watch_later", "add_video",
     "count_hidden_videos", "count_videos", "delete_video", "generate_rediscover_shelf",
-    "get_all_channels", "get_all_videos", "get_current_rediscover_shelf", "get_hidden_videos",
+    "get_video_channel_names", "get_all_videos", "get_current_rediscover_shelf", "get_hidden_videos",
     "get_stats", "get_video_by_id", "get_videos_status_batch", "set_favourite", "get_watch_later_count",
     "get_watch_later_queue", "get_watch_later_video_ids", "hide_video", "is_in_watch_later",
     "is_rediscover_shelf_expired", "record_visit", "refresh_rediscover_shelf",

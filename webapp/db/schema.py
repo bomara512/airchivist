@@ -63,6 +63,17 @@ def init_webapp_tables(db_path: str) -> None:
             canonical_tag_id INTEGER NOT NULL REFERENCES tags(id)       ON DELETE CASCADE,
             PRIMARY KEY (group_id, canonical_tag_id)
         );
+        CREATE TABLE IF NOT EXISTS channels (
+            channel_id       TEXT PRIMARY KEY,
+            channel_name     TEXT NOT NULL,
+            channel_url      TEXT NOT NULL,
+            description      TEXT,
+            subscriber_count INTEGER,
+            thumbnail_url    TEXT,
+            fetch_error      TEXT,
+            fetch_status     TEXT NOT NULL DEFAULT 'ok',
+            date_added       TEXT NOT NULL DEFAULT (date('now'))
+        );
     """)
     for col, ddl in [
         ("is_canonical", "ALTER TABLE tags    ADD COLUMN is_canonical BOOLEAN NOT NULL DEFAULT 0"),

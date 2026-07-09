@@ -1,7 +1,7 @@
 import sqlite3
 import pytest
 from webapp.db import (
-    get_all_videos, get_video_by_id, get_all_channels, get_all_tags,
+    get_all_videos, get_video_by_id, get_video_channel_names, get_all_tags,
     get_tags_with_keywords, get_tag_keywords, get_stats, get_tags_for_video,
     record_visit, create_tag, set_tag_keywords, delete_tag,
     add_video_tag, remove_video_tag, init_webapp_tables, count_videos,
@@ -12,6 +12,7 @@ from webapp.db import (
     is_llm_suggestion_cache_stale, get_videos_status_batch,
     confirm_and_dismiss_suggestion, accept_noise_and_dismiss_suggestion,
     add_alias_and_apply, edit_alias_and_apply,
+    get_all_channels, get_channel,
 )
 
 
@@ -153,14 +154,14 @@ class TestGetVideoById:
         assert get_video_by_id(db_conn, "nonexistent") is None
 
 
-class TestGetAllChannels:
+class TestGetVideoChannelNames:
     def test_returns_distinct_names(self, db_conn):
-        channels = get_all_channels(db_conn)
+        channels = get_video_channel_names(db_conn)
         assert set(channels) == {"GuitarChannel", "ThaiCooking", "OtherChannel"}
 
     def test_excludes_null_channels(self, db_conn):
         db_conn.execute("INSERT INTO videos (video_id, url) VALUES ('nullchan1', 'http://x.com')")
-        channels = get_all_channels(db_conn)
+        channels = get_video_channel_names(db_conn)
         assert None not in channels
 
 
@@ -1150,3 +1151,50 @@ class TestGetWatchLaterQueue:
         queue = get_watch_later_queue(db_conn)
 
         assert queue[0]["personal_view_count"] == 3
+
+
+def _seed_channel(conn, channel_id="UCtest123", channel_name="Test Channel",
+                  description="A test channel"):
+    conn.execute(
+        "INSERT INTO channels (channel_id, channel_name, channel_url, description, fetch_status) "
+        "VALUES (?, ?, ?, ?, 'ok')",
+        (channel_id, channel_name,
+         f"https://www.youtube.com/channel/{channel_id}", description),
+    )
+    conn.commit()
+
+
+class TestGetAllChannelsEntity:
+    def test_returns_list_of_dicts(self, db_conn):
+        _seed_channel(db_conn)
+        channels = get_all_channels(db_conn)
+        assert isinstance(channels, list)
+        assert isinstance(channels[0], dict)
+
+    def test_returns_expected_channel(self, db_conn):
+        _seed_channel(db_conn, channel_id="UCabc", channel_name="My Channel")
+        channels = get_all_channels(db_conn)
+        names = [c["channel_name"] for c in channels]
+        assert "My Channel" in names
+
+    def test_returns_empty_list_when_no_channels(self, db_conn):
+        channels = get_all_channels(db_conn)
+        assert channels == []
+
+    def test_ordered_by_channel_name(self, db_conn):
+        _seed_channel(db_conn, channel_id="UCzzz", channel_name="Zebra")
+        _seed_channel(db_conn, channel_id="UCaaa", channel_name="Alpha")
+        channels = get_all_channels(db_conn)
+        assert channels[0]["channel_name"] == "Alpha"
+        assert channels[1]["channel_name"] == "Zebra"
+
+
+class TestGetChannel:
+    def test_returns_dict_for_existing_channel(self, db_conn):
+        _seed_channel(db_conn, channel_id="UCabc")
+        ch = get_channel(db_conn, "UCabc")
+        assert ch is not None
+        assert ch["channel_id"] == "UCabc"
+
+    def test_returns_none_for_missing_channel(self, db_conn):
+        assert get_channel(db_conn, "UCmissing") is None

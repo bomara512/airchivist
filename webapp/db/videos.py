@@ -134,7 +134,7 @@ def get_video_by_id(conn: sqlite3.Connection, video_id: str) -> Optional[dict]:
     return dict(row) if row else None
 
 
-def get_all_channels(conn: sqlite3.Connection) -> list[str]:
+def get_video_channel_names(conn: sqlite3.Connection) -> list[str]:
     rows = conn.execute(
         "SELECT DISTINCT channel_name FROM videos WHERE channel_name IS NOT NULL ORDER BY channel_name"
     ).fetchall()

@@ -69,7 +69,7 @@ def index():
         args["page"] = p
         return url_for("main.index", **args)
 
-    channels = _db.get_all_channels(g.db)
+    channels = _db.get_video_channel_names(g.db)
     canonical_tags = _db.get_canonical_tags_for_filter_grouped(g.db)
 
     groups = None
