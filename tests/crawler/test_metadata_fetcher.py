@@ -2,8 +2,8 @@ import pytest
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-from crawler.metadata_fetcher import fetch_metadata
-from crawler.models import VideoMetadata
+from crawler.metadata_fetcher import fetch_metadata, fetch_channel_metadata
+from crawler.models import VideoMetadata, ChannelMetadata
 
 _GOOD_INFO = {
     "id": "dQw4w9WgXcQ",
@@ -152,3 +152,113 @@ class TestFetchMetadata:
         assert result.yt_view_count is None
         assert result.duration_seconds is None
         assert result.date_published is None
+
+
+_GOOD_CHANNEL_INFO = {
+    "channel_id": "UCuAXFkgsw1L7xaCfnd5JJOw",
+    "channel": "RickAstleyVEVO",
+    "uploader": "RickAstleyVEVO",
+    "channel_url": "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw",
+    "description": "The official Rick Astley YouTube channel.",
+    "channel_follower_count": 4_200_000,
+    "thumbnail": "https://yt3.ggpht.com/rick-avatar.jpg",
+}
+
+_CHANNEL_URL = "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
+
+
+def _make_channel_ydl_mock(info=None, error=None):
+    mock_ydl = MagicMock()
+    if error:
+        mock_ydl.__enter__.return_value.extract_info.side_effect = error
+    else:
+        mock_ydl.__enter__.return_value.extract_info.return_value = (
+            info if info is not None else _GOOD_CHANNEL_INFO
+        )
+    return mock_ydl
+
+
+class TestFetchChannelMetadata:
+    def test_returns_channelmetadata_on_success(self):
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock()):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert isinstance(result, ChannelMetadata)
+
+    def test_maps_channel_id(self):
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock()):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.channel_id == "UCuAXFkgsw1L7xaCfnd5JJOw"
+
+    def test_maps_channel_name_from_channel_field(self):
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock()):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.channel_name == "RickAstleyVEVO"
+
+    def test_maps_channel_name_from_uploader_when_channel_missing(self):
+        info = {**_GOOD_CHANNEL_INFO}
+        del info["channel"]
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock(info=info)):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.channel_name == "RickAstleyVEVO"
+
+    def test_maps_channel_url(self):
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock()):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.channel_url == "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
+
+    def test_falls_back_to_input_url_when_channel_url_missing(self):
+        info = {**_GOOD_CHANNEL_INFO}
+        del info["channel_url"]
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock(info=info)):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.channel_url == _CHANNEL_URL
+
+    def test_maps_description(self):
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock()):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.description == "The official Rick Astley YouTube channel."
+
+    def test_maps_subscriber_count(self):
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock()):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.subscriber_count == 4_200_000
+
+    def test_maps_thumbnail_url(self):
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock()):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.thumbnail_url == "https://yt3.ggpht.com/rick-avatar.jpg"
+
+    def test_sets_fetch_status_ok_on_success(self):
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock()):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.fetch_status == "ok"
+
+    def test_returns_error_status_on_download_error(self):
+        import yt_dlp
+        error = yt_dlp.utils.DownloadError("ERROR: Unable to download webpage")
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock(error=error)):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.fetch_status == "error"
+        assert result.fetch_error is not None
+
+    def test_handles_missing_optional_fields(self):
+        sparse = {"channel_id": "UCabc", "channel": "Test",
+                  "channel_url": "https://www.youtube.com/channel/UCabc"}
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock(info=sparse)):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.fetch_status == "ok"
+        assert result.description is None
+        assert result.subscriber_count is None
+        assert result.thumbnail_url is None
