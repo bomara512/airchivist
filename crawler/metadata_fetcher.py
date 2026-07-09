@@ -65,6 +65,7 @@ def fetch_metadata(video_id: str, delay: float = 1.5) -> VideoMetadata:
             time.sleep(delay)
 
 
+# extract_flat avoids iterating individual videos while still returning channel-level metadata
 _CHANNEL_YDL_OPTS = {
     "quiet": True,
     "no_warnings": True,

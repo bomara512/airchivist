@@ -262,3 +262,22 @@ class TestFetchChannelMetadata:
         assert result.description is None
         assert result.subscriber_count is None
         assert result.thumbnail_url is None
+
+    def test_maps_channel_id_from_id_field_when_channel_id_missing(self):
+        info = {**_GOOD_CHANNEL_INFO}
+        del info["channel_id"]
+        info["id"] = "UCuAXFkgsw1L7xaCfnd5JJOw"
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock(info=info)):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.channel_id == "UCuAXFkgsw1L7xaCfnd5JJOw"
+
+    def test_maps_channel_name_from_title_when_channel_and_uploader_missing(self):
+        info = {**_GOOD_CHANNEL_INFO}
+        del info["channel"]
+        del info["uploader"]
+        info["title"] = "RickAstleyVEVO"
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock(info=info)):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.channel_name == "RickAstleyVEVO"
