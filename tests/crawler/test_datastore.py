@@ -288,3 +288,124 @@ class TestMisc:
             ds.upsert_video(_make_metadata("vid1111111a"), _make_bookmark("vid1111111a"))
             ds.upsert_video(_make_metadata("vid2222222b"), _make_bookmark("vid2222222b"))
             assert ds.count_videos() == 2
+
+
+from crawler.models import ChannelMetadata
+
+
+def _make_channel_meta(channel_id="UCtest123", **kwargs):
+    defaults = dict(
+        channel_name="Test Channel",
+        channel_url=f"https://www.youtube.com/channel/{channel_id}",
+        description="A test description",
+        subscriber_count=50_000,
+        thumbnail_url="https://example.com/thumb.jpg",
+        fetch_status="ok",
+    )
+    defaults.update(kwargs)
+    return ChannelMetadata(channel_id=channel_id, **defaults)
+
+
+class TestChannelsTable:
+    def test_creates_channels_table(self, tmp_path):
+        with Datastore(tmp_path / "test.db") as ds:
+            tables = ds._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+            assert "channels" in {r[0] for r in tables}
+
+
+class TestUpsertChannel:
+    def test_inserts_all_fields(self, tmp_path):
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_channel(_make_channel_meta())
+            row = ds._conn.execute(
+                "SELECT * FROM channels WHERE channel_id = 'UCtest123'"
+            ).fetchone()
+        assert row is not None
+        assert row["channel_name"] == "Test Channel"
+        assert row["description"] == "A test description"
+        assert row["subscriber_count"] == 50_000
+        assert row["thumbnail_url"] == "https://example.com/thumb.jpg"
+
+    def test_updates_subscriber_count_on_conflict(self, tmp_path):
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_channel(_make_channel_meta(subscriber_count=100))
+            ds.upsert_channel(_make_channel_meta(subscriber_count=200))
+            row = ds._conn.execute(
+                "SELECT subscriber_count FROM channels WHERE channel_id = 'UCtest123'"
+            ).fetchone()
+        assert row["subscriber_count"] == 200
+
+    def test_overwrites_description_on_conflict(self, tmp_path):
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_channel(_make_channel_meta(description="Old"))
+            ds.upsert_channel(_make_channel_meta(description="New"))
+            row = ds._conn.execute(
+                "SELECT description FROM channels WHERE channel_id = 'UCtest123'"
+            ).fetchone()
+        assert row["description"] == "New"
+
+
+class TestUpsertChannelStub:
+    def test_inserts_stub_record(self, tmp_path):
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_channel_stub("UCabc", "My Channel", "https://youtube.com/channel/UCabc")
+            row = ds._conn.execute(
+                "SELECT * FROM channels WHERE channel_id = 'UCabc'"
+            ).fetchone()
+        assert row is not None
+        assert row["channel_name"] == "My Channel"
+        assert row["description"] is None
+        assert row["subscriber_count"] is None
+
+    def test_does_not_overwrite_description_after_full_upsert(self, tmp_path):
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_channel(_make_channel_meta(
+                channel_id="UCabc", description="Rich description", subscriber_count=999
+            ))
+            ds.upsert_channel_stub("UCabc", "Updated Name", "https://youtube.com/channel/UCabc")
+            row = ds._conn.execute(
+                "SELECT * FROM channels WHERE channel_id = 'UCabc'"
+            ).fetchone()
+        assert row["description"] == "Rich description"
+        assert row["subscriber_count"] == 999
+
+    def test_updates_channel_name_on_conflict(self, tmp_path):
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_channel_stub("UCabc", "Old Name", "https://youtube.com/channel/UCabc")
+            ds.upsert_channel_stub("UCabc", "New Name", "https://youtube.com/channel/UCabc")
+            row = ds._conn.execute(
+                "SELECT channel_name FROM channels WHERE channel_id = 'UCabc'"
+            ).fetchone()
+        assert row["channel_name"] == "New Name"
+
+
+class TestGetChannelIdsForBackfill:
+    def test_returns_channel_id_not_in_channels_table(self, tmp_path):
+        with Datastore(tmp_path / "test.db") as ds:
+            meta = _make_metadata(channel_id="UCabc", channel_name="Test")
+            ds.upsert_video(meta, _make_bookmark())
+            ids = ds.get_channel_ids_for_backfill()
+        assert "UCabc" in ids
+
+    def test_returns_stub_only_channel(self, tmp_path):
+        with Datastore(tmp_path / "test.db") as ds:
+            meta = _make_metadata(channel_id="UCabc", channel_name="Test")
+            ds.upsert_video(meta, _make_bookmark())
+            ds.upsert_channel_stub("UCabc", "Test", "https://youtube.com/channel/UCabc")
+            ids = ds.get_channel_ids_for_backfill()
+        assert "UCabc" in ids
+
+    def test_excludes_fully_fetched_channel(self, tmp_path):
+        with Datastore(tmp_path / "test.db") as ds:
+            meta = _make_metadata(channel_id="UCabc", channel_name="Test")
+            ds.upsert_video(meta, _make_bookmark())
+            ds.upsert_channel(_make_channel_meta(channel_id="UCabc"))
+            ids = ds.get_channel_ids_for_backfill()
+        assert "UCabc" not in ids
+
+    def test_returns_empty_list_when_no_videos(self, tmp_path):
+        with Datastore(tmp_path / "test.db") as ds:
+            ids = ds.get_channel_ids_for_backfill()
+        assert ids == []

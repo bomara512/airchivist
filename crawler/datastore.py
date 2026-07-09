@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from crawler.models import Bookmark, MatchType, VideoMetadata
+from crawler.models import Bookmark, ChannelMetadata, MatchType, VideoMetadata
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS videos (
@@ -41,6 +41,17 @@ CREATE TABLE IF NOT EXISTS video_tags (
 );
 
 CREATE INDEX IF NOT EXISTS idx_videos_video_id ON videos(video_id);
+
+CREATE TABLE IF NOT EXISTS channels (
+    channel_id       TEXT PRIMARY KEY,
+    channel_name     TEXT NOT NULL,
+    channel_url      TEXT NOT NULL,
+    description      TEXT,
+    subscriber_count INTEGER,
+    thumbnail_url    TEXT,
+    fetch_status     TEXT NOT NULL DEFAULT 'ok',
+    date_added       TEXT NOT NULL DEFAULT (date('now'))
+);
 """
 
 
@@ -212,6 +223,53 @@ class Datastore:
 
     def count_videos(self) -> int:
         return self._conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
+
+    def upsert_channel(self, meta: ChannelMetadata) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO channels (channel_id, channel_name, channel_url, description,
+                                  subscriber_count, thumbnail_url, fetch_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(channel_id) DO UPDATE SET
+                channel_name     = excluded.channel_name,
+                channel_url      = excluded.channel_url,
+                description      = excluded.description,
+                subscriber_count = excluded.subscriber_count,
+                thumbnail_url    = excluded.thumbnail_url,
+                fetch_status     = excluded.fetch_status
+            """,
+            (
+                meta.channel_id, meta.channel_name, meta.channel_url,
+                meta.description, meta.subscriber_count, meta.thumbnail_url,
+                meta.fetch_status,
+            ),
+        )
+        self._conn.commit()
+
+    def upsert_channel_stub(self, channel_id: str, channel_name: str, channel_url: str) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO channels (channel_id, channel_name, channel_url, fetch_status)
+            VALUES (?, ?, ?, 'ok')
+            ON CONFLICT(channel_id) DO UPDATE SET
+                channel_name = excluded.channel_name,
+                channel_url  = excluded.channel_url
+            """,
+            (channel_id, channel_name, channel_url),
+        )
+        self._conn.commit()
+
+    def get_channel_ids_for_backfill(self) -> list[str]:
+        rows = self._conn.execute(
+            """
+            SELECT DISTINCT v.channel_id
+            FROM videos v
+            LEFT JOIN channels c ON c.channel_id = v.channel_id
+            WHERE v.channel_id IS NOT NULL
+              AND (c.channel_id IS NULL OR c.description IS NULL)
+            """
+        ).fetchall()
+        return [r[0] for r in rows]
 
     def close(self) -> None:
         self._conn.close()

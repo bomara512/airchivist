@@ -4,6 +4,18 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+### Crawler: add channels table and Datastore channel methods (2026-07-08)
+
+New `channels` SQLite table in the crawler database to store full metadata about YouTube channels: `channel_id` (PRIMARY KEY), `channel_name`, `channel_url`, `description`, `subscriber_count`, `thumbnail_url`, `fetch_status`, and `date_added`. Three new `Datastore` methods: `upsert_channel(ChannelMetadata)` for full channel records with all fields, `upsert_channel_stub(channel_id, channel_name, channel_url)` for partial records that don't overwrite rich fields when a full record exists, and `get_channel_ids_for_backfill()` to identify channels referenced in videos but not yet fully fetched (either missing from the table or missing `description`).
+
+**Implications**
+- **+** Foundation for creator pages support — channels can now be stored and tracked alongside videos.
+- **+** Stub-vs-full logic allows the crawler to incrementally build channel records without losing data when a stub is written after a full fetch.
+- **−** Migration required for existing databases: running the crawler will automatically create the new table on next init, but existing live DBs need manual schema update or DB recreation.
+- **−** No webapp layer yet — the channels table exists but is not yet exposed via the web interface.
+
+---
+
 ### Extension: show Add-to-ViewTube prompt with optional Watch Later checkbox (2026-07-02)
 
 When the extension popup is opened on a YouTube video not yet in ViewTube, it now renders a prompt ("Add to ViewTube" button + "Also add to Watch Later" checkbox) rather than firing the add immediately. Clicking the button triggers the add; if the checkbox is ticked, `/api/watch-later/add` is called sequentially after the ViewTube add succeeds (sequential because the endpoint 404s if the video is not yet in the DB). `already_in_queue` (409) is treated as success so re-adding an already-queued video does not surface an error.
