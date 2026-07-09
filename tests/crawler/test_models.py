@@ -1,5 +1,4 @@
 import pytest
-import re
 from crawler.models import Bookmark, VideoMetadata, ChannelMetadata, _YT_CHANNEL_RE
 from datetime import datetime
 
