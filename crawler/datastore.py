@@ -273,6 +273,12 @@ class Datastore:
         ).fetchall()
         return [r[0] for r in rows]
 
+    def has_full_channel_record(self, channel_url: str) -> bool:
+        return self._conn.execute(
+            "SELECT 1 FROM channels WHERE channel_url = ? AND description IS NOT NULL",
+            (channel_url,),
+        ).fetchone() is not None
+
     def close(self) -> None:
         self._conn.close()
 

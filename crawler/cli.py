@@ -78,6 +78,9 @@ def main() -> None:
             ch_total = len(channel_bookmarks)
             for i, bookmark in enumerate(channel_bookmarks, 1):
                 print(f"[channel {i}/{ch_total}] {bookmark.url}", flush=True)
+                if not args.force_refresh and ds.has_full_channel_record(bookmark.url):
+                    logger.info("Skipping already-fetched channel: %s", bookmark.url)
+                    continue
                 try:
                     ch_meta = fetch_channel_metadata(bookmark.url, delay=args.delay)
                 except Exception as exc:

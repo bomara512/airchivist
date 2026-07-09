@@ -292,3 +292,34 @@ class TestCliBackfillChannels:
         ).fetchone()
         conn.close()
         assert row[0] == "The official Rick Astley channel"
+
+    def test_backfill_not_run_without_flag(self, tmp_path):
+        out = tmp_path / "out.db"
+        video_only_json = tmp_path / "video_only.json"
+        video_only_json.write_text("""{
+  "guid": "root________", "title": "", "id": 1,
+  "dateAdded": 1600000000000000, "lastModified": 1700000000000000,
+  "type": "text/x-moz-place-container", "root": "placesRoot",
+  "children": [{"guid": "bm1", "title": "V", "id": 2,
+    "dateAdded": 1620000000000000, "lastModified": 1700000000000000,
+    "type": "text/x-moz-place", "typeCode": 1,
+    "uri": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}]
+}""")
+        first_meta = MagicMock(return_value=VideoMetadata(
+            video_id="dQw4w9WgXcQ",
+            url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            channel_name="RickAstleyVEVO",
+            channel_id="UCuAXFkgsw1L7xaCfnd5JJOw",
+            fetch_status="ok",
+        ))
+        _run_main(["-i", str(video_only_json), "-o", str(out)], mock_fetch=first_meta)
+
+        mock_ch = MagicMock(return_value=_GOOD_CHANNEL_META)
+        _run_main(["-i", str(video_only_json), "-o", str(out)],
+                  mock_fetch=MagicMock(return_value=VideoMetadata(
+                      video_id="dQw4w9WgXcQ",
+                      url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                      fetch_status="ok",
+                  )),
+                  mock_channel_fetch=mock_ch)
+        mock_ch.assert_not_called()
