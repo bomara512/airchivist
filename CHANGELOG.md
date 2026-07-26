@@ -4,6 +4,21 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-07-25
+
+### feat(webapp/db): add `upsert_channel` and `get_channel_by_source_url`
+
+- Added `upsert_channel(conn, meta: ChannelMetadata, source_url=None)` and `get_channel_by_source_url(conn, url)` to `webapp/db/channels.py`, re-exported from `webapp.db`. These are the webapp-side counterparts to the crawler's own `upsert_channel`/lookup functions (`crawler/datastore.py`), giving the Flask app the same upsert-by-`channel_id` and `channel_url`-or-`source_url` lookup behaviour.
+- `upsert_channel` commits internally (matching the `webapp/db/aliases.py` write-function pattern) and preserves an existing `source_url` via `COALESCE(excluded.source_url, channels.source_url)` when a later call omits one.
+- Task 1 of the extension "bookmark channel" feature — the API route and extension UI that will call these functions are separate, later tasks. See `plan-webapp.md` and `.superpowers/sdd/2026-07-25-extension-bookmark-channel/`.
+- Added `TestUpsertChannel` and `TestGetChannelBySourceUrl` test classes (4 cases) to `tests/webapp/test_db.py`.
+
+**Implications**
+- **+** The webapp can now upsert and look up channels by either their canonical URL or the `@handle`/source URL a browser bookmark used, mirroring the crawler-side idempotency fix from 2026-07-08.
+- **−** Two modules (`crawler/datastore.py` and `webapp/db/channels.py`) now each define an `upsert_channel` function with near-identical SQL; acceptable for now since they operate on different `sqlite3.Connection` instances (crawler DB vs. webapp DB) but worth watching for drift if the upsert logic changes again.
+
+---
+
 ## 2026-07-08
 
 ### fix(crawler): store `source_url` to fix `@handle` channel idempotency

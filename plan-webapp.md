@@ -187,6 +187,10 @@ CREATE TABLE IF NOT EXISTS channels (
 
 - `get_all_channels(conn) -> list[dict]` — returns all channels with full metadata
 - `get_channel(conn, channel_id: str) -> dict | None` — single channel lookup
+- `upsert_channel(conn, meta: ChannelMetadata, source_url: str | None = None) -> None` — inserts or updates a channel row by `channel_id` (`ON CONFLICT` upsert), commits internally. `source_url` (e.g. the `@handle` URL a bookmark used) is written with `COALESCE(excluded.source_url, channels.source_url)` so a re-fetch that doesn't supply a `source_url` never wipes a previously stored one.
+- `get_channel_by_source_url(conn, url: str) -> dict | None` — looks up a channel by either `channel_url` or `source_url` matching `url`. Backs the extension's "bookmark channel" flow, which may only know the `@handle` URL, not the canonical `channel_id` URL.
+
+These two functions are Task 1 of the extension "bookmark channel" feature (see `.superpowers/sdd/2026-07-25-extension-bookmark-channel/`); the API route and extension UI that call them are separate, later tasks.
 
 ---
 
