@@ -1,4 +1,5 @@
 import pytest
+import sqlite3
 
 
 class TestIndexRoute:
@@ -499,5 +500,45 @@ class TestAddTagRoute:
     def test_unknown_video_returns_404(self, client):
         resp = client.post("/videos/doesnotexist/tags/add", data={"tag_name": "music"})
         assert resp.status_code == 404
+
+
+class TestApiChannelStatus:
+    def _insert_channel(self, client):
+        conn = sqlite3.connect(client.application.config["DATABASE"])
+        conn.execute(
+            "INSERT INTO channels (channel_id, channel_name, channel_url, source_url, "
+            "fetch_status) VALUES (?, ?, ?, ?, 'ok')",
+            ("UCzzz999", "Tracked Chan",
+             "https://www.youtube.com/channel/UCzzz999",
+             "https://www.youtube.com/@tracked"),
+        )
+        conn.commit()
+        conn.close()
+
+    def test_not_found_for_untracked(self, client):
+        resp = client.get("/api/channel/status?url=https://www.youtube.com/@nobody")
+        assert resp.get_json()["status"] == "not_found"
+
+    def test_exists_for_tracked(self, client):
+        self._insert_channel(client)
+        data = client.get(
+            "/api/channel/status?url=https://www.youtube.com/@tracked"
+        ).get_json()
+        assert data["status"] == "exists"
+        assert data["channel_name"] == "Tracked Chan"
+
+    def test_non_channel_url_returns_400(self, client):
+        resp = client.get("/api/channel/status?url=https://example.com/foo")
+        assert resp.status_code == 400
+        assert resp.get_json()["status"] == "error"
+
+    def test_cors_header_present(self, client):
+        resp = client.get("/api/channel/status?url=https://www.youtube.com/@nobody")
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+    def test_options_preflight(self, client):
+        resp = client.options("/api/channel/status")
+        assert resp.status_code == 204
+        assert "Access-Control-Allow-Origin" in resp.headers
 
 

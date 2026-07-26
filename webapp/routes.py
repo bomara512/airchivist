@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, g, request, redirect, abort, render_template, url_for, jsonify, make_response
 from webapp import db as _db
 from webapp import llm_tagger as _llm
-from crawler.models import _YT_ID_RE, FetchStatus
+from crawler.models import _YT_ID_RE, _YT_CHANNEL_RE, FetchStatus
 from webapp.db import MatchType
 
 bp = Blueprint("main", __name__)
@@ -211,6 +211,26 @@ def api_add():
         _db.retroactive_apply(g.db, video_id=video_row["id"])
     _db.record_visit(g.db, video_id)
     resp = jsonify({"status": "added", "title": meta.title})
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+
+@bp.route("/api/channel/status", methods=["GET", "OPTIONS"])
+def api_channel_status():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+
+    url = (request.args.get("url") or "").strip()
+    if not _YT_CHANNEL_RE.search(url):
+        resp = jsonify({"status": "error", "error": "Not a YouTube channel URL"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 400
+
+    existing = _db.get_channel_by_source_url(g.db, url)
+    if existing:
+        resp = jsonify({"status": "exists", "channel_name": existing["channel_name"]})
+    else:
+        resp = jsonify({"status": "not_found"})
     resp.headers.update(_CORS_HEADERS)
     return resp
 
