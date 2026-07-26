@@ -235,6 +235,37 @@ def api_channel_status():
     return resp
 
 
+@bp.route("/api/channel/add", methods=["POST", "OPTIONS"])
+def api_channel_add():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    if not _YT_CHANNEL_RE.search(url):
+        resp = jsonify({"status": "error", "error": "Not a YouTube channel URL"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 400
+
+    existing = _db.get_channel_by_source_url(g.db, url)
+    if existing:
+        resp = jsonify({"status": "exists", "channel_name": existing["channel_name"]})
+        resp.headers.update(_CORS_HEADERS)
+        return resp
+
+    from crawler.metadata_fetcher import fetch_channel_metadata
+    meta = fetch_channel_metadata(url, delay=0)
+    if meta.fetch_status != FetchStatus.OK:
+        resp = jsonify({"status": "error", "error": meta.fetch_error or "fetch failed"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 200
+
+    _db.upsert_channel(g.db, meta, source_url=url)
+    resp = jsonify({"status": "added", "channel_name": meta.channel_name})
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+
 @bp.route("/install")
 def install():
     return render_template("install.html")

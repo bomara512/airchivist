@@ -1,6 +1,8 @@
 import pytest
 import sqlite3
 
+from crawler.models import ChannelMetadata, FetchStatus
+
 
 class TestIndexRoute:
     def test_returns_200(self, client):
@@ -538,6 +540,71 @@ class TestApiChannelStatus:
 
     def test_options_preflight(self, client):
         resp = client.options("/api/channel/status")
+        assert resp.status_code == 204
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+
+class TestApiChannelAdd:
+    def _fake_meta(self):
+        return ChannelMetadata(
+            channel_id="UCadd777", channel_name="Added Chan",
+            channel_url="https://www.youtube.com/channel/UCadd777",
+            description="desc", subscriber_count=5,
+            thumbnail_url="https://img/y.jpg", fetch_status=FetchStatus.OK,
+        )
+
+    def test_adds_new_channel(self, client, monkeypatch):
+        monkeypatch.setattr(
+            "crawler.metadata_fetcher.fetch_channel_metadata",
+            lambda url, delay=0: self._fake_meta(),
+        )
+        data = client.post(
+            "/api/channel/add", json={"url": "https://www.youtube.com/@added"}
+        ).get_json()
+        assert data["status"] == "added"
+        assert data["channel_name"] == "Added Chan"
+
+    def test_second_add_reports_exists(self, client, monkeypatch):
+        monkeypatch.setattr(
+            "crawler.metadata_fetcher.fetch_channel_metadata",
+            lambda url, delay=0: self._fake_meta(),
+        )
+        client.post("/api/channel/add", json={"url": "https://www.youtube.com/@added"})
+        data = client.post(
+            "/api/channel/add", json={"url": "https://www.youtube.com/@added"}
+        ).get_json()
+        assert data["status"] == "exists"
+
+    def test_fetch_error_returns_error(self, client, monkeypatch):
+        err = ChannelMetadata(
+            channel_id="", channel_name="",
+            channel_url="https://www.youtube.com/@broken",
+            fetch_status=FetchStatus.PRIVATE, fetch_error="unavailable",
+        )
+        monkeypatch.setattr(
+            "crawler.metadata_fetcher.fetch_channel_metadata",
+            lambda url, delay=0: err,
+        )
+        data = client.post(
+            "/api/channel/add", json={"url": "https://www.youtube.com/@broken"}
+        ).get_json()
+        assert data["status"] == "error"
+        assert data["error"] == "unavailable"
+
+    def test_non_channel_url_returns_400(self, client):
+        resp = client.post("/api/channel/add", json={"url": "https://example.com/foo"})
+        assert resp.status_code == 400
+
+    def test_cors_header_present(self, client, monkeypatch):
+        monkeypatch.setattr(
+            "crawler.metadata_fetcher.fetch_channel_metadata",
+            lambda url, delay=0: self._fake_meta(),
+        )
+        resp = client.post("/api/channel/add", json={"url": "https://www.youtube.com/@added"})
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+    def test_options_preflight(self, client):
+        resp = client.options("/api/channel/add")
         assert resp.status_code == 204
         assert "Access-Control-Allow-Origin" in resp.headers
 
