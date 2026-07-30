@@ -1,4 +1,10 @@
 const YT_ID_RE = /(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/;
+const YT_CHANNEL_RE = /youtube\.com\/(channel\/UC[A-Za-z0-9_-]+|(?:c|user)\/[^/?#]+|@[^/?#]+)/;
+
+function channelUrlFrom(match) {
+  // match[1] is the canonical path segment (@handle, channel/UC…, c/name, user/name).
+  return `https://www.youtube.com/${match[1]}`;
+}
 const DEFAULT_URL = 'http://localhost:8080';
 const URL_KEY = 'viewtubeUrl';
 const FOLDER_KEY = 'bookmarkFolderId';
@@ -85,6 +91,38 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false) {
   else lines.push(`&#10007; ViewTube: ${esc(vtData?.error || 'unknown error')}`);
   if (alsoWatchLater && watchLaterOk === true) lines.push('&#10003; Added to Watch Later');
   if (alsoWatchLater && watchLaterOk === false) lines.push('&#10007; Watch Later failed');
+  const cls = (bookmarkOk || viewtubeOk) ? 'partial' : 'error';
+  root.innerHTML = `<div class="status ${cls}">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
+}
+
+async function doAddChannel(viewtubeUrl, channelUrl, tabTitle) {
+  const root = document.getElementById('root');
+  root.innerHTML = '<div class="status">Adding channel…</div>';
+  const [bookmarkResult, vtResult] = await Promise.allSettled([
+    getOrCreateFolder().then(id =>
+      browser.bookmarks.create({ title: tabTitle, url: channelUrl, parentId: id })
+    ),
+    fetch(`${viewtubeUrl}/api/channel/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: channelUrl }),
+    }).then(r => r.json()),
+  ]);
+  const bookmarkOk = bookmarkResult.status === 'fulfilled';
+  const vtData = vtResult.status === 'fulfilled' ? vtResult.value : null;
+  const viewtubeOk = vtData && ['added', 'exists'].includes(vtData.status);
+
+  if (bookmarkOk && viewtubeOk) {
+    root.innerHTML = `<div class="status success">&#10003; ${esc(vtData.channel_name || tabTitle)}</div>`;
+    setTimeout(() => window.close(), 1500);
+    return;
+  }
+  const lines = [];
+  if (bookmarkOk) lines.push('&#10003; Bookmarked in Firefox');
+  else lines.push(`&#10007; Bookmark failed: ${esc(bookmarkResult.reason?.message || 'unknown')}`);
+  if (viewtubeOk) lines.push('&#10003; Added to ViewTube');
+  else if (vtResult.status === 'rejected') lines.push('&#10007; ViewTube unreachable');
+  else lines.push(`&#10007; ViewTube: ${esc(vtData?.error || 'unknown error')}`);
   const cls = (bookmarkOk || viewtubeOk) ? 'partial' : 'error';
   root.innerHTML = `<div class="status ${cls}">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
 }
@@ -177,18 +215,51 @@ function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
   root.innerHTML = `<div class="status error">&#10007; ${esc(data.error || 'Unknown error')}</div>`;
 }
 
+function renderChannelState(root, viewtubeUrl, channelUrl, tabTitle, data) {
+  if (data.status === 'exists') {
+    root.innerHTML = `<div class="status success">&#10003; Already tracked: ${esc(data.channel_name)}</div>`;
+    return;
+  }
+  if (data.status === 'not_found') {
+    root.innerHTML = `<button id="btn-add-channel" class="action-btn">Add channel to ViewTube</button>`;
+    document.getElementById('btn-add-channel').addEventListener('click', () =>
+      doAddChannel(viewtubeUrl, channelUrl, tabTitle)
+    );
+    return;
+  }
+  root.innerHTML = `<div class="status error">&#10007; ${esc(data.error || 'Unknown error')}</div>`;
+}
+
 async function run() {
   const root = document.getElementById('root');
   root.innerHTML = '<div class="status">Checking…</div>';
 
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.url || !YT_ID_RE.test(tab.url)) {
-    root.innerHTML = '<div class="status error">Not a YouTube video.</div>';
+  const isVideo = tab?.url && YT_ID_RE.test(tab.url);
+  const channelMatch = tab?.url ? tab.url.match(YT_CHANNEL_RE) : null;
+  if (!isVideo && !channelMatch) {
+    root.innerHTML = '<div class="status error">Not a YouTube video or channel.</div>';
     return;
   }
 
   const settings = await browser.storage.local.get(URL_KEY);
   const viewtubeUrl = settings[URL_KEY] || DEFAULT_URL;
+
+  if (!isVideo && channelMatch) {
+    const channelUrl = channelUrlFrom(channelMatch);
+    let chData;
+    try {
+      const resp = await fetch(
+        `${viewtubeUrl}/api/channel/status?url=${encodeURIComponent(channelUrl)}`
+      );
+      chData = await resp.json();
+    } catch {
+      root.innerHTML = `<div class="status error">&#10007; ViewTube unreachable<br><small>Is it running at ${esc(viewtubeUrl)}?</small></div>`;
+      return;
+    }
+    renderChannelState(root, viewtubeUrl, channelUrl, tab.title || '', chData);
+    return;
+  }
 
   let data;
   try {

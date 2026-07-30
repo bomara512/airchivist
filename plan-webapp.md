@@ -190,7 +190,23 @@ CREATE TABLE IF NOT EXISTS channels (
 - `upsert_channel(conn, meta: ChannelMetadata, source_url: str | None = None) -> None` — inserts or updates a channel row by `channel_id` (`ON CONFLICT` upsert), commits internally. `source_url` (e.g. the `@handle` URL a bookmark used) is written with `COALESCE(excluded.source_url, channels.source_url)` so a re-fetch that doesn't supply a `source_url` never wipes a previously stored one.
 - `get_channel_by_source_url(conn, url: str) -> dict | None` — looks up a channel by either `channel_url` or `source_url` matching `url`. Backs the extension's "bookmark channel" flow, which may only know the `@handle` URL, not the canonical `channel_id` URL.
 
-These two functions are Task 1 of the extension "bookmark channel" feature (see `.superpowers/sdd/2026-07-25-extension-bookmark-channel/`); the API route and extension UI that call them are separate, later tasks.
+These two functions are Task 1 of the extension "bookmark channel" feature (see `.superpowers/sdd/2026-07-25-extension-bookmark-channel/`).
+
+### API Routes: `/api/channel/status` and `/api/channel/add`
+
+- `GET /api/channel/status?url=<channelUrl>` — validates `url` against `_YT_CHANNEL_RE` (400 `{"status": "error", "error": "Not a YouTube channel URL"}` if it doesn't match), then looks up via `get_channel_by_source_url`. Returns `{"status": "exists", "channel_name": ...}` if found, else `{"status": "not_found"}`.
+- `POST /api/channel/add` with body `{"url": ...}` — same URL validation and existence check as `/status`; if the channel is new, calls `crawler.metadata_fetcher.fetch_channel_metadata(url, delay=0)` and, on success, `upsert_channel(g.db, meta, source_url=url)`, returning `{"status": "added", "channel_name": ...}`. A fetch failure returns `{"status": "error", "error": ...}` with HTTP 200 (not 500), since the failure is expected/user-facing (e.g. private or deleted channel), not a server error.
+- Both routes handle `OPTIONS` and set `_CORS_HEADERS` on every response, matching the existing `/api/status` and `/api/add` routes so the extension can call them cross-origin.
+
+### Extension Popup: Video / Channel / Neither Branch
+
+`extension/popup/popup.js`'s `run()` now branches three ways on the active tab's URL:
+
+1. **Video** (`YT_ID_RE` matches, e.g. `/watch?v=...`) — existing behaviour via `checkStatus` + `renderState` (add/archive/restore/delete), unchanged.
+2. **Channel** (`YT_CHANNEL_RE` matches — `/channel/UC…`, `/c/<name>`, `/user/<name>`, or `/@<handle>`, and it's not a video URL) — `channelUrlFrom(match)` normalizes the match to `https://www.youtube.com/<path>`, then the popup calls `/api/channel/status` and renders via `renderChannelState`: "Already tracked: `<name>`" if `exists`, an "Add channel to ViewTube" button if `not_found` (wired to `doAddChannel`, which bookmarks the tab in the ViewTube Firefox folder and calls `/api/channel/add` in parallel via `Promise.allSettled`, mirroring `doAdd`'s partial-failure reporting), or an error message otherwise.
+3. **Neither** — "Not a YouTube video or channel." (previously "Not a YouTube video.").
+
+**Known limitation — status pre-check is URL-based, not `channel_id`-based**: `get_channel_by_source_url` matches on `channel_url` or `source_url` string equality. If a channel was previously added via its `@handle` URL and the user later opens `/channel/UC…` for the same channel (or vice versa), the pre-check GET can report `not_found` even though the channel is already tracked. This is resolved correctly on click: `/api/channel/add`'s own existence check runs again, and if it still doesn't match by URL, `upsert_channel` upserts by `channel_id` (the primary key), so no duplicate row is created — worst case is a harmless "Add channel" button appearing for an already-tracked channel, not silent duplication. Not fixed further for now (YAGNI); revisit if this proves confusing in practice.
 
 ---
 
