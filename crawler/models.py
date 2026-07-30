@@ -23,6 +23,7 @@ _YT_ID_RE = re.compile(
     r'([A-Za-z0-9_-]{11})'
 )
 
+# Keep in sync with extension/popup/popup.js YT_CHANNEL_RE.
 _YT_CHANNEL_RE = re.compile(
     r'youtube\.com/(?:channel/(UC[A-Za-z0-9_-]+)|(?:c|user)/([^/?#]+)|@([^/?#]+))'
 )

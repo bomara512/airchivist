@@ -253,6 +253,7 @@ def api_channel_add():
         resp.headers.update(_CORS_HEADERS)
         return resp
 
+    # Imported locally so tests can monkeypatch crawler.metadata_fetcher.fetch_channel_metadata.
     from crawler.metadata_fetcher import fetch_channel_metadata
     meta = fetch_channel_metadata(url, delay=0)
     if meta.fetch_status != FetchStatus.OK:

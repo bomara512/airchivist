@@ -1,4 +1,5 @@
 const YT_ID_RE = /(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/;
+// Channel-URL detection. Keep in sync with crawler/models.py _YT_CHANNEL_RE.
 const YT_CHANNEL_RE = /youtube\.com\/(channel\/UC[A-Za-z0-9_-]+|(?:c|user)\/[^/?#]+|@[^/?#]+)/;
 
 function channelUrlFrom(match) {
