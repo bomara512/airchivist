@@ -4,6 +4,33 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-07-25
+
+### feat(extension): add bookmark-channel action on channel pages
+
+- `extension/popup/popup.js` now detects channel pages (`/channel/UC…`, `/c/<name>`, `/user/<name>`, `/@<handle>`) via a new `YT_CHANNEL_RE` and branches `run()` three ways: video (existing behaviour), channel (new), or neither ("Not a YouTube video or channel.", replacing the old video-only message).
+- On a channel page, the popup pre-checks `GET /api/channel/status` and either shows "Already tracked: `<name>`" or an "Add channel to ViewTube" button. Clicking Add calls the new `doAddChannel`, which creates a Firefox bookmark in the ViewTube folder and calls `POST /api/channel/add` in parallel (via `Promise.allSettled`), reporting partial failures the same way `doAdd` does for videos.
+- Completes the extension task of the "bookmark channel" feature (Task 4 of `.superpowers/sdd/2026-07-25-extension-bookmark-channel/`), consuming the `/api/channel/status` and `/api/channel/add` routes and `get_channel_by_source_url`/`upsert_channel` added in Tasks 1–3.
+
+**Implications**
+- **+** Channels are now first-class from the browser — no need to open the webapp to start tracking a creator.
+- **−** The status pre-check is URL-based (`get_channel_by_source_url` matches `channel_url` or `source_url` string equality), so viewing a channel via `@handle` after it was added via `/channel/UC…` (or vice versa) can show "Add channel" for an already-tracked channel. Resolved correctly on click — `/api/channel/add` upserts by `channel_id`, so no duplicate row is created — but the pre-check itself can be misleading until then.
+
+---
+
+### feat(webapp/db): add `upsert_channel` and `get_channel_by_source_url`
+
+- Added `upsert_channel(conn, meta: ChannelMetadata, source_url=None)` and `get_channel_by_source_url(conn, url)` to `webapp/db/channels.py`, re-exported from `webapp.db`. These are the webapp-side counterparts to the crawler's own `upsert_channel`/lookup functions (`crawler/datastore.py`), giving the Flask app the same upsert-by-`channel_id` and `channel_url`-or-`source_url` lookup behaviour.
+- `upsert_channel` commits internally (matching the `webapp/db/aliases.py` write-function pattern) and preserves an existing `source_url` via `COALESCE(excluded.source_url, channels.source_url)` when a later call omits one.
+- Task 1 of the extension "bookmark channel" feature — the API route and extension UI that will call these functions are separate, later tasks. See `plan-webapp.md` and `.superpowers/sdd/2026-07-25-extension-bookmark-channel/`.
+- Added `TestUpsertChannel` and `TestGetChannelBySourceUrl` test classes (4 cases) to `tests/webapp/test_db.py`.
+
+**Implications**
+- **+** The webapp can now upsert and look up channels by either their canonical URL or the `@handle`/source URL a browser bookmark used, mirroring the crawler-side idempotency fix from 2026-07-08.
+- **−** Two modules (`crawler/datastore.py` and `webapp/db/channels.py`) now each define an `upsert_channel` function with near-identical SQL; acceptable for now since they operate on different `sqlite3.Connection` instances (crawler DB vs. webapp DB) but worth watching for drift if the upsert logic changes again.
+
+---
+
 ## 2026-07-08
 
 ### fix(crawler): store `source_url` to fix `@handle` channel idempotency

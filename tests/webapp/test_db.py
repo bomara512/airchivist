@@ -12,8 +12,9 @@ from webapp.db import (
     is_llm_suggestion_cache_stale, get_videos_status_batch,
     confirm_and_dismiss_suggestion, accept_noise_and_dismiss_suggestion,
     add_alias_and_apply, edit_alias_and_apply,
-    get_all_channels, get_channel,
+    get_all_channels, get_channel, upsert_channel, get_channel_by_source_url,
 )
+from crawler.models import ChannelMetadata
 
 
 class TestGetAllVideos:
@@ -1198,3 +1199,45 @@ class TestGetChannel:
 
     def test_returns_none_for_missing_channel(self, db_conn):
         assert get_channel(db_conn, "UCmissing") is None
+
+
+class TestUpsertChannel:
+    def test_inserts_new_channel(self, db_conn):
+        meta = ChannelMetadata(
+            channel_id="UCaaa111", channel_name="Chan A",
+            channel_url="https://www.youtube.com/channel/UCaaa111",
+            description="hello", subscriber_count=42,
+            thumbnail_url="https://img/x.jpg",
+        )
+        upsert_channel(db_conn, meta, source_url="https://www.youtube.com/@chanA")
+        row = get_channel(db_conn, "UCaaa111")
+        assert row["channel_name"] == "Chan A"
+        assert row["description"] == "hello"
+        assert row["subscriber_count"] == 42
+
+    def test_upsert_preserves_source_url_when_refetched_without_one(self, db_conn):
+        meta = ChannelMetadata(
+            channel_id="UCbbb222", channel_name="Chan B",
+            channel_url="https://www.youtube.com/channel/UCbbb222",
+        )
+        upsert_channel(db_conn, meta, source_url="https://www.youtube.com/@chanB")
+        # Re-upsert with no source_url must not wipe the stored one (COALESCE).
+        upsert_channel(db_conn, meta, source_url=None)
+        found = get_channel_by_source_url(db_conn, "https://www.youtube.com/@chanB")
+        assert found is not None
+        assert found["channel_id"] == "UCbbb222"
+
+
+class TestGetChannelBySourceUrl:
+    def test_matches_channel_url(self, db_conn):
+        meta = ChannelMetadata(
+            channel_id="UCccc333", channel_name="Chan C",
+            channel_url="https://www.youtube.com/channel/UCccc333",
+        )
+        upsert_channel(db_conn, meta, source_url="https://www.youtube.com/@chanC")
+        assert get_channel_by_source_url(
+            db_conn, "https://www.youtube.com/channel/UCccc333"
+        )["channel_id"] == "UCccc333"
+
+    def test_returns_none_for_unknown(self, db_conn):
+        assert get_channel_by_source_url(db_conn, "https://www.youtube.com/@nobody") is None

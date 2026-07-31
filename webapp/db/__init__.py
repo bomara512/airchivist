@@ -25,6 +25,8 @@ from webapp.db.groups import (
 from webapp.db.channels import (
     get_all_channels,
     get_channel,
+    get_channel_by_source_url,
+    upsert_channel,
 )
 from webapp.db.schema import init_webapp_tables
 from webapp.db.suggestions import (
@@ -115,7 +117,7 @@ __all__ = [
     "get_video_titles_for_tag", "mark_tag_noise", "mark_tags_noise_bulk", "remove_video_tag",
     "set_tag_keywords",
     # channels
-    "get_all_channels", "get_channel",
+    "get_all_channels", "get_channel", "upsert_channel", "get_channel_by_source_url",
     # videos
     "ALLOWED_SORT_COLUMNS", "ALLOWED_SORT_DIRS", "add_to_watch_later", "add_video",
     "count_hidden_videos", "count_videos", "delete_video", "generate_rediscover_shelf",
