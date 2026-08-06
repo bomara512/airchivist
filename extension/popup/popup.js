@@ -18,6 +18,11 @@ function esc(str) {
     .replace(/>/g, '&gt;');
 }
 
+// Animated in-progress state shown while a request is outstanding.
+function working(label) {
+  return `<div class="status status--working"><span class="spinner"></span>${esc(label)}</div>`;
+}
+
 async function getOrCreateFolder() {
   const stored = await browser.storage.local.get(FOLDER_KEY);
   if (stored[FOLDER_KEY]) {
@@ -46,7 +51,7 @@ async function checkStatus(viewtubeUrl, tabUrl) {
 
 async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false) {
   const root = document.getElementById('root');
-  root.innerHTML = '<div class="status">Adding…</div>';
+  root.innerHTML = working('Adding…');
   const [bookmarkResult, vtResult] = await Promise.allSettled([
     getOrCreateFolder().then(id =>
       browser.bookmarks.create({ title: tabTitle, url: tabUrl, parentId: id })
@@ -98,7 +103,7 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false) {
 
 async function doAddChannel(viewtubeUrl, channelUrl, tabTitle) {
   const root = document.getElementById('root');
-  root.innerHTML = '<div class="status">Adding channel…</div>';
+  root.innerHTML = working('Adding channel…');
   const [bookmarkResult, vtResult] = await Promise.allSettled([
     getOrCreateFolder().then(id =>
       browser.bookmarks.create({ title: tabTitle, url: channelUrl, parentId: id })
@@ -130,7 +135,7 @@ async function doAddChannel(viewtubeUrl, channelUrl, tabTitle) {
 
 async function doHide(viewtubeUrl, tabUrl, alsoUnbookmark) {
   const root = document.getElementById('root');
-  root.innerHTML = '<div class="status">Hiding…</div>';
+  root.innerHTML = working('Hiding…');
   let data;
   try {
     const resp = await fetch(`${viewtubeUrl}/api/hide`, {
@@ -156,7 +161,7 @@ async function doHide(viewtubeUrl, tabUrl, alsoUnbookmark) {
 
 async function doRestore(viewtubeUrl, videoId) {
   const root = document.getElementById('root');
-  root.innerHTML = '<div class="status">Restoring…</div>';
+  root.innerHTML = working('Restoring…');
   await fetch(`${viewtubeUrl}/videos/${videoId}/unhide`, { method: 'POST' });
   root.innerHTML = '<div class="status success">&#10003; Restored</div>';
   setTimeout(() => window.close(), 1500);
@@ -164,7 +169,7 @@ async function doRestore(viewtubeUrl, videoId) {
 
 async function doDelete(viewtubeUrl, videoId) {
   const root = document.getElementById('root');
-  root.innerHTML = '<div class="status">Deleting…</div>';
+  root.innerHTML = working('Deleting…');
   await fetch(`${viewtubeUrl}/videos/${videoId}/delete`, { method: 'POST' });
   root.innerHTML = '<div class="status success">&#10003; Deleted</div>';
   setTimeout(() => window.close(), 1500);
@@ -233,7 +238,7 @@ function renderChannelState(root, viewtubeUrl, channelUrl, tabTitle, data) {
 
 async function run() {
   const root = document.getElementById('root');
-  root.innerHTML = '<div class="status">Checking…</div>';
+  root.innerHTML = working('Checking…');
 
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   const isVideo = tab?.url && YT_ID_RE.test(tab.url);

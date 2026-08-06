@@ -208,6 +208,8 @@ These two functions are Task 1 of the extension "bookmark channel" feature (see 
 
 **Known limitation — status pre-check is URL-based, not `channel_id`-based**: `get_channel_by_source_url` matches on `channel_url` or `source_url` string equality. If a channel was previously added via its `@handle` URL and the user later opens `/channel/UC…` for the same channel (or vice versa), the pre-check GET can report `not_found` even though the channel is already tracked. This is resolved correctly on click: `/api/channel/add`'s own existence check runs again, and if it still doesn't match by URL, `upsert_channel` upserts by `channel_id` (the primary key), so no duplicate row is created — worst case is a harmless "Add channel" button appearing for an already-tracked channel, not silent duplication. Not fixed further for now (YAGNI); revisit if this proves confusing in practice.
 
+**Design decision — `/api/channel/add` is deliberately synchronous**: the route blocks on `fetch_channel_metadata` (~2–4s yt-dlp round trip) before responding, so the popup waits. We considered moving the fetch to a background thread to make the popup return instantly, but chose to keep it synchronous so genuine fetch failures (private/deleted channels, malformed URLs) are still reported at click time rather than surfacing silently later. To address perceived responsiveness without giving that up, the popup shows an animated spinner (`working()` helper + `.spinner` CSS) during every outstanding request. Revisit if the wait becomes a bigger pain point than click-time error reporting (relates to the "Background processing for blocking operations" tech-debt item).
+
 ---
 
 ## Visit Tracking Flow

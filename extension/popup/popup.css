@@ -24,6 +24,18 @@ body {
 
 .status div + div { margin-top: 0.25rem; }
 
+.status--working { display: flex; align-items: center; gap: 0.5rem; }
+.spinner {
+  flex: 0 0 auto;
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid #555;
+  border-top-color: #e8e8e8;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .action-btn { display: block; width: 100%; background: #333; color: #e8e8e8; border: 1px solid #555; padding: 0.45rem 0.75rem; border-radius: 4px; font-size: 0.85rem; cursor: pointer; text-align: left; }
 .action-btn:hover { background: #444; border-color: #888; }
 .action-btn--danger:hover { background: #3a1010; border-color: #cc0000; color: #ff6b6b; }

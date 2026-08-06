@@ -4,6 +4,14 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-08-05
+
+### feat(extension): animated spinner for in-progress popup states
+
+- Added a `working(label)` helper and a `.spinner` CSS animation to the extension popup. All transient states — Checking, Adding, Adding channel, Hiding, Restoring, Deleting — now render an animated spinner instead of a static text line, so the popup reads as actively working during a request.
+- Motivated by channel-add feeling slow: `POST /api/channel/add` blocks on a ~2–4s yt-dlp fetch. We deliberately kept the fetch **synchronous** (rather than moving it to a background thread) so genuine fetch failures — private/deleted channels, bad URLs — are still reported at click time; the spinner addresses the *perceived* responsiveness without giving up that click-time error feedback.
+- Trade-off: the underlying add is still ~2–4s; the spinner improves feel, not actual latency. Making it truly instant would require background processing and losing synchronous error reporting (see the "Background processing for blocking operations" tech-debt item).
+
 ## 2026-07-25
 
 ### feat(extension): add bookmark-channel action on channel pages
