@@ -6,6 +6,14 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ## 2026-08-06
 
+### feat(webapp): add GET /channels listing route and templates
+
+- Added the `main.channels` route (`GET /channels`) and its four templates (`channels.html`, `_channels_container.html`, `_channels_load_more.html`, `_channel_card.html`), consuming Task 1's `get_channels_page`/`count_channels`. Mirrors the index route's pagination and HTMX append pattern exactly (`HX-Request` header + `append=1` selects the fragment vs. full page), so `search`, `has_videos=1`, `page`, and `append=1` behave the same way users already expect from `/`.
+- `sort` collapses `(sort_by, sort_dir)` into four named presets (`_CHANNEL_SORT_PRESETS`) so the filter form only needs one `<select>`; an unrecognized preset is a 400, same as an invalid `sort_by` on `/`.
+- This is a plain server-rendered page, not an extension API route â€” deliberately does *not* use `_CORS_HEADERS` or an `OPTIONS` handler, unlike the `/api/*` routes in the same file.
+- No nav link added yet (that's a later task in the same plan), so the page is only reachable by direct URL for now.
+- Tests seed `channels`/`videos` directly via `sqlite3.connect` (same pattern as `TestApiChannelStatus`), covering the happy path, `has_videos` filter, `search` filter, invalid `sort` (400), and the append-fragment response omitting page chrome (`<!doctype html>`).
+
 ### feat(webapp/db): add get_channels_page and count_channels
 
 - Added `get_channels_page` and `count_channels` to `webapp/db/channels.py`, plus a `_CHANNEL_SORT_COLUMNS` allow-list and shared `_channel_where` helper. `get_channels_page` computes `video_count` per channel via `LEFT JOIN videos ... GROUP BY channel_id` so channels with zero videos still appear by default; `has_videos=True` filters them out via `HAVING`. Sort/direction are validated against an allow-list (mirroring `ALLOWED_SORT_COLUMNS` in `webapp/db/videos.py`) before being interpolated into SQL, since SQLite can't parameterize column/direction names.
