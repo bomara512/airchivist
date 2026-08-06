@@ -33,7 +33,8 @@
   - [x] Crawler: extract and store channel URLs from Firefox bookmarks (Phase 1 complete)
   - [x] Schema: channel entity with name, URL, subscriber count, description (Phase 1 complete)
   - [x] Extension: "bookmark channel" action on youtube.com/c/* and youtube.com/@* pages
-  - [ ] UI: channels view alongside videos, tagging channels, channel-specific stats
+  - [x] UI: channels listing view alongside videos (`/channels` — sortable/searchable grid, nav link)
+  - [ ] UI: tagging channels, channel-specific stats
   - [ ] Features: all existing functionality (tags, viewing history, search) should work for channels where appropriate
 
 ## Metadata / Quality of life

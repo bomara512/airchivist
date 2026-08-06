@@ -13,6 +13,11 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 - This is a plain server-rendered page, not an extension API route — deliberately does *not* use `_CORS_HEADERS` or an `OPTIONS` handler, unlike the `/api/*` routes in the same file.
 - No nav link added yet (that's a later task in the same plan), so the page is only reachable by direct URL for now.
 - Tests seed `channels`/`videos` directly via `sqlite3.connect` (same pattern as `TestApiChannelStatus`), covering the happy path, `has_videos` filter, `search` filter, invalid `sort` (400), and the append-fragment response omitting page chrome (`<!doctype html>`).
+- **Wired up (same day, Task 3):** added the `main.channels` nav link to `base.html` (alongside Tags/Watch Later) and `.channel-*`/`.filter-row`/`.filter-check` CSS to `style.css` — the page is now reachable from every screen, not just by direct URL.
+
+**Implications**
+- **+** Channels are now browsable as entities: a sort/search/has-videos-filtered grid of channel cards, each linking to that channel's filtered video list on `/` or out to YouTube — not just a per-video `channel=<name>` filter.
+- **−** Card→videos links match by exact `channel_name` string, not `channel_id`; two distinct channels sharing an exact display name would collapse into one filtered list on `/`. Accepted for now (rare in practice); would need the index route's channel filter to accept `channel_id` to close fully.
 
 ### feat(webapp/db): add get_channels_page and count_channels
 

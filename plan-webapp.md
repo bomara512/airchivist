@@ -192,14 +192,18 @@ CREATE TABLE IF NOT EXISTS channels (
 
 These two functions are Task 1 of the extension "bookmark channel" feature (see `.superpowers/sdd/2026-07-25-extension-bookmark-channel/`).
 
-### Channels Listing Page (in progress)
+### Channels Listing Page
+
+Channels are browsable as entities via a dedicated `/channels` grid, separate from the per-video filtering `channel=<name>` already supported on `/`.
 
 - `get_channels_page(conn, *, sort_by='video_count', sort_dir='desc', search=None, has_videos=False, page=1, page_size=100) -> list[dict]` — paginated channel list with a computed `video_count` (`LEFT JOIN videos ... GROUP BY channel_id`, so channels with zero videos are included by default). `search` matches `channel_name` by substring. `has_videos=True` filters to channels with ≥1 video via `HAVING`. `sort_by` is validated against `_CHANNEL_SORT_COLUMNS` (`video_count`, `subscriber_count`, `channel_name`, `date_added`); `sort_dir` against `{'asc', 'desc'}` — invalid values raise `ValueError` before any SQL executes, same pattern as `ALLOWED_SORT_COLUMNS` for videos. NULLs (e.g. missing `subscriber_count`) always sort last regardless of direction, with a stable `channel_name ASC` tiebreak.
 - `count_channels(conn, *, search=None, has_videos=False) -> int` — total matching channels for the same `search`/`has_videos` filters, for pagination controls.
 - `GET /channels` (endpoint `main.channels`) — server-rendered listing page mirroring the index route's pagination/HTMX split. A single `sort` query param selects one of four presets (`_CHANNEL_SORT_PRESETS` in `webapp/routes.py`: `video_count` desc, `subscriber_count` desc, `channel_name` asc, `date_added` desc) so the UI exposes one `<select>` instead of separate sort-column/sort-direction controls; an unrecognized `sort` value is a 400, matching the index route's handling of an invalid `sort_by`. `search` and `has_videos=1` filter, `page` paginates at `PAGE_SIZE` (100), and `append=1` + `HX-Request` returns `_channels_load_more.html` (cards + an out-of-band `#load-more` button) instead of the full `_channels_container.html`, for infinite-scroll-style "Load more" without re-sending the grid. Templates: `channels.html` (full page, extends `base.html`, filter form + `#channel-container`), `_channels_container.html` (`#channel-grid` + `#load-more`, used for both full-page and non-append HTMX responses), `_channels_load_more.html` (append fragment), `_channel_card.html` (avatar, name, subscriber/video counts via the `view_count` filter, truncated description, external YouTube link). Card links to `main.index` filtered by `channel=<channel_name>`, reusing the existing channel filter on the videos page rather than a dedicated channel-detail route.
-- No nav link to `/channels` yet — that's a later task in the same plan.
+- Nav link: `base.html` links to `main.channels` ("Channels") alongside the Tags and Watch Later links, matching their inline `font-size:0.9rem;font-weight:400;` style.
+- Styling (`webapp/static/style.css`): `.channel-grid` mirrors `.video-grid`'s `auto-fill, minmax(320px, 1fr)` layout; `.channel-card` is a horizontal card (round `.channel-avatar` left, `.channel-info` right), reusing the existing `.no-thumb` placeholder class. `.filter-row`/`.filter-check` style the search/sort/has-videos filter form, reusing the existing `form input, form textarea, form select` base styling rather than redefining it.
+- Known limitation: the card's name/avatar link filters `/` by exact `channel_name` string match, not `channel_id`. Two distinct channels that happen to share an exact display name would collapse into one filtered video list. Not fixed — accepted for now (channel-name collisions are rare in practice); would need the index route's channel filter to accept `channel_id` to close fully.
 
-These are Tasks 1–2 of the channels listing view (see `.superpowers/sdd/2026-08-06-channels-listing-view/`).
+These are Tasks 1–3 of the channels listing view (see `.superpowers/sdd/2026-08-06-channels-listing-view/`) — DB functions, route/templates, and nav link/styling/docs.
 
 ### API Routes: `/api/channel/status` and `/api/channel/add`
 
