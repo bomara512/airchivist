@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}ViewTube — Channels{% endblock %}
+{% block content %}
+<form id="channel-filter-form"
+      hx-get="{{ url_for('main.channels') }}"
+      hx-target="#channel-container"
+      hx-push-url="true"
+      hx-trigger="change from:select, change from:input[type=checkbox], keyup changed delay:300ms from:input[name=search]">
+  <div class="filter-row">
+    <input name="search" value="{{ current_search or '' }}" placeholder="Search channels…" autocomplete="off">
+    <select name="sort">
+      <option value="video_count"      {% if current_sort == 'video_count'      %}selected{% endif %}>Most saved videos</option>
+      <option value="subscriber_count" {% if current_sort == 'subscriber_count' %}selected{% endif %}>Most subscribers</option>
+      <option value="channel_name"     {% if current_sort == 'channel_name'     %}selected{% endif %}>Name A–Z</option>
+      <option value="date_added"       {% if current_sort == 'date_added'       %}selected{% endif %}>Recently added</option>
+    </select>
+    <label class="filter-check">
+      <input type="checkbox" name="has_videos" value="1" {% if has_videos %}checked{% endif %}>
+      Has saved videos
+    </label>
+  </div>
+</form>
+
+<h2 class="section-label">Channels ({{ total }})</h2>
+<div id="channel-container">
+  {% include "_channels_container.html" %}
+</div>
+{% endblock %}

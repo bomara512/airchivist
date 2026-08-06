@@ -609,3 +609,50 @@ class TestApiChannelAdd:
         assert "Access-Control-Allow-Origin" in resp.headers
 
 
+class TestChannelsPage:
+    def _seed(self, client):
+        conn = sqlite3.connect(client.application.config["DATABASE"])
+        conn.executescript(
+            """
+            INSERT INTO channels (channel_id, channel_name, channel_url, subscriber_count, fetch_status) VALUES
+              ('UCaaa', 'AlphaChan',   'https://youtube.com/channel/UCaaa', 1000, 'ok'),
+              ('UCbbb', 'BravoChan',   'https://youtube.com/channel/UCbbb', 5000, 'ok'),
+              ('UCccc', 'CharlieChan', 'https://youtube.com/channel/UCccc', NULL, 'ok');
+            INSERT INTO videos (video_id, url, title, channel_name, channel_id, date_added, fetch_status) VALUES
+              ('chrt000001', 'u', 'V1', 'AlphaChan', 'UCaaa', '2024-01-01', 'ok');
+            """
+        )
+        conn.commit()
+        conn.close()
+
+    def test_returns_200_and_lists_channels(self, client):
+        self._seed(client)
+        resp = client.get("/channels")
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        assert "AlphaChan" in body and "CharlieChan" in body
+
+    def test_has_videos_filter_hides_zero(self, client):
+        self._seed(client)
+        body = client.get("/channels?has_videos=1").get_data(as_text=True)
+        assert "AlphaChan" in body
+        assert "CharlieChan" not in body
+
+    def test_search_filters_by_name(self, client):
+        self._seed(client)
+        body = client.get("/channels?search=alpha").get_data(as_text=True)
+        assert "AlphaChan" in body
+        assert "BravoChan" not in body
+
+    def test_invalid_sort_returns_400(self, client):
+        self._seed(client)
+        assert client.get("/channels?sort=bogus").status_code == 400
+
+    def test_append_fragment_omits_page_chrome(self, client):
+        self._seed(client)
+        resp = client.get("/channels?append=1", headers={"HX-Request": "true"})
+        body = resp.get_data(as_text=True)
+        assert "AlphaChan" in body
+        assert "<!doctype html>" not in body.lower()
+
+

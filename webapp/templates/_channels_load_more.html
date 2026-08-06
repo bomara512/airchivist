@@ -1,0 +1,13 @@
+{% for ch in channels %}
+{% include "_channel_card.html" %}
+{% endfor %}
+<div id="load-more" hx-swap-oob="true">
+  {% if next_url %}
+  <button class="load-more-btn"
+          hx-get="{{ next_url }}&append=1"
+          hx-target="#channel-grid"
+          hx-swap="beforeend">
+    Load more
+  </button>
+  {% endif %}
+</div>
