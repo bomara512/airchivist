@@ -1287,6 +1287,11 @@ class TestGetChannelsPage:
         ids = [r["channel_id"] for r in get_channels_page(db_conn, sort_by="subscriber_count", sort_dir="desc", page_size=10)]
         assert ids == ["UCbbb", "UCaaa", "UCccc"]
 
+    def test_sort_by_subscriber_count_asc_nulls_last(self, db_conn):
+        self._seed(db_conn)
+        ids = [r["channel_id"] for r in get_channels_page(db_conn, sort_by="subscriber_count", sort_dir="asc", page_size=10)]
+        assert ids == ["UCaaa", "UCbbb", "UCccc"]
+
     def test_sort_by_channel_name_asc(self, db_conn):
         self._seed(db_conn)
         ids = [r["channel_id"] for r in get_channels_page(db_conn, sort_by="channel_name", sort_dir="asc", page_size=10)]

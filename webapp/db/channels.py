@@ -71,14 +71,16 @@ _CHANNEL_SORT_COLUMNS = {
 }
 
 
-def _channel_where(search):
+def _channel_where(search: Optional[str]) -> tuple[str, list]:
+    """Build the shared WHERE fragment + params for channel name search."""
     if search:
         return " WHERE c.channel_name LIKE '%' || ? || '%'", [search]
     return "", []
 
 
-def get_channels_page(conn, *, sort_by="video_count", sort_dir="desc",
-                      search=None, has_videos=False, page=1, page_size=100):
+def get_channels_page(conn: sqlite3.Connection, *, sort_by: str = "video_count", sort_dir: str = "desc",
+                      search: Optional[str] = None, has_videos: bool = False, page: int = 1, page_size: int = 100) -> list[dict]:
+    """Return one page of channels with a computed video_count, filtered/sorted."""
     if sort_by not in _CHANNEL_SORT_COLUMNS:
         raise ValueError(f"invalid sort_by: {sort_by}")
     if sort_dir not in ("asc", "desc"):
@@ -105,7 +107,8 @@ def get_channels_page(conn, *, sort_by="video_count", sort_dir="desc",
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 
-def count_channels(conn, *, search=None, has_videos=False):
+def count_channels(conn: sqlite3.Connection, *, search: Optional[str] = None, has_videos: bool = False) -> int:
+    """Return the total channel count matching the search/has_videos filters."""
     where_sql, params = _channel_where(search)
     having_sql = " HAVING COUNT(v.video_id) > 0" if has_videos else ""
     sql = (
