@@ -6,6 +6,15 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-06
 
+### fix(crawler): channel thumbnails were never stored (avatar lives in `thumbnails` list)
+
+- `fetch_channel_metadata` read `info.get("thumbnail")`, but yt-dlp leaves the singular `thumbnail` field unset for channels — the avatar is in the `thumbnails` list alongside the wide banner. Every channel row was stored with `thumbnail_url = NULL`, so the `/channels` cards showed the empty placeholder.
+- Added `_pick_channel_thumbnail`, which prefers the uncropped avatar, then the largest square thumbnail, then any thumbnail — never the banner. Fixes future adds via both the crawler and the extension's "add channel".
+- Extended `get_channel_ids_for_backfill` so `--backfill-channels` also re-fetches channels whose `thumbnail_url IS NULL`, and — via a `UNION` on the `channels` table — reaches bookmark-only channels (those with no saved videos), which the video-driven query previously skipped.
+- Implication: existing channels stay thumbnail-less until a `--backfill-channels` re-run (~1 fetch/channel). Trade-off: that re-run is another full pass over ~1,900 channels.
+
+## 2026-08-06
+
 ### feat(webapp): add GET /channels listing route and templates
 
 - Added the `main.channels` route (`GET /channels`) and its four templates (`channels.html`, `_channels_container.html`, `_channels_load_more.html`, `_channel_card.html`), consuming Task 1's `get_channels_page`/`count_channels`. Mirrors the index route's pagination and HTMX append pattern exactly (`HX-Request` header + `append=1` selects the fragment vs. full page), so `search`, `has_videos=1`, `page`, and `append=1` behave the same way users already expect from `/`.

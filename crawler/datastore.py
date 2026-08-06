@@ -271,7 +271,12 @@ class Datastore:
             FROM videos v
             LEFT JOIN channels c ON c.channel_id = v.channel_id
             WHERE v.channel_id IS NOT NULL
-              AND (c.channel_id IS NULL OR c.description IS NULL)
+              AND (c.channel_id IS NULL OR c.description IS NULL OR c.thumbnail_url IS NULL)
+            UNION
+            SELECT channel_id
+            FROM channels
+            WHERE channel_id IS NOT NULL
+              AND (description IS NULL OR thumbnail_url IS NULL)
             """
         ).fetchall()
         return [r[0] for r in rows]

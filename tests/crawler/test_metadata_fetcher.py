@@ -237,6 +237,39 @@ class TestFetchChannelMetadata:
             result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
         assert result.thumbnail_url == "https://yt3.ggpht.com/rick-avatar.jpg"
 
+    def test_derives_thumbnail_from_thumbnails_list_when_singular_absent(self):
+        # Real channels: yt-dlp leaves the singular "thumbnail" unset and puts the
+        # avatar in the "thumbnails" list alongside the wide banner. Prefer the avatar.
+        info = {k: v for k, v in _GOOD_CHANNEL_INFO.items() if k != "thumbnail"}
+        info["thumbnails"] = [
+            {"id": "0", "width": 1060, "height": 175, "url": "https://yt3/banner_small.jpg"},
+            {"id": "5", "width": 2560, "height": 424, "url": "https://yt3/banner_big.jpg"},
+            {"id": "7", "width": 900, "height": 900, "url": "https://yt3/avatar_square.jpg"},
+            {"id": "avatar_uncropped", "url": "https://yt3/avatar_uncropped.jpg"},
+        ]
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock(info=info)):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.thumbnail_url == "https://yt3/avatar_uncropped.jpg"
+
+    def test_thumbnail_falls_back_to_square_avatar_when_no_uncropped(self):
+        info = {k: v for k, v in _GOOD_CHANNEL_INFO.items() if k != "thumbnail"}
+        info["thumbnails"] = [
+            {"id": "0", "width": 1060, "height": 175, "url": "https://yt3/banner.jpg"},
+            {"id": "7", "width": 900, "height": 900, "url": "https://yt3/avatar_square.jpg"},
+        ]
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock(info=info)):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.thumbnail_url == "https://yt3/avatar_square.jpg"
+
+    def test_thumbnail_none_when_no_thumbnail_fields(self):
+        info = {k: v for k, v in _GOOD_CHANNEL_INFO.items() if k != "thumbnail"}
+        with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
+                   return_value=_make_channel_ydl_mock(info=info)):
+            result = fetch_channel_metadata(_CHANNEL_URL, delay=0)
+        assert result.thumbnail_url is None
+
     def test_sets_fetch_status_ok_on_success(self):
         with patch("crawler.metadata_fetcher.yt_dlp.YoutubeDL",
                    return_value=_make_channel_ydl_mock()):

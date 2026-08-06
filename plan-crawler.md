@@ -160,6 +160,10 @@ Bookmark URLs that do not match are silently skipped.
 
 Rate limiting: the crawler processes videos sequentially with a configurable `--delay` argument (default 1.5 s) to avoid YouTube bot detection.
 
+**Channel metadata (`fetch_channel_metadata`).** Channels are fetched with `extract_flat` (avoids iterating the channel's videos). Unlike videos, yt-dlp does **not** set the singular `thumbnail` field for a channel — the avatar is in the `thumbnails` list alongside the wide banner. `_pick_channel_thumbnail` selects the avatar (uncropped avatar entry → largest square thumbnail → any thumbnail), never the banner.
+
+**Backfill (`--backfill-channels` / `get_channel_ids_for_backfill`).** Selects channels needing a (re)fetch: video channels with no row or an incomplete row (`description IS NULL OR thumbnail_url IS NULL`), UNIONed with any `channels` row that is itself incomplete. The UNION is what lets backfill reach **bookmark-only** channels (no saved videos), which the video-join half cannot see. Each is re-fetched by constructing `https://www.youtube.com/channel/<id>` and upserting by `channel_id`.
+
 ### Optional: YouTube Data API v3
 
 When `--api-key` is supplied, the crawler uses `google-api-python-client` to call `videos.list` with `part=snippet,statistics`. Supports batch requests of up to 50 video IDs per call — significantly faster than `yt-dlp`. `statistics.viewCount` maps to `yt_view_count`.

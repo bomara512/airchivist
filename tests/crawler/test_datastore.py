@@ -436,3 +436,21 @@ class TestGetChannelIdsForBackfill:
         with Datastore(tmp_path / "test.db") as ds:
             ids = ds.get_channel_ids_for_backfill()
         assert ids == []
+
+    def test_returns_video_channel_with_null_thumbnail(self, tmp_path):
+        # Channel has a description but no thumbnail (e.g. fetched before the
+        # thumbnail fix) — it needs re-fetching.
+        with Datastore(tmp_path / "test.db") as ds:
+            meta = _make_metadata(channel_id="UCabc", channel_name="Test")
+            ds.upsert_video(meta, _make_bookmark())
+            ds.upsert_channel(_make_channel_meta(channel_id="UCabc", thumbnail_url=None))
+            ids = ds.get_channel_ids_for_backfill()
+        assert "UCabc" in ids
+
+    def test_returns_bookmark_only_channel_with_null_thumbnail(self, tmp_path):
+        # A channel with no associated videos (bookmark-only) that lacks a
+        # thumbnail must still be reachable for backfill.
+        with Datastore(tmp_path / "test.db") as ds:
+            ds.upsert_channel(_make_channel_meta(channel_id="UConly", thumbnail_url=None))
+            ids = ds.get_channel_ids_for_backfill()
+        assert "UConly" in ids

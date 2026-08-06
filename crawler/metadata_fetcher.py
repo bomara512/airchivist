@@ -74,6 +74,31 @@ _CHANNEL_YDL_OPTS = {
 }
 
 
+def _pick_channel_thumbnail(info: dict) -> Optional[str]:
+    """Return a channel avatar URL.
+
+    yt-dlp does not populate the singular ``thumbnail`` field for channels; the
+    avatar lives in the ``thumbnails`` list alongside the wide banner images.
+    Prefer the explicit uncropped avatar, then the largest square thumbnail,
+    then any thumbnail, so we never pick the banner over the avatar.
+    """
+    singular = info.get("thumbnail")
+    if singular:
+        return singular
+    thumbs = info.get("thumbnails") or []
+    for t in thumbs:
+        if t.get("id") == "avatar_uncropped" and t.get("url"):
+            return t["url"]
+    squares = [t for t in thumbs
+               if t.get("url") and t.get("width") and t.get("width") == t.get("height")]
+    if squares:
+        return max(squares, key=lambda t: t["width"])["url"]
+    for t in reversed(thumbs):
+        if t.get("url"):
+            return t["url"]
+    return None
+
+
 def fetch_channel_metadata(channel_url: str, delay: float = 1.5) -> ChannelMetadata:
     try:
         with yt_dlp.YoutubeDL(_CHANNEL_YDL_OPTS) as ydl:
@@ -89,7 +114,7 @@ def fetch_channel_metadata(channel_url: str, delay: float = 1.5) -> ChannelMetad
             channel_url=url,
             description=info.get("description"),
             subscriber_count=info.get("channel_follower_count"),
-            thumbnail_url=info.get("thumbnail"),
+            thumbnail_url=_pick_channel_thumbnail(info),
             fetch_status=FetchStatus.OK,
         )
     except yt_dlp.utils.DownloadError as exc:
