@@ -23,9 +23,11 @@ from webapp.db.groups import (
     remove_canonical_from_group,
 )
 from webapp.db.channels import (
+    count_channels,
     get_all_channels,
     get_channel,
     get_channel_by_source_url,
+    get_channels_page,
     upsert_channel,
 )
 from webapp.db.schema import init_webapp_tables
@@ -118,6 +120,7 @@ __all__ = [
     "set_tag_keywords",
     # channels
     "get_all_channels", "get_channel", "upsert_channel", "get_channel_by_source_url",
+    "get_channels_page", "count_channels",
     # videos
     "ALLOWED_SORT_COLUMNS", "ALLOWED_SORT_DIRS", "add_to_watch_later", "add_video",
     "count_hidden_videos", "count_videos", "delete_video", "generate_rediscover_shelf",

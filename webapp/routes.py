@@ -123,6 +123,59 @@ def index():
     return render_template("index.html", **template_vars)
 
 
+_CHANNEL_SORT_PRESETS = {
+    "video_count": ("video_count", "desc"),
+    "subscriber_count": ("subscriber_count", "desc"),
+    "channel_name": ("channel_name", "asc"),
+    "date_added": ("date_added", "desc"),
+}
+
+
+@bp.route("/channels")
+def channels():
+    sort = request.args.get("sort", "video_count")
+    if sort not in _CHANNEL_SORT_PRESETS:
+        abort(400)
+    sort_by, sort_dir = _CHANNEL_SORT_PRESETS[sort]
+    search = request.args.get("search") or None
+    has_videos = request.args.get("has_videos") == "1"
+    append = request.args.get("append") == "1"
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except ValueError:
+        page = 1
+
+    total = _db.count_channels(g.db, search=search, has_videos=has_videos)
+    total_pages = max(1, math.ceil(total / PAGE_SIZE))
+    page = min(page, total_pages)
+    channel_rows = _db.get_channels_page(
+        g.db, sort_by=sort_by, sort_dir=sort_dir,
+        search=search, has_videos=has_videos, page=page, page_size=PAGE_SIZE,
+    )
+
+    def page_url(p):
+        args = {k: v for k, v in request.args.to_dict().items() if k not in ("page", "append")}
+        args["page"] = p
+        return url_for("main.channels", **args)
+
+    template_vars = dict(
+        channels=channel_rows,
+        current_sort=sort,
+        current_search=search,
+        has_videos=has_videos,
+        page=page,
+        total_pages=total_pages,
+        total=total,
+        next_url=page_url(page + 1) if page < total_pages else None,
+    )
+
+    if request.headers.get("HX-Request"):
+        if append:
+            return render_template("_channels_load_more.html", **template_vars)
+        return render_template("_channels_container.html", **template_vars)
+    return render_template("channels.html", **template_vars)
+
+
 @bp.route("/videos/<video_id>/tags/remove", methods=["POST"])
 def video_remove_tag(video_id):
     tag_name = request.form.get("tag_name", "").strip()

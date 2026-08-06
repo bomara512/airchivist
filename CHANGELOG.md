@@ -4,6 +4,27 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-08-06
+
+### feat(webapp): add GET /channels listing route and templates
+
+- Added the `main.channels` route (`GET /channels`) and its four templates (`channels.html`, `_channels_container.html`, `_channels_load_more.html`, `_channel_card.html`), consuming Task 1's `get_channels_page`/`count_channels`. Mirrors the index route's pagination and HTMX append pattern exactly (`HX-Request` header + `append=1` selects the fragment vs. full page), so `search`, `has_videos=1`, `page`, and `append=1` behave the same way users already expect from `/`.
+- `sort` collapses `(sort_by, sort_dir)` into four named presets (`_CHANNEL_SORT_PRESETS`) so the filter form only needs one `<select>`; an unrecognized preset is a 400, same as an invalid `sort_by` on `/`.
+- This is a plain server-rendered page, not an extension API route — deliberately does *not* use `_CORS_HEADERS` or an `OPTIONS` handler, unlike the `/api/*` routes in the same file.
+- No nav link added yet (that's a later task in the same plan), so the page is only reachable by direct URL for now.
+- Tests seed `channels`/`videos` directly via `sqlite3.connect` (same pattern as `TestApiChannelStatus`), covering the happy path, `has_videos` filter, `search` filter, invalid `sort` (400), and the append-fragment response omitting page chrome (`<!doctype html>`).
+- **Wired up (same day, Task 3):** added the `main.channels` nav link to `base.html` (alongside Tags/Watch Later) and `.channel-*`/`.filter-row`/`.filter-check` CSS to `style.css` — the page is now reachable from every screen, not just by direct URL.
+
+**Implications**
+- **+** Channels are now browsable as entities: a sort/search/has-videos-filtered grid of channel cards, each linking to that channel's filtered video list on `/` or out to YouTube — not just a per-video `channel=<name>` filter.
+- **−** Card→videos links match by exact `channel_name` string, not `channel_id`; two distinct channels sharing an exact display name would collapse into one filtered list on `/`. Accepted for now (rare in practice); would need the index route's channel filter to accept `channel_id` to close fully.
+
+### feat(webapp/db): add get_channels_page and count_channels
+
+- Added `get_channels_page` and `count_channels` to `webapp/db/channels.py`, plus a `_CHANNEL_SORT_COLUMNS` allow-list and shared `_channel_where` helper. `get_channels_page` computes `video_count` per channel via `LEFT JOIN videos ... GROUP BY channel_id` so channels with zero videos still appear by default; `has_videos=True` filters them out via `HAVING`. Sort/direction are validated against an allow-list (mirroring `ALLOWED_SORT_COLUMNS` in `webapp/db/videos.py`) before being interpolated into SQL, since SQLite can't parameterize column/direction names.
+- This is Task 1 of the channels listing view (`.superpowers/sdd/2026-08-06-channels-listing-view/`) — DB layer only, no route or template yet, so nothing user-visible changed.
+- Trade-off: NULL `subscriber_count` always sorts last regardless of `sort_dir`, which is friendlier UX but means "ascending by subscribers" doesn't put NULLs first the way a naive SQL `ASC` would — documented in `plan-webapp.md` so the later route/template tasks don't have to rediscover it.
+
 ## 2026-08-05
 
 ### feat(extension): animated spinner for in-progress popup states

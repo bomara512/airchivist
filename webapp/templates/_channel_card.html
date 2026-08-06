@@ -1,0 +1,18 @@
+<div class="channel-card">
+  <a href="{{ url_for('main.index', channel=ch.channel_name) }}" class="channel-avatar">
+    {% if ch.thumbnail_url %}
+    <img src="{{ ch.thumbnail_url }}" alt="{{ ch.channel_name }}" loading="lazy">
+    {% else %}
+    <div class="no-thumb"></div>
+    {% endif %}
+  </a>
+  <div class="channel-info">
+    <a href="{{ url_for('main.index', channel=ch.channel_name) }}" class="channel-name">{{ ch.channel_name }}</a>
+    <div class="channel-meta">
+      {% if ch.subscriber_count %}<span>{{ ch.subscriber_count | view_count }} subscribers</span>{% endif %}
+      <span>{{ ch.video_count }} video{{ '' if ch.video_count == 1 else 's' }}</span>
+    </div>
+    {% if ch.description %}<p class="channel-desc">{{ ch.description | truncate(140) }}</p>{% endif %}
+    <a href="{{ ch.channel_url }}" target="_blank" rel="noopener" class="channel-external">View on YouTube &#8599;</a>
+  </div>
+</div>

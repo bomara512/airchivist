@@ -61,3 +61,63 @@ def get_channel_by_source_url(conn: sqlite3.Connection, url: str) -> Optional[di
         (url, url),
     ).fetchone()
     return dict(row) if row else None
+
+
+_CHANNEL_SORT_COLUMNS = {
+    "video_count": "video_count",
+    "subscriber_count": "c.subscriber_count",
+    "channel_name": "c.channel_name",
+    "date_added": "c.date_added",
+}
+
+
+def _channel_where(search: Optional[str]) -> tuple[str, list]:
+    """Build the shared WHERE fragment + params for channel name search."""
+    if search:
+        return " WHERE c.channel_name LIKE '%' || ? || '%'", [search]
+    return "", []
+
+
+def get_channels_page(conn: sqlite3.Connection, *, sort_by: str = "video_count", sort_dir: str = "desc",
+                      search: Optional[str] = None, has_videos: bool = False, page: int = 1, page_size: int = 100) -> list[dict]:
+    """Return one page of channels with a computed video_count, filtered/sorted."""
+    if sort_by not in _CHANNEL_SORT_COLUMNS:
+        raise ValueError(f"invalid sort_by: {sort_by}")
+    if sort_dir not in ("asc", "desc"):
+        raise ValueError(f"invalid sort_dir: {sort_dir}")
+
+    where_sql, params = _channel_where(search)
+    having_sql = " HAVING video_count > 0" if has_videos else ""
+    col = _CHANNEL_SORT_COLUMNS[sort_by]
+    # NULLs (e.g. subscriber_count) sort last regardless of direction; stable tiebreak on name.
+    order_sql = f" ORDER BY {col} IS NULL, {col} {sort_dir.upper()}, c.channel_name ASC"
+
+    sql = (
+        "SELECT c.channel_id, c.channel_name, c.channel_url, c.description, "
+        "c.subscriber_count, c.thumbnail_url, c.date_added, "
+        "COUNT(v.video_id) AS video_count "
+        "FROM channels c LEFT JOIN videos v ON v.channel_id = c.channel_id"
+        + where_sql
+        + " GROUP BY c.channel_id"
+        + having_sql
+        + order_sql
+        + " LIMIT ? OFFSET ?"
+    )
+    params = [*params, page_size, (page - 1) * page_size]
+    return [dict(r) for r in conn.execute(sql, params).fetchall()]
+
+
+def count_channels(conn: sqlite3.Connection, *, search: Optional[str] = None, has_videos: bool = False) -> int:
+    """Return the total channel count matching the search/has_videos filters."""
+    where_sql, params = _channel_where(search)
+    having_sql = " HAVING COUNT(v.video_id) > 0" if has_videos else ""
+    sql = (
+        "SELECT COUNT(*) FROM ("
+        "SELECT c.channel_id FROM channels c "
+        "LEFT JOIN videos v ON v.channel_id = c.channel_id"
+        + where_sql
+        + " GROUP BY c.channel_id"
+        + having_sql
+        + ")"
+    )
+    return conn.execute(sql, params).fetchone()[0]

@@ -13,6 +13,7 @@ from webapp.db import (
     confirm_and_dismiss_suggestion, accept_noise_and_dismiss_suggestion,
     add_alias_and_apply, edit_alias_and_apply,
     get_all_channels, get_channel, upsert_channel, get_channel_by_source_url,
+    get_channels_page, count_channels,
 )
 from crawler.models import ChannelMetadata
 
@@ -1241,3 +1242,89 @@ class TestGetChannelBySourceUrl:
 
     def test_returns_none_for_unknown(self, db_conn):
         assert get_channel_by_source_url(db_conn, "https://www.youtube.com/@nobody") is None
+
+
+class TestGetChannelsPage:
+    def _seed(self, conn):
+        conn.executescript(
+            """
+            INSERT INTO channels (channel_id, channel_name, channel_url, subscriber_count, fetch_status) VALUES
+              ('UCaaa', 'Alpha',   'https://youtube.com/channel/UCaaa', 1000, 'ok'),
+              ('UCbbb', 'Bravo',   'https://youtube.com/channel/UCbbb', 5000, 'ok'),
+              ('UCccc', 'Charlie', 'https://youtube.com/channel/UCccc', NULL, 'ok');
+            INSERT INTO videos (video_id, url, title, channel_name, channel_id, date_added, fetch_status) VALUES
+              ('chvid00001', 'u', 'V1', 'Alpha', 'UCaaa', '2024-01-01', 'ok'),
+              ('chvid00002', 'u', 'V2', 'Alpha', 'UCaaa', '2024-01-02', 'ok'),
+              ('chvid00003', 'u', 'V3', 'Bravo', 'UCbbb', '2024-01-03', 'ok');
+            """
+        )
+        conn.commit()
+
+    def test_computes_video_count(self, db_conn):
+        self._seed(db_conn)
+        rows = {r["channel_id"]: r["video_count"]
+                for r in get_channels_page(db_conn, page_size=10)}
+        assert rows == {"UCaaa": 2, "UCbbb": 1, "UCccc": 0}
+
+    def test_has_videos_excludes_zero(self, db_conn):
+        self._seed(db_conn)
+        ids = [r["channel_id"] for r in get_channels_page(db_conn, has_videos=True, page_size=10)]
+        assert "UCccc" not in ids
+        assert set(ids) == {"UCaaa", "UCbbb"}
+
+    def test_search_matches_name_substring(self, db_conn):
+        self._seed(db_conn)
+        ids = [r["channel_id"] for r in get_channels_page(db_conn, search="alp", page_size=10)]
+        assert ids == ["UCaaa"]
+
+    def test_sort_by_video_count_desc(self, db_conn):
+        self._seed(db_conn)
+        ids = [r["channel_id"] for r in get_channels_page(db_conn, sort_by="video_count", sort_dir="desc", page_size=10)]
+        assert ids == ["UCaaa", "UCbbb", "UCccc"]
+
+    def test_sort_by_subscriber_count_desc_nulls_last(self, db_conn):
+        self._seed(db_conn)
+        ids = [r["channel_id"] for r in get_channels_page(db_conn, sort_by="subscriber_count", sort_dir="desc", page_size=10)]
+        assert ids == ["UCbbb", "UCaaa", "UCccc"]
+
+    def test_sort_by_subscriber_count_asc_nulls_last(self, db_conn):
+        self._seed(db_conn)
+        ids = [r["channel_id"] for r in get_channels_page(db_conn, sort_by="subscriber_count", sort_dir="asc", page_size=10)]
+        assert ids == ["UCaaa", "UCbbb", "UCccc"]
+
+    def test_sort_by_channel_name_asc(self, db_conn):
+        self._seed(db_conn)
+        ids = [r["channel_id"] for r in get_channels_page(db_conn, sort_by="channel_name", sort_dir="asc", page_size=10)]
+        assert ids == ["UCaaa", "UCbbb", "UCccc"]
+
+    def test_invalid_sort_by_raises(self, db_conn):
+        with pytest.raises(ValueError):
+            get_channels_page(db_conn, sort_by="DROP TABLE", page_size=10)
+
+    def test_invalid_sort_dir_raises(self, db_conn):
+        with pytest.raises(ValueError):
+            get_channels_page(db_conn, sort_dir="sideways", page_size=10)
+
+    def test_pagination(self, db_conn):
+        self._seed(db_conn)
+        page1 = get_channels_page(db_conn, sort_by="channel_name", sort_dir="asc", page=1, page_size=2)
+        page2 = get_channels_page(db_conn, sort_by="channel_name", sort_dir="asc", page=2, page_size=2)
+        assert [r["channel_id"] for r in page1] == ["UCaaa", "UCbbb"]
+        assert [r["channel_id"] for r in page2] == ["UCccc"]
+
+
+class TestCountChannels:
+    def _seed(self, conn):
+        TestGetChannelsPage._seed(self, conn)
+
+    def test_counts_all(self, db_conn):
+        self._seed(db_conn)
+        assert count_channels(db_conn) == 3
+
+    def test_counts_has_videos(self, db_conn):
+        self._seed(db_conn)
+        assert count_channels(db_conn, has_videos=True) == 2
+
+    def test_counts_search(self, db_conn):
+        self._seed(db_conn)
+        assert count_channels(db_conn, search="alp") == 1
