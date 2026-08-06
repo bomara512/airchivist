@@ -192,6 +192,13 @@ CREATE TABLE IF NOT EXISTS channels (
 
 These two functions are Task 1 of the extension "bookmark channel" feature (see `.superpowers/sdd/2026-07-25-extension-bookmark-channel/`).
 
+### Channels Listing Page (in progress)
+
+- `get_channels_page(conn, *, sort_by='video_count', sort_dir='desc', search=None, has_videos=False, page=1, page_size=100) -> list[dict]` — paginated channel list with a computed `video_count` (`LEFT JOIN videos ... GROUP BY channel_id`, so channels with zero videos are included by default). `search` matches `channel_name` by substring. `has_videos=True` filters to channels with ≥1 video via `HAVING`. `sort_by` is validated against `_CHANNEL_SORT_COLUMNS` (`video_count`, `subscriber_count`, `channel_name`, `date_added`); `sort_dir` against `{'asc', 'desc'}` — invalid values raise `ValueError` before any SQL executes, same pattern as `ALLOWED_SORT_COLUMNS` for videos. NULLs (e.g. missing `subscriber_count`) always sort last regardless of direction, with a stable `channel_name ASC` tiebreak.
+- `count_channels(conn, *, search=None, has_videos=False) -> int` — total matching channels for the same `search`/`has_videos` filters, for pagination controls.
+
+These are Task 1 of the channels listing view (see `.superpowers/sdd/2026-08-06-channels-listing-view/`); the `/channels` route and templates that consume them are later tasks in that plan.
+
 ### API Routes: `/api/channel/status` and `/api/channel/add`
 
 - `GET /api/channel/status?url=<channelUrl>` — validates `url` against `_YT_CHANNEL_RE` (400 `{"status": "error", "error": "Not a YouTube channel URL"}` if it doesn't match), then looks up via `get_channel_by_source_url`. Returns `{"status": "exists", "channel_name": ...}` if found, else `{"status": "not_found"}`.

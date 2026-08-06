@@ -4,6 +4,14 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-08-06
+
+### feat(webapp/db): add get_channels_page and count_channels
+
+- Added `get_channels_page` and `count_channels` to `webapp/db/channels.py`, plus a `_CHANNEL_SORT_COLUMNS` allow-list and shared `_channel_where` helper. `get_channels_page` computes `video_count` per channel via `LEFT JOIN videos ... GROUP BY channel_id` so channels with zero videos still appear by default; `has_videos=True` filters them out via `HAVING`. Sort/direction are validated against an allow-list (mirroring `ALLOWED_SORT_COLUMNS` in `webapp/db/videos.py`) before being interpolated into SQL, since SQLite can't parameterize column/direction names.
+- This is Task 1 of the channels listing view (`.superpowers/sdd/2026-08-06-channels-listing-view/`) — DB layer only, no route or template yet, so nothing user-visible changed.
+- Trade-off: NULL `subscriber_count` always sorts last regardless of `sort_dir`, which is friendlier UX but means "ascending by subscribers" doesn't put NULLs first the way a naive SQL `ASC` would — documented in `plan-webapp.md` so the later route/template tasks don't have to rediscover it.
+
 ## 2026-08-05
 
 ### feat(extension): animated spinner for in-progress popup states
