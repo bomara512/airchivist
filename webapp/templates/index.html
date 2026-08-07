@@ -80,6 +80,7 @@
         Favourites
       </label>
 
+      {# Keep options in sync with _DURATION_BUCKETS / _ADDED_WITHIN_DAYS in webapp/db/videos.py #}
       <select name="duration">
         <option value="" {% if not current_duration %}selected{% endif %}>Any duration</option>
         <option value="short"  {% if current_duration == 'short'  %}selected{% endif %}>Short (&lt; 5 min)</option>

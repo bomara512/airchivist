@@ -14,6 +14,7 @@ ALLOWED_SORT_COLUMNS = frozenset({
 })
 ALLOWED_SORT_DIRS = frozenset({'asc', 'desc'})
 
+# Filter presets. Keep the keys/values in sync with the duration/added_within <select> options in webapp/templates/index.html.
 _DURATION_BUCKETS = {
     "short": "v.duration_seconds < 300",
     "medium": "v.duration_seconds >= 300 AND v.duration_seconds < 1200",
