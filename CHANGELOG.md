@@ -6,6 +6,13 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-06
 
+### feat(webapp): add unwatched/duration/date-range quick filters to the index
+
+- Added three filters to the main video list: **Unwatched only** (`personal_view_count = 0`), **Duration** buckets (`short` &lt; 5 min, `medium` 5–20 min, `long` &gt; 20 min), and **Added within** presets (7/30/90/365 days). All three compose through the existing shared `_build_where` helper in `webapp/db/videos.py` alongside `channel`/`tag`/`search`/`favourites_only`, so they combine with every existing filter and with pagination/grouping for free.
+- `duration` and `added_within` are validated against allow-lists (`_DURATION_BUCKETS`, `_ADDED_WITHIN_DAYS`) before being interpolated into SQL; an unrecognized value raises `ValueError`, which the `index` route's existing `try/except ValueError: abort(400)` turns into an HTTP 400 (e.g. `/?duration=epic`).
+- Rendered as three new controls in the filter form (`webapp/templates/index.html`): a checkbox and two `<select>`s, wired into the existing HTMX auto-submit form and the `Filters` badge count.
+- Implication: makes it much faster to narrow a large library down to "what haven't I watched yet" or "what's short and recent" without scrolling through everything. Trade-off (accepted): videos with a NULL `duration_seconds` (98 in the current library) match no duration bucket — they simply don't show up under Short/Medium/Long, which is judged less confusing than guessing a bucket for missing data.
+
 ### fix(crawler): channel thumbnails were never stored (avatar lives in `thumbnails` list)
 
 - `fetch_channel_metadata` read `info.get("thumbnail")`, but yt-dlp leaves the singular `thumbnail` field unset for channels — the avatar is in the `thumbnails` list alongside the wide banner. Every channel row was stored with `thumbnail_url = NULL`, so the `/channels` cards showed the empty placeholder.

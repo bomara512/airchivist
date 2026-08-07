@@ -4,9 +4,10 @@
 
 - ~~Watch Later queue — ordered list of videos to watch next, browse on dedicated page, add from main list or rediscover shelf~~
 - [ ] "Watched" toggle — mark a video as fully watched without clicking through to YouTube
-- [ ] "Unwatched only" filter / sort by unwatched first (personal_view_count = 0)
-- [ ] Date range filter (e.g. added in the last 30 days)
-- [ ] Duration filter (short < 5 min, medium, long > 20 min)
+- ~~"Unwatched only" filter (personal_view_count = 0)~~
+- [ ] Sort by unwatched first
+- ~~Date range filter (e.g. added in the last 30 days)~~
+- ~~Duration filter (short < 5 min, medium, long > 20 min)~~
 - [ ] Auto-schedule the crawler (launchd / cron)
 - [ ] Way to refresh YouTube metadata (e.g. view count) for existing videos
 

@@ -129,6 +129,14 @@ def collapse_case_variants(conn) -> int        # one-time admin: merges case-dup
 
 `get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments. `fetch_status = 'ok'` and `is_hidden = 0` are always applied as base conditions — hidden videos and videos with any other status are never shown in the main index. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
 
+`_build_where` also accepts three quick-filter params, alongside the existing `favourites_only`:
+
+- `unwatched_only: bool` — adds `v.personal_view_count = 0`.
+- `duration: Optional[str]` — one of `"short"`, `"medium"`, `"long"`, looked up in the `_DURATION_BUCKETS` allow-list (`short` < 5 min, `medium` 5–20 min, `long` >= 20 min, all on `v.duration_seconds`). A video with a NULL `duration_seconds` matches none of the three buckets — accepted, since guessing a bucket for missing data would be more misleading than omitting it.
+- `added_within: Optional[int]` — one of `7`, `30`, `90`, `365` (days), validated against the `_ADDED_WITHIN_DAYS` frozenset, then applied as `v.date_added >= date('now', '-N days')`.
+
+Both allow-lists live next to `_build_where` in `webapp/db/videos.py`. As with `sort_by`, an unrecognized `duration` or `added_within` raises `ValueError` rather than being interpolated — the `index` route's `try/except ValueError: abort(400)` (see below) turns that into an HTTP 400, e.g. `/?duration=epic`.
+
 The `search` filter matches against four sources, all using word-prefix regex (`\bterm`, case-insensitive):
 1. `v.title`
 2. `v.description`
@@ -413,6 +421,14 @@ The route returns `_video_container.html` (partial) when the `HX-Request` header
 The sort select uses human-readable labels (no underscores): Date Added, Title, YouTube Views, Times Watched, Last Viewed, Date Published. Values sent to the server remain the raw column names understood by `get_all_videos`.
 
 A canonical tag `<select name="tag">` is rendered between the channel dropdown and the sort-by dropdown, but only when at least one canonical tag has at least one associated video. Options are populated from `get_canonical_tags_for_filter`. Selecting a tag filters via the existing `?tag=` query param and `_build_where` logic.
+
+Three quick-filter controls sit alongside the favourites checkbox, all wired into the same auto-submitting HTMX form and the `Filters` badge count (`active_filter_count` in `index.html`):
+
+- **Unwatched only** — a checkbox (`name="unwatched"`, value `"1"`), mapped to `unwatched_only` in the route.
+- **Duration** — a `<select name="duration">` with "Any duration" plus the three `_DURATION_BUCKETS` options (Short/Medium/Long), mapped straight through to `_build_where`'s `duration` param.
+- **Added within** — a `<select name="added_within">` with "Any time" plus the four `_ADDED_WITHIN_DAYS` presets (7/30/90/365 days, labeled "Last 7 days" … "Last year"). The route casts the query string to `int` (falling back to `None` on a bad value) before passing it to `_build_where`.
+
+All three persist across pagination the same way the existing filters do, since `page_url` only strips `page`/`append` from the current query string.
 
 **Grouping**: The group select offers "No grouping" (default), "By channel", and "By tag". Both grouped modes use Prev/Next pagination (not Load more).
 
