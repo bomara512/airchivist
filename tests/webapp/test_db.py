@@ -146,6 +146,70 @@ class TestCountVideos:
         assert count_videos(db_conn, search="shrimp") == 1
 
 
+class TestVideoFilterQuickWins:
+    def _seed_extra(self, db_conn):
+        # Rows with explicit duration + recent/old date_added for bucket/window tests.
+        db_conn.executescript(
+            """
+            INSERT INTO videos (video_id, url, title, channel_name, personal_view_count,
+                                duration_seconds, date_added, fetch_status) VALUES
+              ('durshort001', 'u', 'Short One', 'C', 0, 120,  date('now','-2 days'),  'ok'),
+              ('durmed00001', 'u', 'Med One',   'C', 0, 600,  date('now','-20 days'), 'ok'),
+              ('durlong0001', 'u', 'Long One',  'C', 0, 3600, date('now','-200 days'),'ok'),
+              ('durnull0001', 'u', 'Null Dur',  'C', 0, NULL, date('now','-1 days'),  'ok');
+            """
+        )
+        db_conn.commit()
+
+    def test_unwatched_only_returns_only_zero_view_count(self, db_conn):
+        rows = get_all_videos(db_conn, unwatched_only=True)
+        assert rows, "expected some unwatched rows in the base seed"
+        assert all(r["personal_view_count"] == 0 for r in rows)
+
+    def test_duration_short_bucket(self, db_conn):
+        self._seed_extra(db_conn)
+        ids = [r["video_id"] for r in get_all_videos(db_conn, duration="short")]
+        assert "durshort001" in ids
+        assert "durmed00001" not in ids and "durlong0001" not in ids
+        assert "durnull0001" not in ids  # NULL duration excluded from every bucket
+
+    def test_duration_medium_bucket(self, db_conn):
+        self._seed_extra(db_conn)
+        ids = [r["video_id"] for r in get_all_videos(db_conn, duration="medium")]
+        assert ids and "durmed00001" in ids
+        assert "durshort001" not in ids and "durlong0001" not in ids
+
+    def test_duration_long_bucket(self, db_conn):
+        self._seed_extra(db_conn)
+        ids = [r["video_id"] for r in get_all_videos(db_conn, duration="long")]
+        assert "durlong0001" in ids
+        assert "durshort001" not in ids and "durmed00001" not in ids
+
+    def test_added_within_window(self, db_conn):
+        self._seed_extra(db_conn)
+        ids = [r["video_id"] for r in get_all_videos(db_conn, added_within=7)]
+        assert "durshort001" in ids   # -2 days
+        assert "durmed00001" not in ids  # -20 days
+        assert "durlong0001" not in ids  # -200 days
+
+    def test_invalid_duration_raises(self, db_conn):
+        with pytest.raises(ValueError):
+            get_all_videos(db_conn, duration="epic")
+
+    def test_invalid_added_within_raises(self, db_conn):
+        with pytest.raises(ValueError):
+            get_all_videos(db_conn, added_within=5)
+
+    def test_count_videos_matches_filtered_rows(self, db_conn):
+        self._seed_extra(db_conn)
+        rows = get_all_videos(db_conn, duration="short")
+        assert count_videos(db_conn, duration="short") == len(rows)
+
+    def test_count_videos_invalid_duration_raises(self, db_conn):
+        with pytest.raises(ValueError):
+            count_videos(db_conn, duration="epic")
+
+
 class TestGetVideoById:
     def test_returns_row_for_existing(self, db_conn):
         row = get_video_by_id(db_conn, "aaaaaaaaaa1")
