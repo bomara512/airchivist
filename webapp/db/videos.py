@@ -14,8 +14,17 @@ ALLOWED_SORT_COLUMNS = frozenset({
 })
 ALLOWED_SORT_DIRS = frozenset({'asc', 'desc'})
 
+# Filter presets. Keep the keys/values in sync with the duration/added_within <select> options in webapp/templates/index.html.
+_DURATION_BUCKETS = {
+    "short": "v.duration_seconds < 300",
+    "medium": "v.duration_seconds >= 300 AND v.duration_seconds < 1200",
+    "long": "v.duration_seconds >= 1200",
+}
+_ADDED_WITHIN_DAYS = frozenset({7, 30, 90, 365})
 
-def _build_where(channel, tag, search, favourites_only=False):
+
+def _build_where(channel, tag, search, favourites_only=False,
+                 unwatched_only=False, duration=None, added_within=None):
     params = []
     clauses = ["v.fetch_status = 'ok'", "v.is_hidden = 0"]
     if channel:
@@ -39,6 +48,17 @@ def _build_where(channel, tag, search, favourites_only=False):
         params.extend([pattern, pattern, pattern, pattern])
     if favourites_only:
         clauses.append("v.is_favourite = 1")
+    if unwatched_only:
+        clauses.append("v.personal_view_count = 0")
+    if duration is not None:
+        if duration not in _DURATION_BUCKETS:
+            raise ValueError(f"Invalid duration: {duration!r}")
+        clauses.append(f"({_DURATION_BUCKETS[duration]})")
+    if added_within is not None:
+        if added_within not in _ADDED_WITHIN_DAYS:
+            raise ValueError(f"Invalid added_within: {added_within!r}")
+        clauses.append("v.date_added >= date('now', ?)")
+        params.append(f"-{added_within} days")
     where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return where_sql, params
 
@@ -62,13 +82,18 @@ def get_all_videos(
     page_size: Optional[int] = None,
     group: Optional[str] = None,
     favourites_only: bool = False,
+    unwatched_only: bool = False,
+    duration: Optional[str] = None,
+    added_within: Optional[int] = None,
 ) -> list:
     if sort_by not in ALLOWED_SORT_COLUMNS:
         raise ValueError(f"Invalid sort_by: {sort_by!r}")
     if sort_dir not in ALLOWED_SORT_DIRS:
         raise ValueError(f"Invalid sort_dir: {sort_dir!r}")
 
-    where_sql, params = _build_where(channel, tag, search, favourites_only)
+    where_sql, params = _build_where(
+        channel, tag, search, favourites_only, unwatched_only, duration, added_within
+    )
 
     limit_sql = ""
     if page_size is not None:
@@ -105,8 +130,13 @@ def count_videos(
     tag: Optional[str] = None,
     search: Optional[str] = None,
     favourites_only: bool = False,
+    unwatched_only: bool = False,
+    duration: Optional[str] = None,
+    added_within: Optional[int] = None,
 ) -> int:
-    where_sql, params = _build_where(channel, tag, search, favourites_only)
+    where_sql, params = _build_where(
+        channel, tag, search, favourites_only, unwatched_only, duration, added_within
+    )
     sql = f"""
         SELECT COUNT(DISTINCT v.id)
         FROM videos v

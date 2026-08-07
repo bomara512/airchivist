@@ -44,6 +44,12 @@ def index():
     search = request.args.get("search") or None
     group = request.args.get("group") or None
     favourites_only = request.args.get("favourites") == "1"
+    unwatched_only = request.args.get("unwatched") == "1"
+    duration = request.args.get("duration") or None
+    try:
+        added_within = int(request.args["added_within"]) if request.args.get("added_within") else None
+    except ValueError:
+        added_within = None
     append = request.args.get("append") == "1"
     try:
         page = max(1, int(request.args.get("page", 1)))
@@ -51,12 +57,17 @@ def index():
         page = 1
 
     try:
-        total = _db.count_videos(g.db, channel=channel, tag=tag, search=search, favourites_only=favourites_only)
+        total = _db.count_videos(
+            g.db, channel=channel, tag=tag, search=search,
+            favourites_only=favourites_only, unwatched_only=unwatched_only,
+            duration=duration, added_within=added_within,
+        )
         videos = _db.get_all_videos(
             g.db, sort_by=sort_by, sort_dir=sort_dir,
             channel=channel, tag=tag, search=search,
-            page=page, page_size=PAGE_SIZE,
-            group=group, favourites_only=favourites_only,
+            page=page, page_size=PAGE_SIZE, group=group,
+            favourites_only=favourites_only, unwatched_only=unwatched_only,
+            duration=duration, added_within=added_within,
         )
     except ValueError:
         abort(400)
@@ -105,6 +116,9 @@ def index():
         current_search=search,
         group=group,
         favourites_only=favourites_only,
+        unwatched_only=unwatched_only,
+        current_duration=duration,
+        current_added_within=added_within,
         page=page,
         total_pages=total_pages,
         total=total,

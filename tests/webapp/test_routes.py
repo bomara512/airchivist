@@ -42,6 +42,49 @@ class TestIndexRoute:
         assert b"GuitarChannel" in resp.data
 
 
+class TestIndexFilterQuickWins:
+    def _seed(self, client):
+        conn = sqlite3.connect(client.application.config["DATABASE"])
+        conn.executescript(
+            """
+            INSERT INTO videos (video_id, url, title, channel_name, personal_view_count,
+                                duration_seconds, date_added, fetch_status) VALUES
+              ('qwshort0001', 'u', 'QW Short Vid', 'C', 0, 120,  date('now','-1 days'),  'ok'),
+              ('qwlong00001', 'u', 'QW Long Vid',  'C', 5, 3600, date('now','-300 days'),'ok');
+            """
+        )
+        conn.commit()
+        conn.close()
+
+    def test_unwatched_filter(self, client):
+        self._seed(client)
+        body = client.get("/?unwatched=1", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "QW Short Vid" in body      # personal_view_count 0
+        assert "QW Long Vid" not in body   # personal_view_count 5
+
+    def test_duration_filter(self, client):
+        self._seed(client)
+        body = client.get("/?duration=short", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "QW Short Vid" in body
+        assert "QW Long Vid" not in body
+
+    def test_added_within_filter(self, client):
+        self._seed(client)
+        body = client.get("/?added_within=7", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "QW Short Vid" in body      # -1 day
+        assert "QW Long Vid" not in body   # -300 days
+
+    def test_invalid_duration_returns_400(self, client):
+        assert client.get("/?duration=epic").status_code == 400
+
+    def test_invalid_added_within_returns_400(self, client):
+        assert client.get("/?added_within=5").status_code == 400
+
+    def test_controls_render_current_state(self, client):
+        body = client.get("/?duration=short&unwatched=1").get_data(as_text=True)
+        assert 'name="duration"' in body and 'name="unwatched"' in body
+
+
 class TestVisitRoute:
     def test_redirects_to_youtube(self, client):
         resp = client.get("/visit/aaaaaaaaaa1")
