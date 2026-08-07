@@ -17,6 +17,7 @@
 - [ ] "More like this" button on video cards
 - ~~Rediscover shelf — least recently viewed videos, 20 random from pool, sticky for 7 days, manually refreshable~~
 - [ ] "Continue watching" section — videos started but not finished (requires progress tracking)
+- [ ] Minimize the Rediscover panel when the main list is filtered to a single channel (arrived via the channels listing) — surface just that channel's content. *(Future, brainstorm-only: a per-channel Rediscover shelf mirroring the global rediscover feature — not scoped yet.)*
 
 ## Organization
 
