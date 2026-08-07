@@ -7,7 +7,10 @@
     + (sort_by != 'date_added') | int
     + (sort_dir != 'desc') | int
     + (group is not none and group != '') | int
-    + favourites_only | int %}
+    + favourites_only | int
+    + unwatched_only | int
+    + (current_duration is not none and current_duration != '') | int
+    + (current_added_within is not none) | int %}
 
 <div class="toolbar">
   <form id="filter-form"
@@ -75,6 +78,26 @@
       <label class="filter-toggle">
         <input type="checkbox" name="favourites" value="1" {% if favourites_only %}checked{% endif %}>
         Favourites
+      </label>
+
+      <select name="duration">
+        <option value="" {% if not current_duration %}selected{% endif %}>Any duration</option>
+        <option value="short"  {% if current_duration == 'short'  %}selected{% endif %}>Short (&lt; 5 min)</option>
+        <option value="medium" {% if current_duration == 'medium' %}selected{% endif %}>Medium (5–20 min)</option>
+        <option value="long"   {% if current_duration == 'long'   %}selected{% endif %}>Long (&gt; 20 min)</option>
+      </select>
+
+      <select name="added_within">
+        <option value="" {% if not current_added_within %}selected{% endif %}>Any time</option>
+        <option value="7"   {% if current_added_within == 7   %}selected{% endif %}>Last 7 days</option>
+        <option value="30"  {% if current_added_within == 30  %}selected{% endif %}>Last 30 days</option>
+        <option value="90"  {% if current_added_within == 90  %}selected{% endif %}>Last 90 days</option>
+        <option value="365" {% if current_added_within == 365 %}selected{% endif %}>Last year</option>
+      </select>
+
+      <label class="filter-toggle">
+        <input type="checkbox" name="unwatched" value="1" {% if unwatched_only %}checked{% endif %}>
+        Unwatched only
       </label>
     </div>
 
