@@ -51,6 +51,7 @@ class TestIndexFilterQuickWins:
                                 duration_seconds, date_added, fetch_status) VALUES
               ('qwshort0001', 'u', 'QW Short Vid', 'C', 0, 120,  date('now','-1 days'),  'ok'),
               ('qwlong00001', 'u', 'QW Long Vid',  'C', 5, 3600, date('now','-300 days'),'ok');
+            UPDATE videos SET is_watched = 1 WHERE personal_view_count > 0;
             """
         )
         conn.commit()
@@ -331,6 +332,35 @@ class TestFavouriteToggle:
         resp = client.get("/?favourites=1", headers={"HX-Request": "true"})
         assert b"Guitar Lesson 1" in resp.data
         assert b"Thai Food Recipe" not in resp.data
+
+
+class TestToggleWatched:
+    def test_toggles_watched_on(self, client):
+        # aaaaaaaaaa1 seeds unwatched (count 0 → is_watched 0)
+        data = client.post("/videos/aaaaaaaaaa1/watched").get_json()
+        assert data["is_watched"] is True
+
+    def test_toggle_twice_returns_to_original(self, client):
+        first = client.post("/videos/aaaaaaaaaa1/watched").get_json()["is_watched"]
+        second = client.post("/videos/aaaaaaaaaa1/watched").get_json()["is_watched"]
+        assert first is True and second is False
+
+    def test_unknown_video_returns_404(self, client):
+        assert client.post("/videos/doesnotexist/watched").status_code == 404
+
+    def test_toggle_does_not_change_view_count(self, client):
+        client.post("/videos/aaaaaaaaaa2/watched")  # was watched (count 3) → unwatched
+        conn = sqlite3.connect(client.application.config["DATABASE"])
+        count = conn.execute(
+            "SELECT personal_view_count FROM videos WHERE video_id = 'aaaaaaaaaa2'"
+        ).fetchone()[0]
+        conn.close()
+        assert count == 3   # history preserved
+
+    def test_unwatched_filter_reflects_toggle(self, client):
+        client.post("/videos/aaaaaaaaaa1/watched")  # mark watched
+        body = client.get("/?unwatched=1", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "Guitar Lesson 1" not in body   # aaaaaaaaaa1's title now excluded
 
 
 class TestWatchLaterReorder:

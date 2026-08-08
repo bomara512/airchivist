@@ -3,7 +3,7 @@ import pytest
 from webapp.db import (
     get_all_videos, get_video_by_id, get_video_channel_names, get_all_tags,
     get_tags_with_keywords, get_tag_keywords, get_stats, get_tags_for_video,
-    record_visit, create_tag, set_tag_keywords, delete_tag,
+    record_visit, set_watched, create_tag, set_tag_keywords, delete_tag,
     add_video_tag, remove_video_tag, init_webapp_tables, count_videos,
     apply_aliases, get_canonical_tags, create_canonical_tag,
     add_alias, delete_alias, retroactive_apply,
@@ -645,6 +645,48 @@ class TestInitWebappTables:
         conn.close()
         init_webapp_tables(db_path)
         init_webapp_tables(db_path)  # must not raise
+
+
+class TestIsWatchedMigration:
+    def _fresh_db(self, tmp_path):
+        from crawler.datastore import _SCHEMA as _CRAWLER_SCHEMA
+        db_path = str(tmp_path / "mig.db")
+        conn = sqlite3.connect(db_path)
+        conn.executescript(_CRAWLER_SCHEMA)
+        conn.execute(
+            "INSERT INTO videos (video_id, url, title, personal_view_count, fetch_status) "
+            "VALUES ('vidopened01', 'u', 'Opened', 5, 'ok'), "
+            "       ('vidfresh001', 'u', 'Fresh', 0, 'ok')"
+        )
+        conn.commit()
+        conn.close()
+        return db_path
+
+    def test_adds_column_and_backfills_opened_videos(self, tmp_path):
+        db_path = self._fresh_db(tmp_path)
+        init_webapp_tables(db_path)
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        rows = {r["video_id"]: r["is_watched"]
+                for r in conn.execute("SELECT video_id, is_watched FROM videos")}
+        conn.close()
+        assert rows["vidopened01"] == 1   # personal_view_count > 0 → backfilled watched
+        assert rows["vidfresh001"] == 0   # never opened → unwatched
+
+    def test_backfill_is_one_time_and_restart_safe(self, tmp_path):
+        db_path = self._fresh_db(tmp_path)
+        init_webapp_tables(db_path)            # first run: adds column + backfills
+        conn = sqlite3.connect(db_path)
+        conn.execute("UPDATE videos SET is_watched = 0 WHERE video_id = 'vidopened01'")
+        conn.commit()
+        conn.close()
+        init_webapp_tables(db_path)            # second run must NOT re-mark it
+        conn = sqlite3.connect(db_path)
+        val = conn.execute(
+            "SELECT is_watched FROM videos WHERE video_id = 'vidopened01'"
+        ).fetchone()[0]
+        conn.close()
+        assert val == 0
 
 
 class TestCanonicalTagManagement:
@@ -1392,3 +1434,42 @@ class TestCountChannels:
     def test_counts_search(self, db_conn):
         self._seed(db_conn)
         assert count_channels(db_conn, search="alp") == 1
+
+
+class TestSetWatched:
+    def test_sets_flag_without_touching_view_count(self, db_conn):
+        before = db_conn.execute(
+            "SELECT personal_view_count FROM videos WHERE video_id = 'aaaaaaaaaa2'"
+        ).fetchone()[0]
+        set_watched(db_conn, "aaaaaaaaaa2", False)
+        row = db_conn.execute(
+            "SELECT is_watched, personal_view_count FROM videos WHERE video_id = 'aaaaaaaaaa2'"
+        ).fetchone()
+        assert row["is_watched"] == 0
+        assert row["personal_view_count"] == before   # history preserved
+
+    def test_marks_unwatched_video_watched(self, db_conn):
+        set_watched(db_conn, "aaaaaaaaaa1", True)
+        assert db_conn.execute(
+            "SELECT is_watched FROM videos WHERE video_id = 'aaaaaaaaaa1'"
+        ).fetchone()[0] == 1
+
+
+class TestRecordVisitSetsWatched:
+    def test_record_visit_marks_watched(self, db_conn):
+        record_visit(db_conn, "aaaaaaaaaa1")   # was unwatched (count 0, is_watched 0)
+        row = db_conn.execute(
+            "SELECT is_watched, personal_view_count FROM videos WHERE video_id = 'aaaaaaaaaa1'"
+        ).fetchone()
+        assert row["is_watched"] == 1
+        assert row["personal_view_count"] == 1
+
+
+class TestUnwatchedFilterUsesIsWatched:
+    def test_unwatched_only_keys_off_is_watched(self, db_conn):
+        # aaaaaaaaaa1 starts unwatched; mark it watched via the flag only.
+        set_watched(db_conn, "aaaaaaaaaa1", True)
+        ids = [r["video_id"] for r in get_all_videos(db_conn, unwatched_only=True)]
+        assert "aaaaaaaaaa1" not in ids
+        # A video with count 0 and is_watched 0 stays unwatched:
+        assert "aaaaaaaaaa4" in ids

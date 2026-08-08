@@ -90,4 +90,16 @@ def init_webapp_tables(db_path: str) -> None:
         except sqlite3.OperationalError:
             pass  # column already exists
     conn.commit()
+
+    # is_watched: add column + one-time backfill from personal_view_count.
+    # The backfill runs ONLY when the ALTER succeeds (first migration). On later
+    # startups the ALTER raises OperationalError and we skip it, so a video the
+    # user later marks unwatched is never silently re-marked watched on restart.
+    try:
+        conn.execute("ALTER TABLE videos ADD COLUMN is_watched BOOLEAN NOT NULL DEFAULT 0")
+        conn.execute("UPDATE videos SET is_watched = 1 WHERE personal_view_count > 0")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # column already exists; backfill already ran once
+
     conn.close()
