@@ -375,6 +375,26 @@ class TestRemoveFromRediscoverShelf:
         assert json.loads(row["video_ids"]) == ["aaaaaaaaaa2"]
 
 
+class TestShelfVideosIncludeIsWatched:
+    def test_shelf_video_dicts_carry_is_watched(self, db_conn):
+        import json
+        from webapp.db import get_current_rediscover_shelf, set_watched
+        # aaaaaaaaaa2 is watched in the seed (personal_view_count>0 → is_watched=1);
+        # aaaaaaaaaa1 is unwatched. Seed a shelf with both.
+        db_conn.execute(
+            "INSERT INTO rediscover_shelf (generated_at, expires_at, pool, video_ids) "
+            "VALUES ('2026-01-01T00:00:00+00:00', '2099-01-01T00:00:00+00:00', '[]', ?)",
+            (json.dumps(["aaaaaaaaaa1", "aaaaaaaaaa2"]),),
+        )
+        db_conn.commit()
+        shelf = get_current_rediscover_shelf(db_conn)
+        by_id = {v["video_id"]: v for v in shelf["videos"]}
+        # Every shelf video dict must expose is_watched so the card renders correct state.
+        assert "is_watched" in by_id["aaaaaaaaaa1"]
+        assert by_id["aaaaaaaaaa1"]["is_watched"] == 0
+        assert by_id["aaaaaaaaaa2"]["is_watched"] == 1
+
+
 class TestCreateTag:
     def test_creates_tag_row(self, db_conn):
         tag_id = create_tag(db_conn, "coding")

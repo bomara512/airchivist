@@ -415,7 +415,7 @@ def get_current_rediscover_shelf(conn: sqlite3.Connection) -> dict:
     rows = conn.execute(f"""
         SELECT v.video_id, v.title, v.channel_name, v.channel_id, v.thumbnail_url,
                v.yt_view_count, v.duration_seconds, v.date_published, v.date_added,
-               v.personal_view_count, v.date_last_viewed,
+               v.personal_view_count, v.date_last_viewed, v.is_watched,
                GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END) AS tags
         FROM videos v
         LEFT JOIN video_tags vt ON vt.video_id_fk = v.id

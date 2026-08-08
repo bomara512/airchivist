@@ -6,6 +6,10 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ## 2026-08-07
 
+### fix(webapp): rediscover shelf cards now reflect watched state
+
+- `get_current_rediscover_shelf`'s per-video SELECT was missing `v.is_watched`, so shelf cards always rendered as unwatched regardless of actual state (the `watched-btn--active` class never applied on the shelf). Added `v.is_watched` to the query.
+
 ### feat(webapp): marking a shelf video watched drops it from the rediscover queue
 
 - In the `.watched-btn` handler, marking a video watched *from a rediscover shelf card* now also removes it from the current shelf (POST `/videos/<id>/rediscover-shelf/remove` + fade), since marking watched is a strong "already rediscovered" signal.
