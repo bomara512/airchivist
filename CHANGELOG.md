@@ -6,6 +6,15 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-07
 
+### feat(webapp/db): watched state via `is_watched`; `set_watched`, `record_visit`, filter/shelf
+
+- Added `set_watched(conn, video_id, value)`, mirroring `set_favourite`: sets `videos.is_watched` and commits, never touching `personal_view_count` — the view-count history stays intact regardless of how the watched flag is toggled.
+- `record_visit` (fired by clicking through to YouTube) now also sets `is_watched = 1` in the same `UPDATE`, so a normal visit still marks a video watched even though "watched" is no longer driven by the counter.
+- Redefined "unwatched" across the DB layer from `personal_view_count = 0` to `is_watched = 0`: `_build_where(unwatched_only=True)`, and both pool queries in `generate_rediscover_shelf` (unwatched pool `is_watched = 0`, viewed pool `is_watched = 1`) now key off the flag. This is the behavioral point of Task 1's backfill — a video can now be marked unwatched independent of how many times it was historically visited.
+- Test-seed fallout: `tests/webapp/conftest.py` (`SEED_SQL`) and `tests/webapp/test_routes.py` (`TestIndexFilterQuickWins._seed`) insert rows *after* `init_webapp_tables` runs, so Task 1's backfill never touches them and every seeded row defaulted to `is_watched = 0` — which silently broke the unwatched-filter and rediscover-shelf pool-composition tests once the redefinition landed. Fixed by appending `UPDATE videos SET is_watched = 1 WHERE personal_view_count > 0;` to both seed scripts, keeping seeded data coherent with the new definition and pool composition unchanged from before this change.
+- Route/UI toggle (the actual "click to mark watched/unwatched" affordance) is not part of this change — DB layer only.
+- Tests: `tests/webapp/test_db.py::TestSetWatched`, `TestRecordVisitSetsWatched`, `TestUnwatchedFilterUsesIsWatched`. Full suite (528 tests) passes after the seed fixes.
+
 ### feat(webapp/db): add `is_watched` column with one-time restart-safe backfill
 
 - `init_webapp_tables` now adds `videos.is_watched` (BOOLEAN NOT NULL DEFAULT 0) via a dedicated guarded `ALTER`/`UPDATE` block, separate from the generic column-migration loop. On first run the `ALTER` succeeds and a one-time backfill sets `is_watched = 1` for every row with `personal_view_count > 0`; on every later startup the `ALTER` raises `sqlite3.OperationalError` (column already exists) and the whole block — including the backfill — is skipped.

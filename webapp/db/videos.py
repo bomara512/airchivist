@@ -49,7 +49,7 @@ def _build_where(channel, tag, search, favourites_only=False,
     if favourites_only:
         clauses.append("v.is_favourite = 1")
     if unwatched_only:
-        clauses.append("v.personal_view_count = 0")
+        clauses.append("v.is_watched = 0")
     if duration is not None:
         if duration not in _DURATION_BUCKETS:
             raise ValueError(f"Invalid duration: {duration!r}")
@@ -66,6 +66,14 @@ def _build_where(channel, tag, search, favourites_only=False,
 def set_favourite(conn: sqlite3.Connection, video_id: str, value: bool) -> None:
     conn.execute(
         "UPDATE videos SET is_favourite = ? WHERE video_id = ?",
+        (1 if value else 0, video_id),
+    )
+    conn.commit()
+
+
+def set_watched(conn: sqlite3.Connection, video_id: str, value: bool) -> None:
+    conn.execute(
+        "UPDATE videos SET is_watched = ? WHERE video_id = ?",
         (1 if value else 0, video_id),
     )
     conn.commit()
@@ -219,7 +227,7 @@ def record_visit(conn: sqlite3.Connection, video_id: str) -> None:
     now = datetime.now(timezone.utc).isoformat()
     conn.execute(
         "UPDATE videos SET personal_view_count = personal_view_count + 1, "
-        "date_last_viewed = ? WHERE video_id = ?",
+        "date_last_viewed = ?, is_watched = 1 WHERE video_id = ?",
         (now, video_id),
     )
     _remove_from_rediscover_shelf(conn, video_id)
@@ -353,20 +361,20 @@ def count_hidden_videos(conn: sqlite3.Connection) -> int:
 def generate_rediscover_shelf(conn: sqlite3.Connection) -> None:
     """Generate a new rediscover shelf and write it to the DB.
 
-    Prioritizes unwatched (personal_view_count = 0), then falls back to oldest-viewed.
+    Prioritizes unwatched (is_watched = 0), then falls back to oldest-viewed.
     """
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=7)
 
     unwatched = conn.execute("""
         SELECT id, video_id FROM videos
-        WHERE personal_view_count = 0 AND fetch_status = 'ok' AND is_hidden = 0
+        WHERE is_watched = 0 AND fetch_status = 'ok' AND is_hidden = 0
         ORDER BY date_added ASC
     """).fetchall()
 
     viewed = conn.execute("""
         SELECT id, video_id FROM videos
-        WHERE personal_view_count > 0 AND fetch_status = 'ok' AND is_hidden = 0
+        WHERE is_watched = 1 AND fetch_status = 'ok' AND is_hidden = 0
         ORDER BY date_last_viewed ASC
     """).fetchall()
 

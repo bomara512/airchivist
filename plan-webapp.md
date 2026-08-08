@@ -101,7 +101,8 @@ def get_tags_for_video(conn, video_id: str) -> list[str]
 def get_stats(conn) -> dict                    # total_videos, total_channels, fetch_errors, hidden_count
 
 # Write functions
-def record_visit(conn, video_id: str) -> None  # increments personal_view_count, sets date_last_viewed
+def record_visit(conn, video_id: str) -> None  # increments personal_view_count, sets date_last_viewed, sets is_watched = 1
+def set_watched(conn, video_id: str, value: bool) -> None  # sets is_watched only; never touches personal_view_count
 
 def create_tag(conn, name: str) -> int
 
@@ -126,8 +127,11 @@ def init_webapp_tables(db_path: str) -> None   # creates webapp extension tables
                                                 # first time the ALTER succeeds. On later startups the ALTER raises
                                                 # OperationalError and the whole block (including the backfill UPDATE) is
                                                 # skipped, so a video the user manually un-marks stays unwatched across
-                                                # restarts. No read/write DB functions, route, or UI consume this column
-                                                # yet — schema only (Task 1 of the watched-toggle feature).
+                                                # restarts. `is_watched` is now the source of truth for "unwatched" —
+                                                # `_build_where(unwatched_only=True)`, `record_visit`, and
+                                                # `generate_rediscover_shelf`'s pool split all key off it rather than
+                                                # `personal_view_count`, and `set_watched` toggles it independently of
+                                                # the view-count history. Route/UI toggle still pending.
 def collapse_case_variants(conn) -> int        # one-time admin: merges case-duplicate tags; NOT called at startup
 
 # Constants (enums)
@@ -139,7 +143,7 @@ def collapse_case_variants(conn) -> int        # one-time admin: merges case-dup
 
 `_build_where` also accepts three quick-filter params, alongside the existing `favourites_only`:
 
-- `unwatched_only: bool` — adds `v.personal_view_count = 0`.
+- `unwatched_only: bool` — adds `v.is_watched = 0`.
 - `duration: Optional[str]` — one of `"short"`, `"medium"`, `"long"`, looked up in the `_DURATION_BUCKETS` allow-list (`short` < 5 min, `medium` 5–20 min, `long` >= 20 min, all on `v.duration_seconds`). A video with a NULL `duration_seconds` matches none of the three buckets — accepted, since guessing a bucket for missing data would be more misleading than omitting it.
 - `added_within: Optional[int]` — one of `7`, `30`, `90`, `365` (days), validated against the `_ADDED_WITHIN_DAYS` frozenset, then applied as `v.date_added >= date('now', '-N days')`.
 

@@ -51,6 +51,7 @@ class TestIndexFilterQuickWins:
                                 duration_seconds, date_added, fetch_status) VALUES
               ('qwshort0001', 'u', 'QW Short Vid', 'C', 0, 120,  date('now','-1 days'),  'ok'),
               ('qwlong00001', 'u', 'QW Long Vid',  'C', 5, 3600, date('now','-300 days'),'ok');
+            UPDATE videos SET is_watched = 1 WHERE personal_view_count > 0;
             """
         )
         conn.commit()

@@ -3,7 +3,7 @@ import pytest
 from webapp.db import (
     get_all_videos, get_video_by_id, get_video_channel_names, get_all_tags,
     get_tags_with_keywords, get_tag_keywords, get_stats, get_tags_for_video,
-    record_visit, create_tag, set_tag_keywords, delete_tag,
+    record_visit, set_watched, create_tag, set_tag_keywords, delete_tag,
     add_video_tag, remove_video_tag, init_webapp_tables, count_videos,
     apply_aliases, get_canonical_tags, create_canonical_tag,
     add_alias, delete_alias, retroactive_apply,
@@ -1434,3 +1434,42 @@ class TestCountChannels:
     def test_counts_search(self, db_conn):
         self._seed(db_conn)
         assert count_channels(db_conn, search="alp") == 1
+
+
+class TestSetWatched:
+    def test_sets_flag_without_touching_view_count(self, db_conn):
+        before = db_conn.execute(
+            "SELECT personal_view_count FROM videos WHERE video_id = 'aaaaaaaaaa2'"
+        ).fetchone()[0]
+        set_watched(db_conn, "aaaaaaaaaa2", False)
+        row = db_conn.execute(
+            "SELECT is_watched, personal_view_count FROM videos WHERE video_id = 'aaaaaaaaaa2'"
+        ).fetchone()
+        assert row["is_watched"] == 0
+        assert row["personal_view_count"] == before   # history preserved
+
+    def test_marks_unwatched_video_watched(self, db_conn):
+        set_watched(db_conn, "aaaaaaaaaa1", True)
+        assert db_conn.execute(
+            "SELECT is_watched FROM videos WHERE video_id = 'aaaaaaaaaa1'"
+        ).fetchone()[0] == 1
+
+
+class TestRecordVisitSetsWatched:
+    def test_record_visit_marks_watched(self, db_conn):
+        record_visit(db_conn, "aaaaaaaaaa1")   # was unwatched (count 0, is_watched 0)
+        row = db_conn.execute(
+            "SELECT is_watched, personal_view_count FROM videos WHERE video_id = 'aaaaaaaaaa1'"
+        ).fetchone()
+        assert row["is_watched"] == 1
+        assert row["personal_view_count"] == 1
+
+
+class TestUnwatchedFilterUsesIsWatched:
+    def test_unwatched_only_keys_off_is_watched(self, db_conn):
+        # aaaaaaaaaa1 starts unwatched; mark it watched via the flag only.
+        set_watched(db_conn, "aaaaaaaaaa1", True)
+        ids = [r["video_id"] for r in get_all_videos(db_conn, unwatched_only=True)]
+        assert "aaaaaaaaaa1" not in ids
+        # A video with count 0 and is_watched 0 stays unwatched:
+        assert "aaaaaaaaaa4" in ids
