@@ -429,7 +429,7 @@ def get_current_rediscover_shelf(conn: sqlite3.Connection) -> dict:
         v = dict(r)
         v["tags"] = v["tags"] or ""
         if v["personal_view_count"] == 0:
-            v["reason"] = "Never watched"
+            v["reason"] = "Never opened"
         elif v["date_last_viewed"]:
             last_viewed = datetime.fromisoformat(v["date_last_viewed"])
             days_ago = (now - last_viewed).days

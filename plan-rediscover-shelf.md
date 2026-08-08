@@ -12,7 +12,7 @@ Goal: Surface stale content the user hasn't engaged with in a while. A shelf on 
 
 **Stickiness:** Shelf is sticky for 7 days from first load. Manual refresh regenerates the entire pool and resets the 7-day timer.
 
-**UI:** Togglable/collapsible section on homepage. Each video card shows *why* it's there: "Never watched", "Last viewed 6 months ago", etc.
+**UI:** Togglable/collapsible section on homepage. Each video card shows *why* it's there: "Never opened", "Last viewed 6 months ago", etc.
 
 **Interaction:** Clicking a video increments `personal_view_count` and updates `date_last_viewed` (normal viewing behavior). Since 2026-08-07, the same `record_visit` call also sets `is_watched = 1`, which is what actually moves the video out of the unwatched pool above — `personal_view_count`/`date_last_viewed` still update as before but no longer gate pool membership themselves. A user can also set `is_watched` directly via the new per-card watched toggle without opening the video at all.
 
@@ -76,7 +76,7 @@ def generate_rediscover_shelf(conn) -> dict:
     Returns:
       {
         'video_ids': [id1, id2, ...],  # ordered list for display
-        'reasons': {id1: 'Never watched', id2: 'Last viewed 6 months ago', ...},
+        'reasons': {id1: 'Never opened', id2: 'Last viewed 6 months ago', ...},
         'generated_at': '2026-06-14T...',
         'expires_at': '2026-06-21T...'
       }
@@ -103,7 +103,7 @@ def refresh_rediscover_shelf(conn) -> dict:
       "title": "...",
       "channel_name": "...",
       "thumbnail_url": "...",
-      "reason": "Never watched",
+      "reason": "Never opened",
       "days_since_viewed": null
     },
     {
@@ -155,7 +155,7 @@ Force regenerate the shelf. Returns same response structure as GET.
           <div class="card-info">
             <h3>Title</h3>
             <p class="channel">Channel Name</p>
-            <p class="reason">Never watched</p>
+            <p class="reason">Never opened</p>
           </div>
         </a>
       </div>
