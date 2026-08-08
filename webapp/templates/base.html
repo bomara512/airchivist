@@ -320,6 +320,15 @@
               b.title = 'Mark as watched';
             }
           });
+
+          // Marking watched from the rediscover shelf is a strong "already
+          // rediscovered" signal — drop it from the current shelf. Uses the
+          // shelf-remove route (no personal_view_count change) to honour the
+          // toggle's contract that marking watched never bumps the open-count.
+          if (data.is_watched && btn.closest('#shelf-carousel')) {
+            fetch('/videos/' + videoId + '/rediscover-shelf/remove', { method: 'POST' })
+              .then(function (r) { if (r.ok) fadeOutShelfCards(videoId); });
+          }
         });
     });
 

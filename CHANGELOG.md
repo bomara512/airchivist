@@ -6,6 +6,11 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-07
 
+### feat(webapp): marking a shelf video watched drops it from the rediscover queue
+
+- In the `.watched-btn` handler, marking a video watched *from a rediscover shelf card* now also removes it from the current shelf (POST `/videos/<id>/rediscover-shelf/remove` + fade), since marking watched is a strong "already rediscovered" signal.
+- Uses the shelf-remove route (no `personal_view_count` change), not `mark-watched`, to preserve the watched toggle's contract that marking watched never bumps the open-count. Frontend-only — the route and DB function already existed. Only fires when marking watched (not un-marking) and only on the shelf.
+
 ### fix(webapp): watched button reveals on hover, not always
 
 - Dropped `opacity: 1 !important` from `.watched-btn--active`; the active state now only tints the button green. The button is hidden by default and revealed on card hover via the existing `.thumb-wrap:hover` rule — matching the watch-later button.
