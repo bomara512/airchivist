@@ -6,6 +6,14 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-07
 
+### feat(webapp): per-video watched toggle button on video cards
+
+- Added a `.watched-btn` (&#10003;) overlay button to every video card, next to the existing `.favourite-btn` star, mirroring its markup/click-handler/CSS shape exactly (same absolute-positioned thumbnail overlay, same carousel-clone-aware delegated click handler in `base.html`, same fetch-then-update-all-matching-buttons pattern) but with its own colour (`#4caf50`, distinct from the star's gold) and its own route, `POST /videos/<id>/watched`, which toggles `videos.is_watched` via `set_watched` and returns `{"is_watched": bool}`.
+- This is the UI-facing piece of the `is_watched` work landed earlier today: a video can now be marked watched/unwatched directly from the card, without clicking through to YouTube. Since "unwatched" (the index filter and both rediscover-shelf pool queries) already key off `is_watched` rather than `personal_view_count`, toggling this button immediately moves a card in or out of those views. Opening a video (`record_visit`) still sets `is_watched = 1` as before; the one-time backfill already marked every previously-opened video watched, so this button is additive, not a replacement for that flow.
+- The toggle intentionally does not touch `personal_view_count` — that counter still exists purely as "times opened from ViewTube" history and is unaffected by marking something watched/unwatched by hand. Trade-off: a video's watched state and its open-count history can now diverge (e.g. a video opened 3 times can still be marked "unwatched"), which is the intended behavior — "watched" is now a user judgment, not a derived count — but is a mental-model shift from before this feature.
+- Trade-off already noted when the `is_watched` column and schema migration landed: this required an `ALTER TABLE` plus a backfill and a redefinition of what "unwatched" means across the codebase, more surface area than a purely additive button would have needed.
+- No new automated tests — the DB function (`set_watched`) and the route (`video_toggle_watched`) already have full coverage from the earlier steps of this feature; this change is templates/CSS/JS only. Manually verified: pending (see `plan-webapp.md` and the task report for the outstanding browser checks).
+
 ### feat(webapp/db): watched state via `is_watched`; `set_watched`, `record_visit`, filter/shelf
 
 - Added `set_watched(conn, video_id, value)`, mirroring `set_favourite`: sets `videos.is_watched` and commits, never touching `personal_view_count` — the view-count history stays intact regardless of how the watched flag is toggled.

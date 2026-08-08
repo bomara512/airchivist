@@ -131,7 +131,10 @@ def init_webapp_tables(db_path: str) -> None   # creates webapp extension tables
                                                 # `_build_where(unwatched_only=True)`, `record_visit`, and
                                                 # `generate_rediscover_shelf`'s pool split all key off it rather than
                                                 # `personal_view_count`, and `set_watched` toggles it independently of
-                                                # the view-count history. Route/UI toggle still pending.
+                                                # the view-count history. Exposed via `POST /videos/<id>/watched`
+                                                # (toggles current value, returns `{"is_watched": bool}`) and the
+                                                # `.watched-btn` (&#10003;) card overlay button, mirroring the
+                                                # favourite star in shape/wiring.
 def collapse_case_variants(conn) -> int        # one-time admin: merges case-duplicate tags; NOT called at startup
 
 # Constants (enums)
@@ -351,6 +354,8 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 | POST | `/tags/llm/suggest` | Trigger LLM suggestion generation |
 | POST | `/tags/llm/suggest/<id>/dismiss` | Dismiss a single LLM suggestion card |
 | POST | `/videos/<id>/mark-watched` | Calls `record_visit` without redirecting; 404 if video not found; returns 204 |
+| POST | `/videos/<id>/watched` | Toggles `videos.is_watched` via `set_watched`; 404 if video not found; returns `{"is_watched": bool}` |
+| POST | `/videos/<id>/favourite` | Toggles `videos.is_favourite` via `set_favourite`; 404 if video not found; returns `{"is_favourite": bool}` |
 | POST | `/videos/<id>/rediscover-shelf/remove` | Removes from the active shelf only — does not touch `personal_view_count`/`date_last_viewed`; 404 if video not found; returns 204 |
 | POST | `/videos/<id>/hide` | Soft-delete: set `is_hidden = 1`; returns 204 (used by right-click JS and extension) |
 | POST | `/videos/<id>/unhide` | Restore hidden video; redirects to `/hidden` |
@@ -407,6 +412,8 @@ Card layout within `.video-info`:
 4. Tag pills (`.video-tags`) — canonical tags only, each linking to `/?tag=<name>` to filter by that tag. Only rendered when the video has at least one canonical tag.
 
 The channel name links to `https://www.youtube.com/channel/<channel_id>` (opens in a new tab); if `channel_id` is absent it renders as plain text. A small funnel icon (`.channel-filter-icon`) sits beside the channel name; clicking it navigates to `/?channel=<name>` (full page load so the channel select in the toolbar reflects the active filter). The icon is dim by default and turns red on hover.
+
+**Thumbnail overlay buttons** (`.thumb-wrap`, hidden until hover except when active): top-left corner holds `.favourite-btn` (★, `#f5c518` when active) and, immediately to its right, `.watched-btn` (&#10003;, `#4caf50` when active) — both `position: absolute`, `top: 6px`, at `left: 6px` and `left: 2.6rem` respectively. Top-right corner (`.thumb-actions-right`) holds the context-specific Watch Later / remove buttons. Each button POSTs to its own toggle route and updates every `.favourite-btn`/`.watched-btn` sharing the same `data-video-id` (handles carousel clones on the rediscover shelf) via the shared click-delegation handlers in `base.html`. Favouriting from the rediscover shelf or watch-later list additionally calls `mark-watched` and removes the card from that list — the watched button itself has no such side effect, it only flips the flag in place.
 
 **Duration overlay**: Video duration is displayed as a pill badge in the bottom-right corner of the thumbnail (YouTube-style), using `position: absolute` inside the `position: relative` `.thumb-link`. Only rendered when `duration_seconds` is non-null.
 

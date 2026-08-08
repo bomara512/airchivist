@@ -33,6 +33,9 @@
     <button class="favourite-btn {% if video.is_favourite %}favourite-btn--active{% endif %}"
             data-video-id="{{ video.video_id }}"
             title="{{ 'Remove from favourites' if video.is_favourite else 'Add to favourites' }}">★</button>
+    <button class="watched-btn {% if video.is_watched %}watched-btn--active{% endif %}"
+            data-video-id="{{ video.video_id }}"
+            title="{{ 'Mark as unwatched' if video.is_watched else 'Mark as watched' }}">&#10003;</button>
     {% endif %}
   </div>
 

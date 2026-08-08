@@ -303,6 +303,26 @@
         });
     });
 
+    // Watched toggle button — update all cards with same video_id (carousel clones)
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.watched-btn');
+      if (!btn) return;
+      var videoId = btn.dataset.videoId;
+      fetch('/videos/' + videoId + '/watched', { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          document.querySelectorAll('.watched-btn[data-video-id="' + videoId + '"]').forEach(function (b) {
+            if (data.is_watched) {
+              b.classList.add('watched-btn--active');
+              b.title = 'Mark as unwatched';
+            } else {
+              b.classList.remove('watched-btn--active');
+              b.title = 'Mark as watched';
+            }
+          });
+        });
+    });
+
     // Watch Later button — add to queue (main list and shelf cards)
     document.addEventListener('click', function (e) {
       var btn = e.target.closest('.watch-later-btn');

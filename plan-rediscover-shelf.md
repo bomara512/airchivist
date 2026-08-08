@@ -6,7 +6,7 @@ Goal: Surface stale content the user hasn't engaged with in a while. A shelf on 
 
 ## Design Decisions (Locked In)
 
-**Pool selection:** Prioritize unwatched (`personal_view_count = 0`), then fall back to videos ordered by oldest `date_last_viewed`.
+**Pool selection:** Prioritize unwatched (`is_watched = 0`), then fall back to videos ordered by oldest `date_last_viewed`. (Originally keyed off `personal_view_count = 0`; redefined to `is_watched = 0` on 2026-08-07 when the watched-toggle feature made "watched" an independent, user-settable flag rather than a value derived from the view-count history — see the 2026-08-07 `CHANGELOG.md` entries.)
 
 **Pool scope:** Completely random across the entire library; no tag/channel/quality bias; no exclusions (include hidden, very short, etc.).
 
@@ -14,7 +14,7 @@ Goal: Surface stale content the user hasn't engaged with in a while. A shelf on 
 
 **UI:** Togglable/collapsible section on homepage. Each video card shows *why* it's there: "Never watched", "Last viewed 6 months ago", etc.
 
-**Interaction:** Clicking a video increments `personal_view_count` and updates `date_last_viewed` (normal viewing behavior).
+**Interaction:** Clicking a video increments `personal_view_count` and updates `date_last_viewed` (normal viewing behavior). Since 2026-08-07, the same `record_visit` call also sets `is_watched = 1`, which is what actually moves the video out of the unwatched pool above — `personal_view_count`/`date_last_viewed` still update as before but no longer gate pool membership themselves. A user can also set `is_watched` directly via the new per-card watched toggle without opening the video at all.
 
 **Scope:** Launch this shelf only; don't retain "recently added" shelf for now.
 
@@ -40,21 +40,23 @@ video_ids   TEXT NOT NULL              -- JSON array in display order
 
 ### Data Queries
 
-**Unwatched pool:**
+**Unwatched pool** (`is_watched = 0`, as shipped in `generate_rediscover_shelf`):
 ```sql
 SELECT id, video_id, title, channel_name, personal_view_count, date_last_viewed
 FROM videos
-WHERE personal_view_count = 0
+WHERE is_watched = 0
 ORDER BY date_added ASC
 ```
 
-**Viewed pool (fallback):**
+**Viewed pool (fallback)** (`is_watched = 1`):
 ```sql
 SELECT id, video_id, title, channel_name, personal_view_count, date_last_viewed
 FROM videos
-WHERE personal_view_count > 0
+WHERE is_watched = 1
 ORDER BY date_last_viewed ASC
 ```
+
+(Both queries originally filtered on `personal_view_count`; redefined to `is_watched` on 2026-08-07 — see Data Model note above. `personal_view_count` and `date_last_viewed` are still selected and still drive the "Last viewed N days ago" reason label; only the pool-membership predicate changed.)
 
 **Selection logic:**
 1. Fetch unwatched; if < 20, append oldest-viewed videos until 20+ total
