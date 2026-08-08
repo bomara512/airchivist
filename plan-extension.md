@@ -188,6 +188,20 @@ Content script (`extension/content/content.js`) injected on `youtube.com/watch*`
 
 **Known limitation:** YouTube's DOM element names change occasionally; if selectors break after a YouTube update, `ytd-compact-video-renderer a#thumbnail` and `#above-the-fold #title` are the ones to re-check.
 
+### Phase 3b — Channel page green title ✅ IMPLEMENTED (2026-08-07)
+
+The content script now also injects on channel pages, not just `/watch*` — `content_scripts.matches` in `manifest.json` was broadened to `https://www.youtube.com/watch*`, `/@*`, `/channel/*`, `/c/*`, and `/user/*`.
+
+**Current channel title** — on a channel page, the header title (`CHANNEL_TITLE_SELECTOR`, a comma-separated list of known YouTube channel-header selectors) is colored green (`TITLE_COLOR.exists`) if the channel is already tracked in ViewTube. Unlike video titles, there is no red/hidden case — channels have no "hidden" state, so the title is either green or left at its default color.
+
+`content.js` gained `YT_CHANNEL_RE` (kept byte-identical to the copy in `popup.js`, itself synced to `crawler/models.py`'s `_YT_CHANNEL_RE`) and `channelUrlFrom()` to derive the canonical channel URL, plus `checkCurrentChannel()` which mirrors `checkCurrentVideo()`'s structure: it re-checks the URL after each `await` so a fast SPA navigation away from the channel (or to a different channel) can't leave a stale green title behind.
+
+`run()` now branches on the URL: video-ID URLs still take the existing `checkCurrentVideo`/`watchRelated` path unchanged; otherwise, if the URL matches `YT_CHANNEL_RE`, `checkCurrentChannel()` runs instead. The existing `yt-navigate-finish`/`DOMContentLoaded` wiring re-triggers `run()` automatically, so it re-branches correctly when navigating between video and channel pages.
+
+**New background action** — `fetchChannelStatus` (in `background.js`, sibling to `fetchStatus`/`fetchStatusBatch`) calls the existing `GET /api/channel/status?url=<canonicalChannelUrl>` and returns `{status: "exists", channel_name}` | `{status: "not_found"}` | `{status: "error"}`. No backend changes were needed.
+
+**Known limitation:** `CHANNEL_TITLE_SELECTOR` is a best-effort list of selectors covering known YouTube channel-header DOM shapes as of this writing; like the video-title selectors above, it is DOM-version-dependent and is the first thing to check/extend if the green title stops appearing after a YouTube layout change. Also, since the status check is URL-based, a channel viewed via a URL form different from the one it was stored under will not light up (a missing signal, not a false positive).
+
 ### Phase 4 — Bookmark watcher (optional)
 
 - `background.js` listens to `browser.bookmarks.onCreated`

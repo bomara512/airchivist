@@ -4,6 +4,16 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ---
 
+## 2026-08-07
+
+### feat(extension): green channel title on captured channel pages
+
+- The content script now colors a YouTube channel page's header title green (`TITLE_COLOR.exists`, `#388e3c`) when that channel is already tracked in ViewTube, mirroring the existing captured-video title behaviour. It calls a new `fetchChannelStatus` background action, which hits the already-existing `GET /api/channel/status?url=<canonicalChannelUrl>` (no backend changes).
+- Green-only: unlike video titles, there's no red/hidden case for channels, since channels don't have a "hidden" state.
+- `extension/manifest.json` content-script `matches` broadened from `https://www.youtube.com/watch*` alone to also include `/@*`, `/channel/*`, `/c/*`, and `/user/*`, so the script now injects on channel pages too.
+- `run()` in `content.js` now branches: video-ID URLs still run `checkCurrentVideo`/`watchRelated` unchanged; otherwise, if the URL matches the (new, popup.js-synced) `YT_CHANNEL_RE`, it runs `checkCurrentChannel()`, which guards against stale color from SPA navigation the same way `checkCurrentVideo` does (re-checks the URL after each `await`).
+- Implication: an at-a-glance "already tracked" signal on channel pages without opening the popup. Trade-off: the status check is URL-based, so a channel viewed via a different URL form than the one it was stored under may not light up (a missing signal, never a false green â€” not a correctness risk, just a coverage gap). Trade-off: `CHANNEL_TITLE_SELECTOR` targets several known YouTube channel-header DOM shapes but is inherently DOM-version-dependent and may need maintenance as YouTube changes its markup.
+
 ## 2026-08-06
 
 ### feat(webapp): add unwatched/duration/date-range quick filters to the index
