@@ -6,6 +6,13 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-07
 
+### feat(webapp/db): add `is_watched` column with one-time restart-safe backfill
+
+- `init_webapp_tables` now adds `videos.is_watched` (BOOLEAN NOT NULL DEFAULT 0) via a dedicated guarded `ALTER`/`UPDATE` block, separate from the generic column-migration loop. On first run the `ALTER` succeeds and a one-time backfill sets `is_watched = 1` for every row with `personal_view_count > 0`; on every later startup the `ALTER` raises `sqlite3.OperationalError` (column already exists) and the whole block — including the backfill — is skipped.
+- The one-time-ness is load-bearing: without it, a video the user manually marks unwatched would flip back to watched on the next app restart. Tied the backfill to the `ALTER` succeeding rather than a separate flag/table, so there is no extra state to keep in sync.
+- Schema only — Task 1 of the watched-toggle feature. No DB read/write functions, route, or UI consume the column yet.
+- Tests: `tests/webapp/test_db.py::TestIsWatchedMigration` (backfill correctness, and restart-safety — manually clearing `is_watched` then re-running `init_webapp_tables` must not re-set it).
+
 ### feat(extension): green channel title on captured channel pages
 
 - The content script now colors a YouTube channel page's header title green (`TITLE_COLOR.exists`, `#388e3c`) when that channel is already tracked in ViewTube, mirroring the existing captured-video title behaviour. It calls a new `fetchChannelStatus` background action, which hits the already-existing `GET /api/channel/status?url=<canonicalChannelUrl>` (no backend changes).

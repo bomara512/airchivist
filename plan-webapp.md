@@ -120,6 +120,14 @@ def get_hidden_videos(conn, sort_by, sort_dir, page, page_size) -> list[dict]
 def count_hidden_videos(conn) -> int
 
 def init_webapp_tables(db_path: str) -> None   # creates webapp extension tables if missing; applies column migrations
+                                                # `videos.is_watched` (BOOLEAN NOT NULL DEFAULT 0) is added via a dedicated
+                                                # guarded ALTER (not the generic migration loop) because it also needs a
+                                                # one-time backfill: rows with personal_view_count > 0 are set to 1 the
+                                                # first time the ALTER succeeds. On later startups the ALTER raises
+                                                # OperationalError and the whole block (including the backfill UPDATE) is
+                                                # skipped, so a video the user manually un-marks stays unwatched across
+                                                # restarts. No read/write DB functions, route, or UI consume this column
+                                                # yet — schema only (Task 1 of the watched-toggle feature).
 def collapse_case_variants(conn) -> int        # one-time admin: merges case-duplicate tags; NOT called at startup
 
 # Constants (enums)

@@ -647,6 +647,48 @@ class TestInitWebappTables:
         init_webapp_tables(db_path)  # must not raise
 
 
+class TestIsWatchedMigration:
+    def _fresh_db(self, tmp_path):
+        from crawler.datastore import _SCHEMA as _CRAWLER_SCHEMA
+        db_path = str(tmp_path / "mig.db")
+        conn = sqlite3.connect(db_path)
+        conn.executescript(_CRAWLER_SCHEMA)
+        conn.execute(
+            "INSERT INTO videos (video_id, url, title, personal_view_count, fetch_status) "
+            "VALUES ('vidopened01', 'u', 'Opened', 5, 'ok'), "
+            "       ('vidfresh001', 'u', 'Fresh', 0, 'ok')"
+        )
+        conn.commit()
+        conn.close()
+        return db_path
+
+    def test_adds_column_and_backfills_opened_videos(self, tmp_path):
+        db_path = self._fresh_db(tmp_path)
+        init_webapp_tables(db_path)
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        rows = {r["video_id"]: r["is_watched"]
+                for r in conn.execute("SELECT video_id, is_watched FROM videos")}
+        conn.close()
+        assert rows["vidopened01"] == 1   # personal_view_count > 0 → backfilled watched
+        assert rows["vidfresh001"] == 0   # never opened → unwatched
+
+    def test_backfill_is_one_time_and_restart_safe(self, tmp_path):
+        db_path = self._fresh_db(tmp_path)
+        init_webapp_tables(db_path)            # first run: adds column + backfills
+        conn = sqlite3.connect(db_path)
+        conn.execute("UPDATE videos SET is_watched = 0 WHERE video_id = 'vidopened01'")
+        conn.commit()
+        conn.close()
+        init_webapp_tables(db_path)            # second run must NOT re-mark it
+        conn = sqlite3.connect(db_path)
+        val = conn.execute(
+            "SELECT is_watched FROM videos WHERE video_id = 'vidopened01'"
+        ).fetchone()[0]
+        conn.close()
+        assert val == 0
+
+
 class TestCanonicalTagManagement:
     def test_create_canonical_tag_new(self, db_conn):
         tag_id = create_canonical_tag(db_conn, "cooking")
