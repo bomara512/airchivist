@@ -513,7 +513,7 @@ h1 { margin-top: 0; }
   z-index: 1;
 }
 .thumb-wrap:hover .watched-btn { opacity: 1; }
-.watched-btn--active { opacity: 1 !important; color: #4caf50; }
+.watched-btn--active { color: #4caf50; }
 .watched-btn:hover { color: #4caf50; }
 
 /* Filter toggle (favourites checkbox in toolbar) */

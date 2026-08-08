@@ -6,6 +6,11 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-07
 
+### fix(webapp): watched button reveals on hover, not always
+
+- Dropped `opacity: 1 !important` from `.watched-btn--active`; the active state now only tints the button green. The button is hidden by default and revealed on card hover via the existing `.thumb-wrap:hover` rule — matching the watch-later button.
+- Why: unlike favourites (rare), nearly every video is `is_watched` after the backfill/opens, so the favourite-style "always show when active" made the ✓ appear on essentially every card. Trade-off: you can no longer tell watched-vs-unwatched at a glance without hovering — use the "Unwatched only" filter for that.
+
 ### feat(webapp): per-video watched toggle button on video cards
 
 - Added a `.watched-btn` (&#10003;) overlay button to every video card, next to the existing `.favourite-btn` star, mirroring its markup/click-handler/CSS shape exactly (same absolute-positioned thumbnail overlay, same carousel-clone-aware delegated click handler in `base.html`, same fetch-then-update-all-matching-buttons pattern) but with its own colour (`#4caf50`, distinct from the star's gold) and its own route, `POST /videos/<id>/watched`, which toggles `videos.is_watched` via `set_watched` and returns `{"is_watched": bool}`.
