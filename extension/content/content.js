@@ -1,5 +1,21 @@
 const YT_ID_RE = /[?&]v=([A-Za-z0-9_-]{11})/;
 
+// Channel-URL detection. Keep in sync with crawler/models.py _YT_CHANNEL_RE.
+const YT_CHANNEL_RE = /youtube\.com\/(channel\/UC[A-Za-z0-9_-]+|(?:c|user)\/[^/?#]+|@[^/?#]+)/;
+
+const CHANNEL_TITLE_SELECTOR =
+  'yt-page-header-renderer h1, .page-header-view-model-wiz__page-header-title, ' +
+  '#channel-header #text, ytd-channel-name #text';
+
+function channelUrlFrom(match) {
+  // match[1] is the canonical path segment (@handle, channel/UC…, c/name, user/name).
+  return `https://www.youtube.com/${match[1]}`;
+}
+
+function _channelTitle() {
+  return document.querySelector(CHANNEL_TITLE_SELECTOR);
+}
+
 const TITLE_COLOR = { exists: '#388e3c', hidden: '#e53935' };
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -45,6 +61,35 @@ async function checkCurrentVideo() {
     if (!color) return;
     const h1 = _titleH1();
     if (h1 && extractId(location.href) === id) h1.style.color = color;
+  } catch { /* ViewTube unreachable */ }
+}
+
+// ── Current channel title ─────────────────────────────────────────────────
+
+async function checkCurrentChannel() {
+  const prev = _channelTitle();
+  if (prev) prev.style.color = '';
+
+  const m = YT_CHANNEL_RE.exec(location.href);
+  if (!m) return;
+  const channelUrl = channelUrlFrom(m);
+
+  const titleEl = await waitFor(CHANNEL_TITLE_SELECTOR);
+  if (!titleEl) return;
+  // Bail if SPA navigation moved to a different channel while we waited.
+  const m2 = YT_CHANNEL_RE.exec(location.href);
+  if (!m2 || channelUrlFrom(m2) !== channelUrl) return;
+
+  try {
+    const data = await browser.runtime.sendMessage({
+      action: 'fetchChannelStatus', url: channelUrl,
+    });
+    if (data.status !== 'exists') return;
+    const el = _channelTitle();
+    const m3 = YT_CHANNEL_RE.exec(location.href);
+    if (el && m3 && channelUrlFrom(m3) === channelUrl) {
+      el.style.color = TITLE_COLOR.exists;
+    }
   } catch { /* ViewTube unreachable */ }
 }
 
@@ -101,9 +146,14 @@ function watchRelated() {
 // ── Navigation & init ─────────────────────────────────────────────────────
 
 function run() {
-  if (!extractId(location.href)) return;
-  checkCurrentVideo();
-  watchRelated();
+  if (extractId(location.href)) {
+    checkCurrentVideo();
+    watchRelated();
+    return;
+  }
+  if (YT_CHANNEL_RE.test(location.href)) {
+    checkCurrentChannel();
+  }
 }
 
 document.addEventListener('yt-navigate-finish', run);

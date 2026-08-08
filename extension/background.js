@@ -25,4 +25,11 @@ browser.runtime.onMessage.addListener((msg) => {
         .catch(() => ({}))
     );
   }
+  if (msg.action === 'fetchChannelStatus') {
+    return getViewtubeUrl().then(vtUrl =>
+      fetch(`${vtUrl}/api/channel/status?url=${encodeURIComponent(msg.url)}`)
+        .then(r => r.json())
+        .catch(() => ({ status: 'error' }))
+    );
+  }
 });
