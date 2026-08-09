@@ -175,6 +175,57 @@ async function doDelete(viewtubeUrl, videoId) {
   setTimeout(() => window.close(), 1500);
 }
 
+async function initWatchLaterToggle(viewtubeUrl, tabUrl) {
+  const chk = document.getElementById('chk-watch-later');
+  const errBox = document.getElementById('wl-error');
+
+  let inQueue;
+  try {
+    const resp = await fetch(`${viewtubeUrl}/api/watch-later/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: tabUrl }),
+    });
+    const data = await resp.json();
+    inQueue = !!data.in_queue;
+  } catch {
+    return; // Leave disabled — unknown state, nothing safe to toggle.
+  }
+
+  chk.checked = inQueue;
+  chk.disabled = false;
+
+  chk.addEventListener('change', async () => {
+    const wantQueued = chk.checked;
+    const prevChecked = !wantQueued;
+    chk.disabled = true;
+    errBox.style.display = 'none';
+
+    const endpoint = wantQueued ? 'add' : 'remove';
+    let ok;
+    try {
+      const resp = await fetch(`${viewtubeUrl}/api/watch-later/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: tabUrl }),
+      });
+      const data = await resp.json();
+      ok = wantQueued
+        ? ['added', 'already_in_queue'].includes(data.status)
+        : data.status === 'removed';
+    } catch {
+      ok = false;
+    }
+
+    if (!ok) {
+      chk.checked = prevChecked;
+      errBox.textContent = '✗ Watch Later update failed';
+      errBox.style.display = 'block';
+    }
+    chk.disabled = false;
+  });
+}
+
 function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
   if (data.status === 'not_found') {
     root.innerHTML = `
@@ -199,11 +250,17 @@ function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
         <input type="checkbox" id="chk-unbookmark" style="margin-right:0.3rem">
         Also remove browser bookmark
       </label>
+      <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
+        <input type="checkbox" id="chk-watch-later" disabled style="margin-right:0.3rem">
+        Add to Watch Later
+      </label>
+      <div id="wl-error" class="status error" style="margin-top:0.3rem;display:none"></div>
     `;
     document.getElementById('btn-hide').addEventListener('click', () => {
       const alsoUnbookmark = document.getElementById('chk-unbookmark').checked;
       doHide(viewtubeUrl, tabUrl, alsoUnbookmark);
     });
+    initWatchLaterToggle(viewtubeUrl, tabUrl);
     return;
   }
 

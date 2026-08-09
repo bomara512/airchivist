@@ -4,6 +4,16 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ---
 
+## 2026-08-08
+
+### feat(extension): toggle watch-later membership at any time from the popup
+
+- The extension popup's `exists` state (when a video is already in ViewTube) now renders an "Add to Watch Later" checkbox that reflects current queue membership and lets you toggle it without visiting the web UI. Closes the gap where toggling watch-later required the `/watch-later` page.
+- Markup: checkbox starts disabled/unchecked. On render, `initWatchLaterToggle` fetches `POST /api/watch-later/status` to get `in_queue` state, sets the checkbox, and enables it.
+- Interaction: toggling the checkbox calls `/api/watch-later/add` (if checking) or `/api/watch-later/remove` (if unchecking), disables the checkbox during the request, and reverts + shows an inline error if the request fails.
+- Status-success semantics: `/add` treats both `added` and `already_in_queue` (409) as success; `/remove` treats only `removed` (200) as success (404 "Not in queue" reverts the checkbox and shows the error).
+- Trade-off (con): every popup open now makes a live status fetch (small extra round trip vs. the `not_found`-state checkbox, which reads at add-time only). Trade-off (pro): the checked state is always current with the backend.
+
 ## 2026-08-07
 
 ### fix(webapp): rediscover shelf cards now reflect watched state
