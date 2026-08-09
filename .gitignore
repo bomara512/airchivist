@@ -11,3 +11,4 @@ viewtube*.db*
 proposals*.json
 approved*.json
 bookmarks*.html*
+.superpowers/
