@@ -23,7 +23,7 @@
 
 - ~~Unify video card UI and functionality — single `_video_card.html` used across main list, rediscover shelf, and watch-later page~~
 - ~~Drag-to-reorder watch-later queue (DB function `reorder_watch_later` exists; needs a JS drag library wired up)~~
-- [ ] Extension: toggle watch-later membership at any time (not just on initial add) — button should add if absent, remove if already queued
+- ~~Extension: toggle watch-later membership at any time (not just on initial add) — button should add if absent, remove if already queued~~
 - [ ] Rediscover shelf countdown timer — currently shows static "expires in X days" at page load; could refresh periodically
 - [ ] Notes field per video — freeform text to add while watching
 - [ ] Playlists / collections — group videos manually beyond tags
@@ -67,7 +67,7 @@ Items identified in the 2026-06-07 architectural review. Completed items are str
 
 ### Medium (next)
 
-- [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js` and `content.js` are currently untested
+- [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js`, `content.js`, and `popup.js` are currently untested
 
 ### Larger lifts
 
