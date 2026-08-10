@@ -49,7 +49,16 @@ async function checkStatus(viewtubeUrl, tabUrl) {
   return resp.json();
 }
 
-async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false) {
+async function postJson(url, body) {
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return resp.json();
+}
+
+async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false, alsoFavorite = false) {
   const root = document.getElementById('root');
   root.innerHTML = working('Adding…');
   const [bookmarkResult, vtResult] = await Promise.allSettled([
@@ -67,17 +76,22 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false) {
   const viewtubeOk = vtData && ['added', 'exists'].includes(vtData.status);
 
   let watchLaterOk = null;
-  if (alsoWatchLater && viewtubeOk) {
-    try {
-      const wlResp = await fetch(`${viewtubeUrl}/api/watch-later/add`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: tabUrl }),
-      });
-      const wlData = await wlResp.json();
-      watchLaterOk = ['added', 'already_in_queue'].includes(wlData.status);
-    } catch {
-      watchLaterOk = false;
+  let favoriteOk = null;
+  if (viewtubeOk) {
+    const [wlResult, favResult] = await Promise.allSettled([
+      alsoWatchLater
+        ? postJson(`${viewtubeUrl}/api/watch-later/add`, { url: tabUrl })
+        : Promise.resolve(null),
+      alsoFavorite
+        ? postJson(`${viewtubeUrl}/api/favourite/add`, { url: tabUrl })
+        : Promise.resolve(null),
+    ]);
+    if (alsoWatchLater) {
+      watchLaterOk = wlResult.status === 'fulfilled'
+        && ['added', 'already_in_queue'].includes(wlResult.value?.status);
+    }
+    if (alsoFavorite) {
+      favoriteOk = favResult.status === 'fulfilled' && favResult.value?.status === 'added';
     }
   }
 
@@ -85,6 +99,8 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false) {
     const lines = [`&#10003; ${esc(vtData.title || tabTitle)}`];
     if (watchLaterOk === true) lines.push('&#10003; Added to Watch Later');
     if (watchLaterOk === false) lines.push('&#10007; Watch Later failed');
+    if (favoriteOk === true) lines.push('&#9733; Marked as favorite');
+    if (favoriteOk === false) lines.push('&#10007; Favorite failed');
     root.innerHTML = `<div class="status success">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
     setTimeout(() => window.close(), 1500);
     return;
@@ -97,6 +113,8 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false) {
   else lines.push(`&#10007; ViewTube: ${esc(vtData?.error || 'unknown error')}`);
   if (alsoWatchLater && watchLaterOk === true) lines.push('&#10003; Added to Watch Later');
   if (alsoWatchLater && watchLaterOk === false) lines.push('&#10007; Watch Later failed');
+  if (alsoFavorite && favoriteOk === true) lines.push('&#9733; Marked as favorite');
+  if (alsoFavorite && favoriteOk === false) lines.push('&#10007; Favorite failed');
   const cls = (bookmarkOk || viewtubeOk) ? 'partial' : 'error';
   root.innerHTML = `<div class="status ${cls}">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
 }
@@ -234,10 +252,15 @@ function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
         <input type="checkbox" id="chk-watch-later" style="margin-right:0.3rem">
         Also add to Watch Later
       </label>
+      <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
+        <input type="checkbox" id="chk-favorite" style="margin-right:0.3rem">
+        Also mark as favorite (&#9733;)
+      </label>
     `;
     document.getElementById('btn-add').addEventListener('click', () => {
       const alsoWatchLater = document.getElementById('chk-watch-later').checked;
-      doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater);
+      const alsoFavorite = document.getElementById('chk-favorite').checked;
+      doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater, alsoFavorite);
     });
     return;
   }

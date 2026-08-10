@@ -4,6 +4,16 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-08-09
+
+### feat(extension): mark video as favorite at capture time
+
+- The extension popup's `not_found` state (when adding a brand-new video) now includes an "Also mark as favorite (★)" checkbox alongside the existing "Also add to Watch Later" checkbox. Checking it at capture time adds the video to ViewTube's favourites list immediately, without requiring a return trip to the web UI.
+- Backend: `POST /api/favourite/add` (Task 1) reuses the existing `set_favourite` DB function. No 409/already-case (unlike watch-later) since `is_favourite` is a plain boolean; the route returns `{status: "added"}` on success (200) or `{status: "error", error}` on failure (400 for bad URL, 404 if video isn't in DB yet).
+- Frontend: `doAdd` now accepts an `alsoFavorite` parameter (5th arg). The watch-later and favorite follow-up calls run in parallel via `Promise.allSettled` rather than sequentially, since neither depends on the other (both only fire if the main add succeeds). A new `postJson` helper abstracts the fetch/JSON boilerplate for both.
+- Success path shows `★ Marked as favorite` if favoriting succeeded, or `✗ Favorite failed` if it failed (gated by the checkbox). Partial-failure path shows the same lines when applicable.
+- Trade-off (pro): a standout video can be starred the instant it's captured, with no return trip to the web UI. Trade-off (con): favoriting is capture-time only for now — toggling favorite status on an already-added video is a separate deferred TODO item (tracked separately, same as watch-later's own history).
+
 ## 2026-08-08
 
 ### feat(extension): toggle watch-later membership at any time from the popup
