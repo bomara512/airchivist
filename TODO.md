@@ -24,6 +24,7 @@
 - ~~Unify video card UI and functionality — single `_video_card.html` used across main list, rediscover shelf, and watch-later page~~
 - ~~Drag-to-reorder watch-later queue (DB function `reorder_watch_later` exists; needs a JS drag library wired up)~~
 - ~~Extension: toggle watch-later membership at any time (not just on initial add) — button should add if absent, remove if already queued~~
+- [ ] Extension: mark a video as favorite (★) at capture time — so a standout video can be starred the moment it's added to ViewTube, not just later from the web UI
 - [ ] Rediscover shelf countdown timer — currently shows static "expires in X days" at page load; could refresh periodically
 - [ ] Notes field per video — freeform text to add while watching
 - [ ] Playlists / collections — group videos manually beyond tags
