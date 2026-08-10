@@ -527,6 +527,49 @@ class TestApiWatchLaterStatus:
         assert resp.status_code == 204
 
 
+class TestApiFavouriteAdd:
+    def test_add_video_returns_added(self, client):
+        resp = client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["status"] == "added"
+
+    def test_video_is_marked_favourite(self, client):
+        client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        conn = sqlite3.connect(client.application.config["DATABASE"])
+        row = conn.execute(
+            "SELECT is_favourite FROM videos WHERE video_id = ?", ("aaaaaaaaaa1",)
+        ).fetchone()
+        conn.close()
+        assert row[0] == 1
+
+    def test_idempotent_reAdd_still_returns_added(self, client):
+        client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["status"] == "added"
+
+    def test_invalid_video_returns_error(self, client):
+        resp = client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=XXXXXXXXXXX"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+        assert resp.status_code == 404
+
+    def test_invalid_url_returns_error(self, client):
+        resp = client.post("/api/favourite/add", json={"url": "https://example.com"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+        assert resp.status_code == 400
+
+    def test_cors_header_present(self, client):
+        resp = client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+    def test_options_preflight(self, client):
+        resp = client.options("/api/favourite/add")
+        assert resp.status_code == 204
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+
 class TestAddTagRoute:
     def _seed_canonical(self, client, name):
         import sqlite3

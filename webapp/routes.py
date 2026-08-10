@@ -789,3 +789,29 @@ def api_watch_later_status():
     return resp
 
 
+@bp.route("/api/favourite/add", methods=["POST", "OPTIONS"])
+def api_favourite_add():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    m = _YT_ID_RE.search(url)
+    if not m:
+        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 400
+
+    video_id = m.group(1)
+    video = _db.get_video_by_id(g.db, video_id)
+    if not video:
+        resp = jsonify({"status": "error", "error": "Video not found"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 404
+
+    _db.set_favourite(g.db, video_id, True)
+    resp = jsonify({"status": "added"})
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+
