@@ -110,6 +110,25 @@ being asked.
 - Run `python -m pytest -q` at the end and confirm all tests pass before
   finishing the response.
 
+## Keep test-lifecycle state in shared hooks, not inline
+
+Fake timers, global stubs, and polyfills a test depends on must be set up
+and torn down in a shared `beforeEach`/`afterEach` (or a shared setup file),
+never inline inside a single test body.
+
+- Inline setup/teardown (e.g. `jest.useFakeTimers()` at the top of a test,
+  `jest.useRealTimers()` at the bottom) is skipped if an assertion in
+  between throws, leaking that state into every later test in the file.
+- This bit the extension's Jest suite: one test's inline
+  `jest.useFakeTimers()`/`jest.useRealTimers()` pair, combined with a
+  `setImmediate` polyfill scoped to that same test file instead of the
+  shared setup file, caused leaked real timers and a "Jest did not exit"
+  warning on every `npm test` run.
+- When adding a helper that depends on environment specifics (e.g. a
+  polyfill), put it next to the function that needs it — in the shared
+  setup file, not next to its first caller — so the next test file to use
+  that function doesn't have to rediscover and duplicate the fix.
+
 ## Always update the changelog
 
 Whenever you make an implementation change, append an entry to `CHANGELOG.md`
