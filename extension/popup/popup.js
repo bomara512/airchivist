@@ -358,7 +358,15 @@ async function run() {
   renderState(root, viewtubeUrl, tab.url, tab.title || '', data);
 }
 
-run().catch(err => {
-  const root = document.getElementById('root');
-  root.innerHTML = `<div class="status error">Error: ${esc(err.message)}</div>`;
-});
+if (typeof module === 'undefined') {
+  run().catch(err => {
+    const root = document.getElementById('root');
+    root.innerHTML = `<div class="status error">Error: ${esc(err.message)}</div>`;
+  });
+} else {
+  module.exports = {
+    doAdd, doAddChannel, doHide, doRestore, doDelete,
+    initWatchLaterToggle, renderState, renderChannelState,
+    checkStatus, channelUrlFrom, esc, getOrCreateFolder, postJson,
+  };
+}

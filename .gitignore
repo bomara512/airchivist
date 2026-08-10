@@ -12,3 +12,4 @@ proposals*.json
 approved*.json
 bookmarks*.html*
 .superpowers/
+node_modules/
