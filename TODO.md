@@ -69,7 +69,7 @@ Items identified in the 2026-06-07 architectural review. Completed items are str
 
 ### Medium (next)
 
-- [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js`, `content.js`, and `popup.js` are currently untested
+- [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js` and `content.js` are still untested; `popup.js` now has Jest coverage for `doAdd`/`initWatchLaterToggle` only (`doAddChannel`, `doHide`, `doRestore`, `doDelete`, `renderState`, `renderChannelState`, `run` remain untested)
 
 ### Larger lifts
 

@@ -1,4 +1,10 @@
-const { makeBrowserStub, jsonResponse, mockFetchRouter } = require('./setup');
+// Polyfill setImmediate for jsdom environment
+if (typeof global.setImmediate === 'undefined') {
+  global.setImmediate = (cb) => setTimeout(cb, 0);
+  global.clearImmediate = (id) => clearTimeout(id);
+}
+
+const { makeBrowserStub, jsonResponse, mockFetchRouter, flushPromises } = require('./setup');
 
 let popup;
 
@@ -150,5 +156,149 @@ describe('doAdd', () => {
     expect(text).toContain('Added to ViewTube');
     expect(text).toContain('Added to Watch Later');
     expect(text).toContain('Marked as favorite');
+  });
+});
+
+describe('initWatchLaterToggle', () => {
+  const viewtubeUrl = 'http://localhost:8080';
+  const tabUrl = 'https://www.youtube.com/watch?v=abc123';
+
+  function renderCheckboxFixture() {
+    document.getElementById('root').innerHTML = `
+      <input type="checkbox" id="chk-watch-later" disabled>
+      <div id="wl-error" style="display:none"></div>
+    `;
+  }
+
+  test('status fetch resolves in_queue=true: checkbox becomes checked and enabled', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/watch-later/status', () => jsonResponse({ in_queue: true })],
+    ]);
+
+    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+
+    const chk = document.getElementById('chk-watch-later');
+    expect(chk.checked).toBe(true);
+    expect(chk.disabled).toBe(false);
+  });
+
+  test('status fetch resolves in_queue=false: checkbox becomes unchecked and enabled', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/watch-later/status', () => jsonResponse({ in_queue: false })],
+    ]);
+
+    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+
+    const chk = document.getElementById('chk-watch-later');
+    expect(chk.checked).toBe(false);
+    expect(chk.disabled).toBe(false);
+  });
+
+  test('status fetch rejects: checkbox stays disabled', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/watch-later/status', () => Promise.reject(new Error('network fail'))],
+    ]);
+
+    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+
+    const chk = document.getElementById('chk-watch-later');
+    expect(chk.disabled).toBe(true);
+  });
+
+  test('toggle on, /add succeeds: stays checked, re-enabled, no error', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/watch-later/status', () => jsonResponse({ in_queue: false })],
+      ['/api/watch-later/add', () => jsonResponse({ status: 'added' })],
+    ]);
+    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+
+    const chk = document.getElementById('chk-watch-later');
+    const errBox = document.getElementById('wl-error');
+    chk.checked = true;
+    chk.dispatchEvent(new Event('change'));
+    await flushPromises();
+
+    expect(chk.checked).toBe(true);
+    expect(chk.disabled).toBe(false);
+    expect(errBox.style.display).toBe('none');
+  });
+
+  test('toggle off, /remove succeeds: stays unchecked, re-enabled, no error', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/watch-later/status', () => jsonResponse({ in_queue: true })],
+      ['/api/watch-later/remove', () => jsonResponse({ status: 'removed' })],
+    ]);
+    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+
+    const chk = document.getElementById('chk-watch-later');
+    const errBox = document.getElementById('wl-error');
+    chk.checked = false;
+    chk.dispatchEvent(new Event('change'));
+    await flushPromises();
+
+    expect(chk.checked).toBe(false);
+    expect(chk.disabled).toBe(false);
+    expect(errBox.style.display).toBe('none');
+  });
+
+  test('toggle on, /add network error: reverts to unchecked, shows error, re-enabled', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/watch-later/status', () => jsonResponse({ in_queue: false })],
+      ['/api/watch-later/add', () => Promise.reject(new Error('network fail'))],
+    ]);
+    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+
+    const chk = document.getElementById('chk-watch-later');
+    const errBox = document.getElementById('wl-error');
+    chk.checked = true;
+    chk.dispatchEvent(new Event('change'));
+    await flushPromises();
+
+    expect(chk.checked).toBe(false);
+    expect(chk.disabled).toBe(false);
+    expect(errBox.style.display).toBe('block');
+    expect(errBox.textContent).toBe('✗ Watch Later update failed');
+  });
+
+  test('toggle on, /add returns already_in_queue: treated as success', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/watch-later/status', () => jsonResponse({ in_queue: false })],
+      ['/api/watch-later/add', () => jsonResponse({ status: 'already_in_queue' })],
+    ]);
+    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+
+    const chk = document.getElementById('chk-watch-later');
+    const errBox = document.getElementById('wl-error');
+    chk.checked = true;
+    chk.dispatchEvent(new Event('change'));
+    await flushPromises();
+
+    expect(chk.checked).toBe(true);
+    expect(errBox.style.display).toBe('none');
+  });
+
+  test('toggle off, /remove returns error status: treated as failure, reverts to checked', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/watch-later/status', () => jsonResponse({ in_queue: true })],
+      ['/api/watch-later/remove', () => jsonResponse({ status: 'error', error: 'Not in queue' })],
+    ]);
+    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+
+    const chk = document.getElementById('chk-watch-later');
+    const errBox = document.getElementById('wl-error');
+    chk.checked = false;
+    chk.dispatchEvent(new Event('change'));
+    await flushPromises();
+
+    expect(chk.checked).toBe(true);
+    expect(errBox.style.display).toBe('block');
   });
 });

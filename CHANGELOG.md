@@ -4,6 +4,14 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-08-10
+
+### test(extension): add initWatchLaterToggle coverage, update docs
+
+- Jest + jsdom test framework completed for the extension (`npm test`), with the first suite covering `popup.js`'s `doAdd` (8 tests from Task 2) and `initWatchLaterToggle` (8 tests from Task 3) — the two functions with non-trivial async/checkbox logic. `popup.js` gained a guarded `module.exports` (no-op in the real browser) to make this possible without a bundler.
+- Implication (pro): this closes a long-open gap and gives durable automated evidence for exactly the kind of async/checkbox logic that's been shipping in this extension lately, replacing one-off manual/code-reading verification.
+- Implication (con): `background.js`, `content.js`, and the rest of `popup.js` remain untested — this is a first slice, not full coverage.
+
 ## 2026-08-09
 
 ### feat(extension): mark video as favorite at capture time
