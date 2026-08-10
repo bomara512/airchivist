@@ -35,8 +35,8 @@ function mockFetchRouter(routes) {
 // Flushes pending microtasks (promise chains inside event listeners that
 // the test can't otherwise `await`, since dispatchEvent() doesn't return
 // the listener's promise).
-function flushPromises() {
-  return new Promise(resolve => setImmediate(resolve));
+async function flushPromises() {
+  for (let i = 0; i < 10; i++) await Promise.resolve();
 }
 
 module.exports = { makeBrowserStub, jsonResponse, mockFetchRouter, flushPromises };

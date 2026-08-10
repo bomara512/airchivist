@@ -1,20 +1,20 @@
-// Polyfill setImmediate for jsdom environment
-if (typeof global.setImmediate === 'undefined') {
-  global.setImmediate = (cb) => setTimeout(cb, 0);
-  global.clearImmediate = (id) => clearTimeout(id);
-}
-
 const { makeBrowserStub, jsonResponse, mockFetchRouter, flushPromises } = require('./setup');
 
 let popup;
 
 beforeEach(() => {
+  jest.useFakeTimers();
   jest.resetModules();
   document.body.innerHTML = '<div id="root"></div>';
   global.browser = makeBrowserStub();
   global.fetch = jest.fn();
   global.window.close = jest.fn();
   popup = require('../../extension/popup/popup.js');
+});
+
+afterEach(() => {
+  jest.clearAllTimers();
+  jest.useRealTimers();
 });
 
 describe('module exports', () => {
@@ -30,7 +30,6 @@ describe('doAdd', () => {
   const tabTitle = 'My Video';
 
   test('neither checkbox checked: shows title only, no follow-up calls, closes after 1.5s', async () => {
-    jest.useFakeTimers();
     global.fetch = mockFetchRouter([
       ['/api/add', () => jsonResponse({ status: 'added', title: tabTitle })],
     ]);
@@ -47,7 +46,6 @@ describe('doAdd', () => {
 
     jest.advanceTimersByTime(1500);
     expect(window.close).toHaveBeenCalled();
-    jest.useRealTimers();
   });
 
   test('watch-later only, both succeed: shows Added to Watch Later, no favorite line', async () => {
