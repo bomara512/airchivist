@@ -267,27 +267,27 @@
       if (e.key === 'Enter') { e.preventDefault(); submitAddTag(); }
     });
 
-    // Favourite toggle button — update all cards with same video_id (handles carousel clones)
+    // Favorite toggle button — update all cards with same video_id (handles carousel clones)
     document.addEventListener('click', function (e) {
-      var btn = e.target.closest('.favourite-btn');
+      var btn = e.target.closest('.favorite-btn');
       if (!btn) return;
       var videoId = btn.dataset.videoId;
-      fetch('/videos/' + videoId + '/favourite', { method: 'POST' })
+      fetch('/videos/' + videoId + '/favorite', { method: 'POST' })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          document.querySelectorAll('.favourite-btn[data-video-id="' + videoId + '"]').forEach(function (b) {
-            if (data.is_favourite) {
-              b.classList.add('favourite-btn--active');
-              b.title = 'Remove from favourites';
+          document.querySelectorAll('.favorite-btn[data-video-id="' + videoId + '"]').forEach(function (b) {
+            if (data.is_favorite) {
+              b.classList.add('favorite-btn--active');
+              b.title = 'Remove from favorites';
             } else {
-              b.classList.remove('favourite-btn--active');
-              b.title = 'Add to favourites';
+              b.classList.remove('favorite-btn--active');
+              b.title = 'Add to favorites';
             }
           });
 
-          if (!data.is_favourite) return;
+          if (!data.is_favorite) return;
 
-          // Favouriting from the rediscover shelf or watch later implies you've
+          // Favoriting from the rediscover shelf or watch later implies you've
           // watched it — mark it watched and drop it from whichever list it came from.
           var onShelf = !!btn.closest('#shelf-carousel');
           var onWatchLater = !!btn.closest('.watch-later-list');

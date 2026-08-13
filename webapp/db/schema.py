@@ -76,12 +76,24 @@ def init_webapp_tables(db_path: str) -> None:
             date_added       TEXT NOT NULL DEFAULT (date('now'))
         );
     """)
+    # One-time rename for pre-existing databases: is_favourite -> is_favorite
+    # (US spelling). Runs before the ADD COLUMN loop below so a freshly-renamed
+    # column is correctly seen as "already exists" by that loop's is_favorite
+    # entry. A database that never had is_favourite (brand new, or already
+    # migrated) hits OperationalError here and is skipped — the ADD COLUMN
+    # loop creates/no-ops it instead.
+    try:
+        conn.execute("ALTER TABLE videos RENAME COLUMN is_favourite TO is_favorite")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # already renamed, or fresh DB that never had the old column
+
     for col, ddl in [
         ("is_canonical", "ALTER TABLE tags     ADD COLUMN is_canonical BOOLEAN NOT NULL DEFAULT 0"),
         ("is_noise",     "ALTER TABLE tags     ADD COLUMN is_noise     BOOLEAN NOT NULL DEFAULT 0"),
         ("is_hidden",    "ALTER TABLE videos   ADD COLUMN is_hidden    BOOLEAN NOT NULL DEFAULT 0"),
         ("date_hidden",   "ALTER TABLE videos  ADD COLUMN date_hidden   TEXT"),
-        ("is_favourite",  "ALTER TABLE videos  ADD COLUMN is_favourite  BOOLEAN NOT NULL DEFAULT 0"),
+        ("is_favorite",   "ALTER TABLE videos  ADD COLUMN is_favorite   BOOLEAN NOT NULL DEFAULT 0"),
         ("source_url",    "ALTER TABLE channels ADD COLUMN source_url   TEXT"),
     ]:
         try:

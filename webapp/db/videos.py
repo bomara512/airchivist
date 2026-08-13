@@ -23,7 +23,7 @@ _DURATION_BUCKETS = {
 _ADDED_WITHIN_DAYS = frozenset({7, 30, 90, 365})
 
 
-def _build_where(channel, tag, search, favourites_only=False,
+def _build_where(channel, tag, search, favorites_only=False,
                  unwatched_only=False, duration=None, added_within=None):
     params = []
     clauses = ["v.fetch_status = 'ok'", "v.is_hidden = 0"]
@@ -46,8 +46,8 @@ def _build_where(channel, tag, search, favourites_only=False,
             "             JOIN tag_keywords tk ON tk.tag_id = vt.tag_id_fk WHERE REGEXP(?, tk.keyword)))"
         )
         params.extend([pattern, pattern, pattern, pattern])
-    if favourites_only:
-        clauses.append("v.is_favourite = 1")
+    if favorites_only:
+        clauses.append("v.is_favorite = 1")
     if unwatched_only:
         clauses.append("v.is_watched = 0")
     if duration is not None:
@@ -63,9 +63,9 @@ def _build_where(channel, tag, search, favourites_only=False,
     return where_sql, params
 
 
-def set_favourite(conn: sqlite3.Connection, video_id: str, value: bool) -> None:
+def set_favorite(conn: sqlite3.Connection, video_id: str, value: bool) -> None:
     conn.execute(
-        "UPDATE videos SET is_favourite = ? WHERE video_id = ?",
+        "UPDATE videos SET is_favorite = ? WHERE video_id = ?",
         (1 if value else 0, video_id),
     )
     conn.commit()
@@ -89,7 +89,7 @@ def get_all_videos(
     page: int = 1,
     page_size: Optional[int] = None,
     group: Optional[str] = None,
-    favourites_only: bool = False,
+    favorites_only: bool = False,
     unwatched_only: bool = False,
     duration: Optional[str] = None,
     added_within: Optional[int] = None,
@@ -100,7 +100,7 @@ def get_all_videos(
         raise ValueError(f"Invalid sort_dir: {sort_dir!r}")
 
     where_sql, params = _build_where(
-        channel, tag, search, favourites_only, unwatched_only, duration, added_within
+        channel, tag, search, favorites_only, unwatched_only, duration, added_within
     )
 
     limit_sql = ""
@@ -137,13 +137,13 @@ def count_videos(
     channel: Optional[str] = None,
     tag: Optional[str] = None,
     search: Optional[str] = None,
-    favourites_only: bool = False,
+    favorites_only: bool = False,
     unwatched_only: bool = False,
     duration: Optional[str] = None,
     added_within: Optional[int] = None,
 ) -> int:
     where_sql, params = _build_where(
-        channel, tag, search, favourites_only, unwatched_only, duration, added_within
+        channel, tag, search, favorites_only, unwatched_only, duration, added_within
     )
     sql = f"""
         SELECT COUNT(DISTINCT v.id)

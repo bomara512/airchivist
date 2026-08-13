@@ -7,7 +7,7 @@
     + (sort_by != 'date_added') | int
     + (sort_dir != 'desc') | int
     + (group is not none and group != '') | int
-    + favourites_only | int
+    + favorites_only | int
     + unwatched_only | int
     + (current_duration is not none and current_duration != '') | int
     + (current_added_within is not none) | int %}
@@ -76,8 +76,8 @@
       </select>
 
       <label class="filter-toggle">
-        <input type="checkbox" name="favourites" value="1" {% if favourites_only %}checked{% endif %}>
-        Favourites
+        <input type="checkbox" name="favorites" value="1" {% if favorites_only %}checked{% endif %}>
+        Favorites
       </label>
 
       {# Keep options in sync with _DURATION_BUCKETS / _ADDED_WITHIN_DAYS in webapp/db/videos.py #}

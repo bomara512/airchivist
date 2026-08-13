@@ -312,24 +312,24 @@ class TestApiHide:
         assert resp.status_code == 204
 
 
-class TestFavouriteToggle:
+class TestFavoriteToggle:
     def test_toggle_on_returns_true(self, client):
-        resp = client.post("/videos/aaaaaaaaaa1/favourite")
+        resp = client.post("/videos/aaaaaaaaaa1/favorite")
         assert resp.status_code == 200
-        assert resp.get_json()["is_favourite"] is True
+        assert resp.get_json()["is_favorite"] is True
 
     def test_toggle_off_returns_false(self, client):
-        client.post("/videos/aaaaaaaaaa1/favourite")
-        resp = client.post("/videos/aaaaaaaaaa1/favourite")
-        assert resp.get_json()["is_favourite"] is False
+        client.post("/videos/aaaaaaaaaa1/favorite")
+        resp = client.post("/videos/aaaaaaaaaa1/favorite")
+        assert resp.get_json()["is_favorite"] is False
 
     def test_unknown_video_returns_404(self, client):
-        resp = client.post("/videos/XXXXXXXXXXX/favourite")
+        resp = client.post("/videos/XXXXXXXXXXX/favorite")
         assert resp.status_code == 404
 
-    def test_favourites_filter_returns_only_favourites(self, client):
-        client.post("/videos/aaaaaaaaaa1/favourite")
-        resp = client.get("/?favourites=1", headers={"HX-Request": "true"})
+    def test_favorites_filter_returns_only_favorites(self, client):
+        client.post("/videos/aaaaaaaaaa1/favorite")
+        resp = client.get("/?favorites=1", headers={"HX-Request": "true"})
         assert b"Guitar Lesson 1" in resp.data
         assert b"Thai Food Recipe" not in resp.data
 
@@ -527,45 +527,45 @@ class TestApiWatchLaterStatus:
         assert resp.status_code == 204
 
 
-class TestApiFavouriteAdd:
+class TestApiFavoriteAdd:
     def test_add_video_returns_added(self, client):
-        resp = client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.post("/api/favorite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
         data = resp.get_json()
         assert data["status"] == "added"
 
-    def test_video_is_marked_favourite(self, client):
-        client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+    def test_video_is_marked_favorite(self, client):
+        client.post("/api/favorite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
         conn = sqlite3.connect(client.application.config["DATABASE"])
         row = conn.execute(
-            "SELECT is_favourite FROM videos WHERE video_id = ?", ("aaaaaaaaaa1",)
+            "SELECT is_favorite FROM videos WHERE video_id = ?", ("aaaaaaaaaa1",)
         ).fetchone()
         conn.close()
         assert row[0] == 1
 
     def test_idempotent_reAdd_still_returns_added(self, client):
-        client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
-        resp = client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        client.post("/api/favorite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.post("/api/favorite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
         data = resp.get_json()
         assert data["status"] == "added"
 
     def test_invalid_video_returns_error(self, client):
-        resp = client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=XXXXXXXXXXX"})
+        resp = client.post("/api/favorite/add", json={"url": "https://www.youtube.com/watch?v=XXXXXXXXXXX"})
         data = resp.get_json()
         assert data["status"] == "error"
         assert resp.status_code == 404
 
     def test_invalid_url_returns_error(self, client):
-        resp = client.post("/api/favourite/add", json={"url": "https://example.com"})
+        resp = client.post("/api/favorite/add", json={"url": "https://example.com"})
         data = resp.get_json()
         assert data["status"] == "error"
         assert resp.status_code == 400
 
     def test_cors_header_present(self, client):
-        resp = client.post("/api/favourite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.post("/api/favorite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
         assert "Access-Control-Allow-Origin" in resp.headers
 
     def test_options_preflight(self, client):
-        resp = client.options("/api/favourite/add")
+        resp = client.options("/api/favorite/add")
         assert resp.status_code == 204
         assert "Access-Control-Allow-Origin" in resp.headers
 

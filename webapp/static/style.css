@@ -465,8 +465,8 @@ h1 { margin-top: 0; }
   padding: 2rem;
 }
 
-/* Favourite button — thumbnail overlay (top-left corner) */
-.favourite-btn {
+/* Favorite button — thumbnail overlay (top-left corner) */
+.favorite-btn {
   position: absolute;
   top: 6px;
   left: 6px;
@@ -487,11 +487,11 @@ h1 { margin-top: 0; }
   z-index: 1;
 }
 
-.thumb-wrap:hover .favourite-btn { opacity: 1; }
-.favourite-btn--active { opacity: 1 !important; color: #f5c518; }
-.favourite-btn:hover { color: #f5c518; }
+.thumb-wrap:hover .favorite-btn { opacity: 1; }
+.favorite-btn--active { opacity: 1 !important; color: #f5c518; }
+.favorite-btn:hover { color: #f5c518; }
 
-/* Watched button — thumbnail overlay, next to favourite button */
+/* Watched button — thumbnail overlay, next to favorite button */
 .watched-btn {
   position: absolute;
   top: 6px;
@@ -516,7 +516,7 @@ h1 { margin-top: 0; }
 .watched-btn--active { color: #4caf50; }
 .watched-btn:hover { color: #4caf50; }
 
-/* Filter toggle (favourites checkbox in toolbar) */
+/* Filter toggle (favorites checkbox in toolbar) */
 .filter-toggle {
   display: flex;
   align-items: center;

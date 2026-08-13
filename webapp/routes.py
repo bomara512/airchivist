@@ -43,7 +43,7 @@ def index():
     tag = request.args.get("tag") or None
     search = request.args.get("search") or None
     group = request.args.get("group") or None
-    favourites_only = request.args.get("favourites") == "1"
+    favorites_only = request.args.get("favorites") == "1"
     unwatched_only = request.args.get("unwatched") == "1"
     duration = request.args.get("duration") or None
     try:
@@ -59,14 +59,14 @@ def index():
     try:
         total = _db.count_videos(
             g.db, channel=channel, tag=tag, search=search,
-            favourites_only=favourites_only, unwatched_only=unwatched_only,
+            favorites_only=favorites_only, unwatched_only=unwatched_only,
             duration=duration, added_within=added_within,
         )
         videos = _db.get_all_videos(
             g.db, sort_by=sort_by, sort_dir=sort_dir,
             channel=channel, tag=tag, search=search,
             page=page, page_size=PAGE_SIZE, group=group,
-            favourites_only=favourites_only, unwatched_only=unwatched_only,
+            favorites_only=favorites_only, unwatched_only=unwatched_only,
             duration=duration, added_within=added_within,
         )
     except ValueError:
@@ -115,7 +115,7 @@ def index():
         current_tag=tag,
         current_search=search,
         group=group,
-        favourites_only=favourites_only,
+        favorites_only=favorites_only,
         unwatched_only=unwatched_only,
         current_duration=duration,
         current_added_within=added_within,
@@ -534,14 +534,14 @@ def tags_llm_suggest_accept_noise(suggestion_id):
     return redirect(url_for("main.tags"))
 
 
-@bp.route("/videos/<video_id>/favourite", methods=["POST"])
-def video_toggle_favourite(video_id):
+@bp.route("/videos/<video_id>/favorite", methods=["POST"])
+def video_toggle_favorite(video_id):
     video = _db.get_video_by_id(g.db, video_id)
     if not video:
         abort(404)
-    new_value = not video.get("is_favourite")
-    _db.set_favourite(g.db, video_id, new_value)
-    return jsonify({"is_favourite": new_value})
+    new_value = not video.get("is_favorite")
+    _db.set_favorite(g.db, video_id, new_value)
+    return jsonify({"is_favorite": new_value})
 
 
 @bp.route("/videos/<video_id>/watched", methods=["POST"])
@@ -789,8 +789,8 @@ def api_watch_later_status():
     return resp
 
 
-@bp.route("/api/favourite/add", methods=["POST", "OPTIONS"])
-def api_favourite_add():
+@bp.route("/api/favorite/add", methods=["POST", "OPTIONS"])
+def api_favorite_add():
     if request.method == "OPTIONS":
         return make_response("", 204, _CORS_HEADERS)
 
@@ -809,7 +809,7 @@ def api_favourite_add():
         resp.headers.update(_CORS_HEADERS)
         return resp, 404
 
-    _db.set_favourite(g.db, video_id, True)
+    _db.set_favorite(g.db, video_id, True)
     resp = jsonify({"status": "added"})
     resp.headers.update(_CORS_HEADERS)
     return resp
