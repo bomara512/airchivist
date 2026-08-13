@@ -110,6 +110,25 @@ being asked.
 - Run `python -m pytest -q` at the end and confirm all tests pass before
   finishing the response.
 
+## Keep the feature sheet current
+
+`docs/feature-sheet.html` is a plain-language, functionality-focused
+summary of everything ViewTube does — for a non-technical read of the
+product, not an implementation reference.
+
+- Whenever a change ships a new user-facing feature, update the relevant
+  section of `docs/feature-sheet.html` in the same response — move the item
+  out of "On the roadmap" into its feature area, or add a new bullet/section
+  if it doesn't fit an existing one.
+- Whenever a change removes or fundamentally alters user-facing behavior,
+  edit or remove the corresponding line rather than leaving it stale.
+- Keep the stat line (`N areas catalogued · N features shipped · N queued`)
+  accurate to the actual counts after your edit.
+- Describe what the feature *does*, not how it's implemented — no route
+  names, file paths, or code identifiers, matching the rest of the page.
+- This is a local HTML file, not a published Artifact — edit it in place
+  with the Edit tool like any other file; it doesn't need re-publishing.
+
 ## Keep test-lifecycle state in shared hooks, not inline
 
 Fake timers, global stubs, and polyfills a test depends on must be set up
