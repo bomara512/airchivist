@@ -42,7 +42,7 @@ describe('doAdd', () => {
     expect(text).not.toContain('favorite');
     expect(text).not.toContain('Favorite');
     expect(global.fetch.mock.calls.some(([url]) => url.includes('/api/watch-later/add'))).toBe(false);
-    expect(global.fetch.mock.calls.some(([url]) => url.includes('/api/favourite/add'))).toBe(false);
+    expect(global.fetch.mock.calls.some(([url]) => url.includes('/api/favorite/add'))).toBe(false);
 
     jest.advanceTimersByTime(1500);
     expect(window.close).toHaveBeenCalled();
@@ -60,13 +60,13 @@ describe('doAdd', () => {
     expect(text).toContain('Added to Watch Later');
     expect(text).not.toContain('favorite');
     expect(text).not.toContain('Favorite');
-    expect(global.fetch.mock.calls.some(([url]) => url.includes('/api/favourite/add'))).toBe(false);
+    expect(global.fetch.mock.calls.some(([url]) => url.includes('/api/favorite/add'))).toBe(false);
   });
 
   test('favorite only, both succeed: shows Marked as favorite, no watch-later line', async () => {
     global.fetch = mockFetchRouter([
       ['/api/add', () => jsonResponse({ status: 'added', title: tabTitle })],
-      ['/api/favourite/add', () => jsonResponse({ status: 'added' })],
+      ['/api/favorite/add', () => jsonResponse({ status: 'added' })],
     ]);
 
     await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, false, true);
@@ -81,7 +81,7 @@ describe('doAdd', () => {
     global.fetch = mockFetchRouter([
       ['/api/add', () => jsonResponse({ status: 'added', title: tabTitle })],
       ['/api/watch-later/add', () => jsonResponse({ status: 'added' })],
-      ['/api/favourite/add', () => jsonResponse({ status: 'added' })],
+      ['/api/favorite/add', () => jsonResponse({ status: 'added' })],
     ]);
 
     await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, true, true);
@@ -95,7 +95,7 @@ describe('doAdd', () => {
     global.fetch = mockFetchRouter([
       ['/api/add', () => jsonResponse({ status: 'added', title: tabTitle })],
       ['/api/watch-later/add', () => Promise.reject(new Error('network fail'))],
-      ['/api/favourite/add', () => jsonResponse({ status: 'added' })],
+      ['/api/favorite/add', () => jsonResponse({ status: 'added' })],
     ]);
 
     await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, true, true);
@@ -111,7 +111,7 @@ describe('doAdd', () => {
     global.fetch = mockFetchRouter([
       ['/api/add', () => jsonResponse({ status: 'added', title: tabTitle })],
       ['/api/watch-later/add', () => jsonResponse({ status: 'added' })],
-      ['/api/favourite/add', () => jsonResponse({ status: 'error', error: 'Video not found' })],
+      ['/api/favorite/add', () => jsonResponse({ status: 'error', error: 'Video not found' })],
     ]);
 
     await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, true, true);
@@ -130,7 +130,7 @@ describe('doAdd', () => {
     await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, true, true);
 
     expect(global.fetch.mock.calls.some(([url]) => url.includes('/api/watch-later/add'))).toBe(false);
-    expect(global.fetch.mock.calls.some(([url]) => url.includes('/api/favourite/add'))).toBe(false);
+    expect(global.fetch.mock.calls.some(([url]) => url.includes('/api/favorite/add'))).toBe(false);
     const text = document.getElementById('root').textContent;
     expect(text).not.toContain('Added to Watch Later');
     expect(text).not.toContain('Marked as favorite');
@@ -144,7 +144,7 @@ describe('doAdd', () => {
     global.fetch = mockFetchRouter([
       ['/api/add', () => jsonResponse({ status: 'added', title: tabTitle })],
       ['/api/watch-later/add', () => jsonResponse({ status: 'added' })],
-      ['/api/favourite/add', () => jsonResponse({ status: 'added' })],
+      ['/api/favorite/add', () => jsonResponse({ status: 'added' })],
     ]);
 
     await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, true, true);

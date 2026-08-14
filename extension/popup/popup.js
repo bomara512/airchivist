@@ -83,7 +83,7 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false, also
         ? postJson(`${viewtubeUrl}/api/watch-later/add`, { url: tabUrl })
         : Promise.resolve(null),
       alsoFavorite
-        ? postJson(`${viewtubeUrl}/api/favourite/add`, { url: tabUrl })
+        ? postJson(`${viewtubeUrl}/api/favorite/add`, { url: tabUrl })
         : Promise.resolve(null),
     ]);
     if (alsoWatchLater) {
