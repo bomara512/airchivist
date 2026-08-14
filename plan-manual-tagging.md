@@ -10,7 +10,7 @@ Goal: a lightweight, per-video "add a tag" action, available from wherever video
 
 > **Implementation confirmation (2026-06-22):** All design decisions below were implemented exactly as written across Tasks 1-4, and Task 5's structural verification (button/datalist singleton counts on `/` and `/hidden`, plus a live `POST /videos/<id>/tags/add`) found no deviation from this plan. The only thing not verified is the actual click/right-click interaction in a real browser (no automation tooling available in this environment) — see the "Manual verification" section below for what's left for the user to click-test.
 
-**Trigger:** right-click context menu (the existing `#video-card-menu`, currently just "Archive video") — not a new visible button on the card. The thumbnail-overlay corner is already crowded (favourite, watch-later, and on the shelf, remove).
+**Trigger:** right-click context menu (the existing `#video-card-menu`, currently just "Archive video") — not a new visible button on the card. The thumbnail-overlay corner is already crowded (favorite, watch-later, and on the shelf, remove).
 
 **Scope:** available everywhere video cards render, including the Hidden/Archived page. (Archive itself still doesn't show there — see Frontend Implementation for how the two are decoupled.)
 
@@ -560,7 +560,7 @@ Add this immediately after the existing `video-card-hide` click handler (current
 
 **Why `e.stopPropagation()` is required, not optional:** the "Add tag…" button lives inside `#video-card-menu`, not inside `#video-card-add-tag-popover`. Without it, clicking the button would: (1) the button's own handler runs, showing the popover; (2) the same click event bubbles to the document-level outside-click handler (Step 3), which checks `!addTagPopover.contains(e.target)` — true, since the button isn't inside the popover — and immediately calls `hideAddTagPopover()`, undoing step 1. This is the same bubbling failure mode fixed once already this session in the rediscover-shelf toggle button; verify against it specifically when testing.
 
-**Why the three-way branch in `submitAddTag`'s `.forEach`:** `_video_card.html` places the tags block before the Hidden-page's restore/delete buttons (`.hidden-actions`), not after. Appending at the end of `.video-info` unconditionally would put a newly-added first tag visually after those buttons on the Hidden page — wrong position relative to what the server would render. Checking for `.hidden-actions` and inserting `beforebegin` keeps it correct there; both other contexts fall through to a plain append. Also note the result is applied to *every* `.video-card` matching that `data-video-id` (not just the one that was right-clicked), matching the existing favourite-button pattern that updates all instances of the same video.
+**Why the three-way branch in `submitAddTag`'s `.forEach`:** `_video_card.html` places the tags block before the Hidden-page's restore/delete buttons (`.hidden-actions`), not after. Appending at the end of `.video-info` unconditionally would put a newly-added first tag visually after those buttons on the Hidden page — wrong position relative to what the server would render. Checking for `.hidden-actions` and inserting `beforebegin` keeps it correct there; both other contexts fall through to a plain append. Also note the result is applied to *every* `.video-card` matching that `data-video-id` (not just the one that was right-clicked), matching the existing favorite-button pattern that updates all instances of the same video.
 
 - [ ] **Step 5: Add CSS**
 

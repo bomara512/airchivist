@@ -170,7 +170,7 @@ Files in `extension/`:
 
 Content script (`extension/content/content.js`) injected on `youtube.com/watch*`:
 
-**Current video badge** — after the video title (`#above-the-fold #title`), a coloured pill shows:
+**Current video badge** — after the video title (`#above-the-fold #title`), a colored pill shows:
 - `✓ In ViewTube` (green) if the video is saved
 - `⊘ Hidden in ViewTube` (red) if it's hidden
 - Nothing if not found (no noise for unsaved videos)
@@ -232,6 +232,6 @@ For local use without signing, Firefox Developer Edition or Nightly allow unsign
 ## Open Questions
 
 1. **Should the Firefox bookmark be created even when ViewTube fails?** Current plan: yes — the bookmark is the "ground truth" fallback. ViewTube is bonus metadata.
-2. **Bookmark folder hierarchy**: Should saves go into a date-organised subfolder (e.g. `ViewTube/2026-05`)? Probably overkill; a flat "ViewTube" folder is fine at personal-library scale.
+2. **Bookmark folder hierarchy**: Should saves go into a date-organized subfolder (e.g. `ViewTube/2026-05`)? Probably overkill; a flat "ViewTube" folder is fine at personal-library scale.
 3. **What if the user is watching a YouTube short or channel page?** The URL regex will reject non-video URLs cleanly. Shorts URLs (`/shorts/<id>`) should probably be supported — the same regex can be extended.
 4. **Icon design**: A simple red "V" or the YouTube play-button shape with a red accent would signal the extension's purpose clearly.

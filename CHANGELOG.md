@@ -4,6 +4,14 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ---
 
+## 2026-08-13
+
+### docs: sweep British spellings from current docs, add US English rule
+
+- Renamed the `is_favourite` DB column, `/videos/<id>/favourite` and `/api/favourite/add` routes, `set_favourite` function, `.favourite-btn`/`.favourite-btn--active` CSS classes, and all related test/template/JS references to US spelling (`is_favorite`, `/favorite`, `set_favorite`, `.favorite-btn`). Swept `colour`/`behaviour`/`organise`/`catalogue`/`grey`/`initialised` out of current-state prose docs (`CLAUDE.md`, `TODO.md`, `plan-*.md`, `docs/feature-sheet.html`). Added a `CLAUDE.md` rule requiring US English going forward in all new code and documentation.
+- Trade-off (pro): the codebase and its own docs now consistently use one dialect, matching the user's locale, and a new migration makes the DB rename automatic and lossless for existing installs.
+- Trade-off (con): historical `CHANGELOG.md` entries and `docs/superpowers/` specs/plans below this one still contain British spelling by design (a deliberate exception, not an inconsistency) â€” a reader skimming project history will see both spellings depending on how far back they scroll.
+
 ## 2026-08-10
 
 ### test(extension): Jest + jsdom test framework for popup.js

@@ -11,10 +11,10 @@ When creating a new plan, ask the user first. Store it in the project root and c
 Whenever you make an implementation change, update `plan-webapp.md` and/or
 `plan-crawler.md` in the same response — without being asked.
 
-- Reflect current behaviour, not just the delta. Edit or remove outdated
+- Reflect current behavior, not just the delta. Edit or remove outdated
   content rather than appending corrections.
 - Document explicit decisions *not* to implement something when the reasoning
-  is non-obvious (e.g. scroll behaviour on filter changes vs. pagination).
+  is non-obvious (e.g. scroll behavior on filter changes vs. pagination).
 - Implementation details (specific HTML attributes, CSS values) don't need to
   be recorded unless they represent a non-obvious design choice.
 
@@ -44,7 +44,7 @@ Any `console.log`, `print`, or other debug statement added during investigation
 must be removed before the response ends — without being asked.
 
 - Search for `console.log('[VT]`, `print(`, `logger.debug` etc. before committing.
-- Exception: logging that is part of the intended production behaviour (e.g. a
+- Exception: logging that is part of the intended production behavior (e.g. a
   startup message or an explicit error handler) may stay.
 
 ## Never use `rowid` with `sqlite3.Row` — use the named primary key
@@ -122,12 +122,31 @@ product, not an implementation reference.
   if it doesn't fit an existing one.
 - Whenever a change removes or fundamentally alters user-facing behavior,
   edit or remove the corresponding line rather than leaving it stale.
-- Keep the stat line (`N areas catalogued · N features shipped · N queued`)
+- Keep the stat line (`N areas cataloged · N features shipped · N queued`)
   accurate to the actual counts after your edit.
 - Describe what the feature *does*, not how it's implemented — no route
   names, file paths, or code identifiers, matching the rest of the page.
 - This is a local HTML file, not a published Artifact — edit it in place
   with the Edit tool like any other file; it doesn't need re-publishing.
+
+## Write US English, not British English
+
+This project uses American spelling throughout — code identifiers, UI
+copy, comments, and docs. Write "favorite," "color," "behavior,"
+"organize," "catalog," "gray," etc., never their British equivalents
+("favourite," "colour," "behaviour," "organise," "catalogue," "grey").
+
+- This applies to everything: DB columns, function/route names, CSS
+  classes, template strings, JS, and prose in `CLAUDE.md`, `TODO.md`,
+  `plan-*.md`, and `docs/feature-sheet.html`.
+- Exception: `CHANGELOG.md` and everything under `docs/superpowers/`
+  (specs and plans) are historical records. A past entry that used
+  British spelling when it was written stays as-is — do not "fix" old
+  entries. Only new entries going forward need to follow this rule.
+- Exception: don't touch spec-mandated identifiers that happen to
+  contain a double-L or similar pattern that looks British but isn't
+  (e.g. `aria-labelledby` is the correct HTML/ARIA attribute name in
+  every dialect — never "fix" it).
 
 ## Keep test-lifecycle state in shared hooks, not inline
 
@@ -164,10 +183,10 @@ Before writing any implementation code in this project, invoke the relevant
 `superpowers` skill via the Skill tool — do not go straight from the request
 to editing files.
 
-- New feature, component, or behaviour change → `superpowers:brainstorming`
+- New feature, component, or behavior change → `superpowers:brainstorming`
   first to pin down scope/design, then `superpowers:test-driven-development`
   while implementing (failing test before the code that makes it pass).
-- Bug, test failure, or unexpected behaviour → `superpowers:systematic-debugging`
+- Bug, test failure, or unexpected behavior → `superpowers:systematic-debugging`
   before proposing a fix.
 - Multi-step task that needs a written plan → `superpowers:writing-plans`, then
   `superpowers:executing-plans` or `superpowers:subagent-driven-development`.

@@ -163,7 +163,7 @@ A minimal partial used by the HTMX refresh swap:
 **JS kept**:
 - Tag pill context menu (moves to base.html)
 - Video card context menu (moves to base.html)
-- Shelf collapse/expand with localStorage (stays in index.html — shelf-specific behaviour)
+- Shelf collapse/expand with localStorage (stays in index.html — shelf-specific behavior)
 
 ---
 
@@ -230,7 +230,7 @@ These use event delegation (`document.addEventListener`) so they work on dynamic
 
 ## What stays JavaScript (not server-rendered)
 
-| Behaviour | Where |
+| Behavior | Where |
 |---|---|
 | Context menu show/hide/position | base.html (event delegation) |
 | WL button → POST add, disable | base.html (event delegation) |

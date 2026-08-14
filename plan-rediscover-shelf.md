@@ -14,7 +14,7 @@ Goal: Surface stale content the user hasn't engaged with in a while. A shelf on 
 
 **UI:** Togglable/collapsible section on homepage. Each video card shows *why* it's there: "Never opened", "Last viewed 6 months ago", etc.
 
-**Interaction:** Clicking a video increments `personal_view_count` and updates `date_last_viewed` (normal viewing behavior). Since 2026-08-07, the same `record_visit` call also sets `is_watched = 1`, which is what actually moves the video out of the unwatched pool above — `personal_view_count`/`date_last_viewed` still update as before but no longer gate pool membership themselves. A user can also set `is_watched` directly via the new per-card watched toggle without opening the video at all. Marking a video watched **from a shelf card** additionally removes it from the current shelf snapshot (via the shelf-remove route, which makes no `personal_view_count` change) — marking watched is a strong "already rediscovered" signal, so the card is dropped from the queue immediately, mirroring the ✕ and favourite→shelf-drop flows.
+**Interaction:** Clicking a video increments `personal_view_count` and updates `date_last_viewed` (normal viewing behavior). Since 2026-08-07, the same `record_visit` call also sets `is_watched = 1`, which is what actually moves the video out of the unwatched pool above — `personal_view_count`/`date_last_viewed` still update as before but no longer gate pool membership themselves. A user can also set `is_watched` directly via the new per-card watched toggle without opening the video at all. Marking a video watched **from a shelf card** additionally removes it from the current shelf snapshot (via the shelf-remove route, which makes no `personal_view_count` change) — marking watched is a strong "already rediscovered" signal, so the card is dropped from the queue immediately, mirroring the ✕ and favorite→shelf-drop flows.
 
 **Scope:** Launch this shelf only; don't retain "recently added" shelf for now.
 
@@ -195,7 +195,7 @@ Force regenerate the shelf. Returns same response structure as GET.
 
 - Horizontal scrollable carousel (similar to "Recently Added" if that existed)
 - Responsive: on mobile, may stack vertically or use narrower cards
-- "Reason" label styled subtly (grey, smaller font)
+- "Reason" label styled subtly (gray, smaller font)
 - Countdown timer in footer (e.g., "Refreshes in 5 days")
 
 ---

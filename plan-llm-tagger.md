@@ -220,7 +220,7 @@ The key insight: alias rules established from past LLM passes propagate automati
   - Noise card shows member tags as read-only pills with a dismiss button; no accept form
   - "No grouping suggestions" notice shown when cache is fresh but empty
   - `canonical-datalist` moved into the pool form (was already there); `llm-canonical-input` autocompletes from the same datalist
-- `webapp/static/style.css`: suggestion card styles; confidence badge colours (green/amber/grey for high/medium/low); dismiss button positioned absolute; accept button styled green to distinguish from primary actions
+- `webapp/static/style.css`: suggestion card styles; confidence badge colors (green/amber/gray for high/medium/low); dismiss button positioned absolute; accept button styled green to distinguish from primary actions
 
 ### Phase 4c — Crawler `--suggest` flag (optional)
 
