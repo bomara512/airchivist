@@ -709,6 +709,74 @@ class TestIsWatchedMigration:
         assert val == 0
 
 
+class TestFavoriteRenameMigration:
+    def _legacy_db_with_favourite(self, tmp_path):
+        from crawler.datastore import _SCHEMA as _CRAWLER_SCHEMA
+        db_path = str(tmp_path / "favmig.db")
+        conn = sqlite3.connect(db_path)
+        conn.executescript(_CRAWLER_SCHEMA)
+        conn.execute("ALTER TABLE videos ADD COLUMN is_favourite BOOLEAN NOT NULL DEFAULT 0")
+        conn.execute(
+            "INSERT INTO videos (video_id, url, title, fetch_status, is_favourite) "
+            "VALUES ('vidfav00001', 'u', 'Fav', 'ok', 1), "
+            "       ('vidnotfav01', 'u', 'NotFav', 'ok', 0)"
+        )
+        conn.commit()
+        conn.close()
+        return db_path
+
+    def test_renames_column_and_preserves_data(self, tmp_path):
+        db_path = self._legacy_db_with_favourite(tmp_path)
+        init_webapp_tables(db_path)
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(videos)")}
+        assert "is_favourite" not in cols
+        assert "is_favorite" in cols
+
+        rows = {r["video_id"]: r["is_favorite"]
+                for r in conn.execute("SELECT video_id, is_favorite FROM videos")}
+        conn.close()
+        assert rows["vidfav00001"] == 1
+        assert rows["vidnotfav01"] == 0
+
+    def test_rename_is_idempotent_on_second_run(self, tmp_path):
+        db_path = self._legacy_db_with_favourite(tmp_path)
+        init_webapp_tables(db_path)            # first run: renames the column
+        init_webapp_tables(db_path)             # second run must not error or reset data
+        conn = sqlite3.connect(db_path)
+        val = conn.execute(
+            "SELECT is_favorite FROM videos WHERE video_id = 'vidfav00001'"
+        ).fetchone()[0]
+        conn.close()
+        assert val == 1
+
+    def test_fresh_database_gets_is_favorite_directly(self, tmp_path):
+        from crawler.datastore import _SCHEMA as _CRAWLER_SCHEMA
+        db_path = str(tmp_path / "freshfav.db")
+        conn = sqlite3.connect(db_path)
+        conn.executescript(_CRAWLER_SCHEMA)
+        conn.execute(
+            "INSERT INTO videos (video_id, url, title, fetch_status) "
+            "VALUES ('vidbrandnew', 'u', 'New', 'ok')"
+        )
+        conn.commit()
+        conn.close()
+
+        init_webapp_tables(db_path)
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(videos)")}
+        val = conn.execute(
+            "SELECT is_favorite FROM videos WHERE video_id = 'vidbrandnew'"
+        ).fetchone()[0]
+        conn.close()
+        assert "is_favourite" not in cols
+        assert "is_favorite" in cols
+        assert val == 0
+
+
 class TestCanonicalTagManagement:
     def test_create_canonical_tag_new(self, db_conn):
         tag_id = create_canonical_tag(db_conn, "cooking")

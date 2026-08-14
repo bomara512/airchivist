@@ -6,6 +6,13 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-13
 
+### test(webapp): add coverage for is_favourite->is_favorite rename migration
+
+- The final whole-branch review of the US-spelling rename found the migration itself (`webapp/db/schema.py`'s guarded `ALTER TABLE videos RENAME COLUMN is_favourite TO is_favorite`) had zero test coverage — deleting the migration line left all 541 tests passing. Added `TestFavoriteRenameMigration` in `tests/webapp/test_db.py` (3 tests: renames + preserves data, idempotent on second run, fresh DB gets `is_favorite` directly via the ADD COLUMN loop instead), mirroring the existing `TestIsWatchedMigration` pattern. Confirmed with RED/GREEN: temporarily disabling the migration failed 2 of the 3 new tests (the third, covering the ADD-COLUMN path for brand-new databases, correctly still passed); restoring it turned all 3 green.
+- Documented the rename's ordering requirement (must run before the generic ADD-COLUMN migration loop) in `plan-webapp.md` alongside the analogous `is_watched` migration note.
+- Trade-off (pro): the migration path most likely to silently break existing users' databases (a rename, not an additive column) now has direct regression coverage instead of relying on incidental coverage from feature tests.
+- Trade-off (con): none identified — this is pure test/doc addition with no behavior change.
+
 ### docs: sweep British spellings from current docs, add US English rule
 
 - Renamed the `is_favourite` DB column, `/videos/<id>/favourite` and `/api/favourite/add` routes, `set_favourite` function, `.favourite-btn`/`.favourite-btn--active` CSS classes, and all related test/template/JS references to US spelling (`is_favorite`, `/favorite`, `set_favorite`, `.favorite-btn`). Swept `colour`/`behaviour`/`organise`/`catalogue`/`grey`/`initialised` out of current-state prose docs (`CLAUDE.md`, `TODO.md`, `plan-*.md`, `docs/feature-sheet.html`). Added a `CLAUDE.md` rule requiring US English going forward in all new code and documentation.

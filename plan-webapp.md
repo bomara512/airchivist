@@ -135,6 +135,13 @@ def init_webapp_tables(db_path: str) -> None   # creates webapp extension tables
                                                 # (toggles current value, returns `{"is_watched": bool}`) and the
                                                 # `.watched-btn` (&#10003;) card overlay button, mirroring the
                                                 # favorite star in shape/wiring.
+                                                # `videos.is_favourite` was renamed to `is_favorite` (US spelling) via a
+                                                # guarded `ALTER TABLE ... RENAME COLUMN`, which runs BEFORE the generic
+                                                # migration loop below — a pre-existing database still has the old
+                                                # column and must be renamed first, so the generic loop's `is_favorite`
+                                                # ADD COLUMN entry correctly no-ops afterward; a brand-new database has
+                                                # neither column yet, so the rename fails harmlessly and the ADD COLUMN
+                                                # entry creates it fresh instead.
 def collapse_case_variants(conn) -> int        # one-time admin: merges case-duplicate tags; NOT called at startup
 
 # Constants (enums)
