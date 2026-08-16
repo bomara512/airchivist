@@ -4,6 +4,25 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-08-16
+
+### docs: add README with setup instructions; fix pip install -e . packaging
+
+Added `README.md` covering setup, bookmark ingestion, running the webapp, the browser
+extension, optional AI tag suggestions, and running tests — reflecting the current real
+setup path (a real Firefox bookmarks export via the crawler; no demo/seed data exists yet,
+see `brainstorm-demo-onboarding.md`). While verifying the install step, found `pip install -e .`
+fails on a clean checkout: `pyproject.toml` had no `[build-system]` table, so setuptools fell
+back to auto-discovery and refused to guess which of the several top-level directories
+(`webapp/`, `crawler/`, `tools/`, `tests/`, `extension/`) were packages. Added an explicit
+`[tool.setuptools.packages.find]` include list (`webapp*`, `crawler*`) plus the
+`[build-system]` table; verified in an isolated venv that `pip install -e .` now succeeds and
+both `viewtube-crawler --help`/`viewtube-web --help` work as installed console scripts.
+Trade-off (pro): the README's install step actually works, and anyone following it lands on a
+real, tested command rather than a workaround. Trade-off (con): `tools/` (the tag categorizer
+script) is intentionally left out of the packages list since it has no `__init__.py` and isn't
+exposed as a console script today — restructuring it wasn't in scope for this fix.
+
 ## 2026-08-13
 
 ### test(webapp): add coverage for is_favourite->is_favorite rename migration

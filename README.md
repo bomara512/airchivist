@@ -1,0 +1,77 @@
+# ViewTube
+
+A personal catalog for YouTube videos you've bookmarked — saved, tagged, queued, and
+resurfaced on your own terms.
+
+## Features
+
+- Searchable, filterable video library (channel, tag, favorites, watch status, duration, date)
+- Tagging with tag groups, aliases, and optional AI-assisted suggestions
+- Watch Later queue with drag-to-reorder
+- Rediscover shelf — resurfaces videos you've forgotten about
+- Channel tracking, separate from individual videos
+- Firefox extension for one-click saving and status badges on YouTube itself
+
+## Prerequisites
+
+- Python 3.12+
+- A Firefox bookmarks export (JSON or HTML) containing YouTube links — export via
+  Firefox's Bookmarks Manager (`Ctrl+Shift+O` / `Cmd+Shift+O`) → *Import and Backup* →
+  *Backup...* (JSON) or *Export Bookmarks to HTML...*
+- (Optional) Node.js, only needed for the browser extension's test suite
+
+## Setup
+
+```bash
+git clone https://github.com/bomara512/viewtube.git
+cd viewtube
+pip install -e .
+```
+
+## Ingest your bookmarks
+
+```bash
+viewtube-crawler -i path/to/bookmarks.json -o viewtube.db
+```
+
+This fetches metadata (title, description, view count, duration, thumbnail, channel) for
+every YouTube video and channel link found, via `yt-dlp`. It's polite by default (a delay
+between requests) and safe to re-run — already-fetched videos are skipped unless you pass
+`--force-refresh`. Run `viewtube-crawler --help` for all options, including `--api-key` to
+use the YouTube Data API v3 for faster batch fetching instead.
+
+## Run the app
+
+```bash
+viewtube-web --db viewtube.db --port 8080
+```
+
+Open http://localhost:8080. The database schema (tags, watch-later, favorites, etc.) is
+created and migrated automatically on first run.
+
+## Browser extension (optional)
+
+1. In Firefox, go to `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on...** and select `extension/manifest.json`
+3. That's it — the extension defaults to `http://localhost:8080`, so it works out of the box
+   if you ran the webapp on the default port above. No configuration needed unless you're
+   using a different host/port, in which case set it via the extension's storage (see
+   `extension/popup/popup.js` for the `viewtubeUrl` key).
+
+## Optional: AI-assisted tag suggestions
+
+Set an Anthropic API key before starting the webapp to enable LLM-suggested tags on the
+Tags page:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Without it, tagging still works fully — just manually rather than with suggestions.
+
+## Running tests
+
+```bash
+python -m pytest -q   # backend (Python)
+npm test               # extension (Jest) — requires Node.js
+```
