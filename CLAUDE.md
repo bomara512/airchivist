@@ -129,6 +129,29 @@ product, not an implementation reference.
 - This is a local HTML file, not a published Artifact — edit it in place
   with the Edit tool like any other file; it doesn't need re-publishing.
 
+## Don't put real personal-library content in commit messages or docs
+
+This repo's git history once revealed personal information through routine
+work (tag-distillation session logs, categorization commit messages) —
+none of it was in the app's data files, all of it was in the *prose
+describing the work*. Discovered 2026-08-17; full history rewritten to
+fix it.
+
+- When a commit, `CHANGELOG.md` entry, or design doc needs a concrete
+  example (a tag name, a category, a merge decision), use a generic or
+  invented example — never the actual real tag/category/artist name from
+  whatever real data was being worked on at the time, even if it feels
+  like harmless technical detail in the moment.
+- This is easy to miss because each individual mention feels
+  inconsequential ("just a tag name") — the risk is cumulative: many small
+  real mentions across a project's history compose into a detailed real
+  personal profile.
+- **When fixing a leak like this, never describe the fix by re-stating the
+  leaked content** — a commit message like "redacted references to X" is
+  just a new leak of X. Describe the mechanism instead ("redacted
+  personal-content examples from N changelog entries"), never the specific
+  content that was removed.
+
 ## Write US English, not British English
 
 This project uses American spelling throughout — code identifiers, UI
