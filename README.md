@@ -1,7 +1,21 @@
 # ViewTube
 
-A personal catalog for YouTube videos you've bookmarked — saved, tagged, queued, and
-resurfaced on your own terms.
+**What this is:** A personal video bookmark manager solving a real problem — a decade-plus of
+YouTube bookmarks that became invisible the moment they were saved. ViewTube ingests, tags,
+and actively resurfaces what I've forgotten about.
+
+**Why it's built the way it's built:** This is also my playground for getting better at
+AI-assisted development — prompt engineering, learning Claude Code's skill/plugin ecosystem
+well, and building real instincts for working with an AI pair-programmer on a long-lived,
+real codebase.
+
+The [original prompt](prompt.md) that kicked this off spells things out by hand — "use a
+test-driven approach, write the test first, make sure it fails, then implement," "create a
+separate plan for each component." Those used to be instructions I had to re-type every time.
+Now that kind of process guidance lives in reusable skills via
+[superpowers](https://github.com/obra/superpowers), a Claude Code plugin — TDD, structured
+planning, and code review are things I invoke, not things I re-explain. Expect the commit
+history and docs to reflect that ongoing learning process.
 
 ## Features
 
