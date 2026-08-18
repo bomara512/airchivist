@@ -93,6 +93,6 @@ If a canonical tag is wrong for a specific video (false positive from a broad al
 | Unclassified pool, Smart Suggest, canonical admin | `/tags` |
 | Tag groups and auto-assign | `/tags` (Tag Groups section) |
 | Bulk CLI categorization | `tools/tag_categorizer.py` |
-| Alias system design | `plan-tag-distillation-v2.md` |
+| Alias system design | `docs/superpowers/specs/2026-06-04-tag-distillation-v2-design.md` |
 | Per-video tag removal | Right-click pill on any video card |
 | Re-apply all alias rules | `/tags` → Re-apply all rules button |

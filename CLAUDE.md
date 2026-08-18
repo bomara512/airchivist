@@ -1,10 +1,20 @@
 # ViewTube — Claude Code Instructions
 
-## Store plans in the project root
+## Living architecture docs stay in the project root
 
-All project plans are stored as `plan-*.md` files in the repository root, not in `~/.claude/`. Plans are versioned with the code and shared across sessions. Examples: `plan-webapp.md`, `plan-crawler.md`, `plan-rediscover-shelf.md`.
+`plan-webapp.md`, `plan-crawler.md`, and `plan-extension.md` are living
+architecture references, not historical plans — they describe the
+*current* state of each subsystem and get updated in place as the code
+changes (see "Always update the plans" below). They stay in the project
+root, versioned with the code, not in `~/.claude/`.
 
-When creating a new plan, ask the user first. Store it in the project root and commit it to git.
+One-time, feature-specific design/implementation work does not go here —
+it follows the superpowers brainstorming → spec → plan flow (see "Invoke
+superpowers skills before implementing" below), landing in
+`docs/superpowers/specs/` and `docs/superpowers/plans/` as dated
+documents. Older feature-specific `plan-*.md` files that predated this
+convention were relocated there on 2026-08-18 for consistency (e.g.
+`docs/superpowers/specs/2026-06-14-rediscover-shelf-design.md`).
 
 ## Always update the plans
 

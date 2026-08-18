@@ -1,4 +1,4 @@
-I want to rethink the tag distillation process first explored in plan-tag-distillation.md. The "Features Enabled by Distillation" section
+I want to rethink the tag distillation process first explored in docs/superpowers/specs/2026-05-29-tag-distillation-design.md. The "Features Enabled by Distillation" section
 still applies, but there are almost 30000 unclassified tags, which is too much for small chunks of manual categorization 
 or approval as specified in the original plan.
 
