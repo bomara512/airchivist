@@ -10,7 +10,20 @@ from pathlib import Path
 
 from crawler.datastore import _SCHEMA as _CRAWLER_SCHEMA
 from crawler.models import ChannelMetadata, FetchStatus
-from webapp.db import add_video, init_webapp_tables, upsert_channel
+from webapp.db import (
+    add_canonical_to_group,
+    add_to_watch_later,
+    add_video,
+    add_video_tag,
+    create_canonical_tag,
+    create_tag,
+    create_tag_group,
+    hide_video,
+    init_webapp_tables,
+    set_favorite,
+    set_watched,
+    upsert_channel,
+)
 
 ANCHOR = datetime(2026, 8, 19, tzinfo=timezone.utc)
 
@@ -79,6 +92,64 @@ VIDEOS: list[dict] = [
     {"video_id": "IcQxYrNNDcg", "title": "Simple garden hose storage container. LIMITED TOOLS NEEDED!", "channel_name": "Steve Ramsey - Woodworking for Mere Mortals", "duration_seconds": 643, "yt_view_count": 89404},
 ]
 
+# Tag groups -> canonical tag names.
+TAG_GROUPS: dict[str, list[str]] = {
+    "Coding & Tech": ["python", "machine-learning", "javascript", "web-dev"],
+    "Cooking": ["baking", "home-cooking", "chef-technique"],
+    "Guitar & Music": ["beginner-guitar", "guitar-technique", "music-video"],
+}
+
+# Canonical tags that exist but aren't in any group yet (realistic incremental tagging).
+UNGROUPED_CANONICAL_TAGS = ["science-explainer", "nature-documentary"]
+
+# canonical tag name -> video_ids it applies to.
+CANONICAL_TAG_VIDEOS: dict[str, list[str]] = {
+    "python": ["rfscVS0vtbw"],
+    "machine-learning": ["i_LwzRVP7bg"],
+    "javascript": ["bMknfKXIFA8", "n8mNX2YqkUs"],
+    "web-dev": ["916GWv2Qs08", "a_iQb1lnAEQ", "OXGznpKZ_sA"],
+    "baking": ["g1GFJxVeH9c", "mvDj7DF1jsk", "Xi28pEbMdTw", "FyMWRcVTGAI"],
+    "home-cooking": ["O1JDBt6WE7A", "lF2sKFnuALw"],
+    "chef-technique": ["KUHp3ve4m50", "YGpK6U56oHM"],
+    "beginner-guitar": ["_QCt3UBTS1Y", "BI3S9xSK8Iw", "zfBkJggF9aU", "G-X1RemAzks"],
+    "guitar-technique": ["eaUbs13xBl0", "ihlDFZjNM6g", "y5D3jMuCipk"],
+    "music-video": ["dQw4w9WgXcQ", "9bZkp7q19f0", "jofNR_WkoCE"],
+    "science-explainer": ["h6fcK_fRYaI", "sNhhvQGsMEc", "1fQkVqno-uI", "iG9CE55wbtY"],
+    "nature-documentary": ["l24FBVeu3Z4"],
+}
+
+# Non-canonical tag name -> video_ids it applies to. These sit in the "unclassified" pool
+# on the /tags page (real tags, never promoted to canonical) — gives the tagging UI
+# something to do, and mirrors how a real library accumulates raw, uncategorized tags.
+UNCLASSIFIED_TAG_VIDEOS: dict[str, list[str]] = {
+    "sql": ["HXV3zeQKqGY"],
+    "guitar-maintenance": ["XiOJRhikCBg"],
+    "space": ["4czjS9h4Fpg", "wE-aQO9XD1g", "FlpstXNjImY"],
+    "woodworking": ["JvzoijD2YaY", "QLSYADN_BzM", "F5oV9FoAKHM", "V7u78RQxjPg", "JgLVfwRltZY"],
+    "workshop": ["3lzPv_iHEyQ", "SIzDi6pSD4U", "C28ghmZVvd0", "IcQxYrNNDcg"],
+}
+
+FAVORITE_VIDEO_IDS = [
+    "dQw4w9WgXcQ", "h6fcK_fRYaI", "rfscVS0vtbw", "V7u78RQxjPg", "l24FBVeu3Z4", "KUHp3ve4m50",
+]
+
+# Order matters: add_to_watch_later assigns position by call order.
+WATCH_LATER_VIDEO_IDS = [
+    "rfscVS0vtbw", "g1GFJxVeH9c", "_QCt3UBTS1Y", "h6fcK_fRYaI",
+    "4czjS9h4Fpg", "JvzoijD2YaY", "i_LwzRVP7bg", "O1JDBt6WE7A",
+]
+
+HIDDEN_VIDEO_IDS = ["n8mNX2YqkUs", "YGpK6U56oHM", "XiOJRhikCBg"]
+
+# Previously-watched videos, spread from 2 weeks to ~17 months ago so the Rediscover
+# shelf has a real least-recently-viewed pool to draw from, not 1-2 eligible videos.
+WATCHED_VIDEO_IDS = [
+    "rfscVS0vtbw", "g1GFJxVeH9c", "_QCt3UBTS1Y", "h6fcK_fRYaI", "4czjS9h4Fpg",
+    "JvzoijD2YaY", "i_LwzRVP7bg", "O1JDBt6WE7A", "dQw4w9WgXcQ", "9bZkp7q19f0",
+    "V7u78RQxjPg", "l24FBVeu3Z4", "KUHp3ve4m50", "eaUbs13xBl0", "sNhhvQGsMEc",
+    "3lzPv_iHEyQ",
+]
+
 
 def bootstrap_schema(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
@@ -125,6 +196,50 @@ def seed_content(conn: sqlite3.Connection, videos: list[dict]) -> None:
     conn.commit()
 
 
+def seed_tags(conn: sqlite3.Connection) -> None:
+    for group_name, tag_names in TAG_GROUPS.items():
+        group_id = create_tag_group(conn, group_name)
+        for tag_name in tag_names:
+            tag_id = create_canonical_tag(conn, tag_name)
+            add_canonical_to_group(conn, group_id, tag_id)
+            for video_id in CANONICAL_TAG_VIDEOS[tag_name]:
+                add_video_tag(conn, video_id, tag_id)
+
+    for tag_name in UNGROUPED_CANONICAL_TAGS:
+        tag_id = create_canonical_tag(conn, tag_name)
+        for video_id in CANONICAL_TAG_VIDEOS[tag_name]:
+            add_video_tag(conn, video_id, tag_id)
+
+    for tag_name, video_ids in UNCLASSIFIED_TAG_VIDEOS.items():
+        tag_id = create_tag(conn, tag_name)
+        for video_id in video_ids:
+            add_video_tag(conn, video_id, tag_id)
+
+
+def seed_engagement(conn: sqlite3.Connection) -> None:
+    for video_id in FAVORITE_VIDEO_IDS:
+        set_favorite(conn, video_id, True)
+
+    for video_id in WATCH_LATER_VIDEO_IDS:
+        add_to_watch_later(conn, video_id)
+
+    for video_id in HIDDEN_VIDEO_IDS:
+        hide_video(conn, video_id)
+
+    for j, video_id in enumerate(WATCHED_VIDEO_IDS):
+        set_watched(conn, video_id, True)
+        view_count = 1 + (j % 4)
+        date_last_viewed = (ANCHOR - timedelta(days=14 + j * 33)).isoformat()
+        # No public setter for an arbitrary personal_view_count/date_last_viewed —
+        # see Global Constraints at the top of this plan.
+        conn.execute(
+            "UPDATE videos SET personal_view_count = ?, date_last_viewed = ? "
+            "WHERE video_id = ?",
+            (view_count, date_last_viewed, video_id),
+        )
+    conn.commit()
+
+
 def run(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Seed a ViewTube demo database.")
     parser.add_argument("--output", required=True, help="Path to write the demo database")
@@ -146,6 +261,8 @@ def run(argv: list[str] | None = None) -> None:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     seed_content(conn, VIDEOS)
+    seed_tags(conn)
+    seed_engagement(conn)
     conn.close()
     print(f"Seeded {output_path} with {len(VIDEOS)} videos.")
 
