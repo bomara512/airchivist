@@ -4,6 +4,20 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-08-19
+
+### docs: add demo.sh wrapper and README fast-path section
+
+Added `scripts/seed_demo_db.py` (a hardcoded list of ~50 real, public YouTube videos seeded
+with a fabricated favorites/watch-later/tags/watch-history layer, no network calls) and
+`demo.sh`, a thin wrapper that seeds `demo.db` if it's missing and then runs
+`viewtube-web --db demo.db --port 8080`. Added a "Try it with sample data" section to
+`README.md` right after Setup, so trying the app no longer requires a real Firefox bookmarks
+export first. Trade-off: the video list is a fixed snapshot verified 2026-08-19 — view counts
+will drift over time and any individual video could eventually be taken down or go private —
+mitigated by structuring the list as easily-swappable data in one place rather than scattering
+video IDs/titles as inline literals across the codebase.
+
 ## 2026-08-16
 
 ### docs: add README with setup instructions; fix pip install -e . packaging

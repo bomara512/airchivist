@@ -40,6 +40,24 @@ cd viewtube
 pip install -e .
 ```
 
+## Try it with sample data
+
+Want to see it running before pointing it at your own bookmarks? This seeds a database with
+~50 real, public YouTube videos across a mix of topics (coding tutorials, cooking, guitar
+lessons, science explainers, and more) — real titles/thumbnails/view counts, but the
+favorites/watch-later/tags/watch-history are all fabricated demo data, not anyone's real
+activity.
+
+```bash
+./demo.sh
+```
+
+Open http://localhost:8080. To reset back to a clean demo state:
+
+```bash
+python scripts/seed_demo_db.py --output demo.db --force
+```
+
 ## Ingest your bookmarks
 
 ```bash

@@ -564,6 +564,21 @@ python -m webapp.cli --db ~/viewtube.db --port 8080 --debug
 5. Print `ViewTube running at http://<host>:<port>`.
 6. Call `app.run(host, port, debug)`.
 
+### Demo Data
+
+`scripts/seed_demo_db.py` builds a standalone demo database (`--output <path>`, `--force` to
+overwrite) from a hardcoded list of ~50 real, public YouTube videos — real titles,
+thumbnails, and view counts, no network calls, no crawler/yt-dlp dependency — plus a fully
+fabricated personal-engagement layer on top (favorites, watch-later ordering, tag groups and
+assignments, watch history/view counts). None of the engagement data reflects anyone's real
+activity; it exists purely so the seeded database exercises every feature (rediscover shelf,
+tag groups, watch-later reorder) out of the box.
+
+`demo.sh` at the project root wraps this into a one-command path: seed `demo.db` if it
+doesn't already exist, then run `viewtube-web --db demo.db --port 8080` (re-running it after
+the first seed skips straight to starting the server). `demo.db` matches the `viewtube*.db*`
+gitignore pattern, so it's never committed — only `scripts/seed_demo_db.py` is.
+
 ---
 
 ## Implementation Phases
