@@ -134,16 +134,14 @@ re-verification for the seed script to work correctly.
 |---|---|---|---|
 | Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster) | `dQw4w9WgXcQ` | 3:33 | 1,805,594,426 |
 | PSY - GANGNAM STYLE(강남스타일) M/V | `9bZkp7q19f0` | 4:12 | 6,032,168,341 |
-| Baby Shark Dance \| Most Viewed Video \| PINKFONG | `XqZsoesa55w` | *tbd* | *tbd* |
+| Ylvis - The Fox (What Does The Fox Say?) [Official music video HD] | `jofNR_WkoCE` | 3:45 | 1,206,159,962 |
 
-Baby Shark's duration/views weren't obtainable locally — this machine's `yt-dlp` install has
-no JS runtime available (a warning it prints on every run), which it needs to decipher some
-videos' signatures, and it misreported this video as unavailable. A web search independently
-confirmed the ID is still correct and the video is live (it's even mirrored on the Internet
-Archive). Before the seed script is written, re-run the same `yt-dlp` lookup on a machine
-with a JS runtime installed (or use the YouTube Data API v3, which the crawler already
-supports via `--api-key`) to fill in the two `tbd` values — this is a data lookup, not a
-design decision, and shouldn't block plan-writing otherwise.
+Swapped in for Baby Shark, which was dropped: this machine's local `yt-dlp` misreported it as
+unavailable (no JS runtime installed, needed to decipher some videos' signatures) and rather
+than carry a data gap into the plan, it's simpler to pick a video this environment can
+actually verify cleanly. Ylvis - The Fox fits the same "official channel, single iconic work"
+shape as the Rick Astley and PSY picks — official uploader (TV Norge), 1.2B+ views, over a
+decade old with zero takedown risk.
 
 ### Education / explainer — Kurzgesagt + TED
 
