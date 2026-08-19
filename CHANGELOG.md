@@ -18,6 +18,11 @@ will drift over time and any individual video could eventually be taken down or 
 mitigated by structuring the list as easily-swappable data in one place rather than scattering
 video IDs/titles as inline literals across the codebase.
 
+While verifying `demo.sh`, found that `demo.db` did **not** actually match the existing
+`viewtube*.db*` gitignore pattern (that pattern requires a `viewtube` prefix), so a freshly
+seeded demo database could have been committed by accident. Added an explicit `demo.db` line
+to `.gitignore` to close the gap.
+
 ## 2026-08-16
 
 ### docs: add README with setup instructions; fix pip install -e . packaging

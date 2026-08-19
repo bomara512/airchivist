@@ -576,8 +576,8 @@ tag groups, watch-later reorder) out of the box.
 
 `demo.sh` at the project root wraps this into a one-command path: seed `demo.db` if it
 doesn't already exist, then run `viewtube-web --db demo.db --port 8080` (re-running it after
-the first seed skips straight to starting the server). `demo.db` matches the `viewtube*.db*`
-gitignore pattern, so it's never committed — only `scripts/seed_demo_db.py` is.
+the first seed skips straight to starting the server). `demo.db` is explicitly gitignored
+(`.gitignore`), so it's never committed — only `scripts/seed_demo_db.py` is.
 
 ---
 
