@@ -32,30 +32,26 @@ from webapp.db import (
 
 ANCHOR = datetime.now(timezone.utc)
 
-# channel_name -> (channel_id, channel_url). Real, verified via `yt-dlp` on 2026-08-19.
-#
-# Deliberately no avatar thumbnail: tried wiring in real yt3.googleusercontent.com avatar
-# URLs (fetched via crawler.metadata_fetcher.fetch_channel_metadata) and confirmed via
-# browser-side inspection (img.naturalWidth after img.complete) that 8 of 12 silently fail
-# to load when the /channels page requests all of them at once — each URL is individually
-# valid (curl fetches every one fine on its own), but this CDN doesn't tolerate ~12
-# concurrent requests from one page load. This is the same yt3.googleusercontent.com
-# rate-limiting this project hit and documented earlier (see the design doc) — it applies
-# at lower concurrency than originally assumed. Leaving thumbnail_url unset so the UI falls
-# back to the existing .no-thumb placeholder is the correct fix, not a shortcut.
-CHANNELS: dict[str, tuple[str, str]] = {
-    "freeCodeCamp.org": ("UC8butISFwT-Wl7EV0hUK0BQ", "https://www.youtube.com/@freecodecamp"),
-    "Bon Appétit": ("UCbpMy0Fg74eXXkvxJrtEn3w", "https://www.youtube.com/@bonappetit"),
-    "JustinGuitar": ("UCBNkm8o5LiEVLxO8w0p2sfQ", "https://www.youtube.com/@justinguitar"),
-    "Rick Astley": ("UCuAXFkgsw1L7xaCfnd5JJOw", "https://www.youtube.com/@RickAstleyYT"),
-    "officialpsy": ("UCrDkAvwZum-UTjHmzDI2iIw", "https://www.youtube.com/@officialpsy"),
-    "TV Norge": ("UCYM3pKj9tFQOXc2XcJmj8Vg", "https://www.youtube.com/@tvnorge"),
-    "Kurzgesagt – In a Nutshell": ("UCsXVk37bltHxD1rDPwtNM8Q", "https://www.youtube.com/@kurzgesagt"),
-    "TED": ("UCAuUUnT6oDeKwE6v1NGQxug", "https://www.youtube.com/@TED"),
-    "NASA": ("UCLA_DiR1FfKNvjuUpBHmylQ", "https://www.youtube.com/@NASA"),
-    "NASA Jet Propulsion Laboratory": ("UCryGec9PdUCLjpJW2mgCuLw", "https://www.youtube.com/@NASAJPL"),
-    "National Geographic": ("UCpVm7bg6pXKo1Pr6k5kxG9A", "https://www.youtube.com/@NatGeo"),
-    "Steve Ramsey - Woodworking for Mere Mortals": ("UCBB7sYb14uBtk8UqSQYc9-w", "https://www.youtube.com/@SteveRamsey"),
+# channel_name -> (channel_id, channel_url, avatar_thumbnail_url). Real, verified via
+# `yt-dlp`/`crawler.metadata_fetcher.fetch_channel_metadata` on 2026-08-20. An earlier pass
+# wrongly concluded these fail under concurrent load and reverted to no avatar — that was a
+# test artifact (subsequent navigation cancelled in-flight `loading="lazy"` image requests
+# mid-fetch, which looks identical to a real failure). Direct `new Image()` loads of every
+# URL here succeed in well under a second each; the real app's own /channels page (1900+
+# channels, same avatar mechanism) also confirms these load fine in normal use.
+CHANNELS: dict[str, tuple[str, str, str]] = {
+    "freeCodeCamp.org": ("UC8butISFwT-Wl7EV0hUK0BQ", "https://www.youtube.com/@freecodecamp", "https://yt3.googleusercontent.com/ytc/AIdro_lGRc-05M2OoE1ejQdxeFhyP7OkJg9h4Y-7CK_5je3QqFI=s0"),
+    "Bon Appétit": ("UCbpMy0Fg74eXXkvxJrtEn3w", "https://www.youtube.com/@bonappetit", "https://yt3.googleusercontent.com/cXS_yturdFtxAvqzJRnbMtZRYKCv3CDD7VHqHmhGZ2jgM8PYnOAbAbhZaK-Wb1NWgIrxrUjJiA=s0"),
+    "JustinGuitar": ("UCBNkm8o5LiEVLxO8w0p2sfQ", "https://www.youtube.com/@justinguitar", "https://yt3.googleusercontent.com/ytc/AIdro_m0JgCBMCYDFIhw7p5T9hzaXP71VvZbEiGDL33_kzeasw=s0"),
+    "Rick Astley": ("UCuAXFkgsw1L7xaCfnd5JJOw", "https://www.youtube.com/@RickAstleyYT", "https://yt3.googleusercontent.com/MOWpaiGJdgN4aKMI-NGQLL4jMVP3aDORlQpOBWooi0GSE2TGt4_9ncyepk1pCh-yWQ795AhPbw=s0"),
+    "officialpsy": ("UCrDkAvwZum-UTjHmzDI2iIw", "https://www.youtube.com/@officialpsy", "https://yt3.googleusercontent.com/kJ8zwS_VhJ0TE-XDumnshGQ86hazfhHjjU4xn80Dc8xmSghA_2xw4OJTHaGreyeoro6q_vcT=s0"),
+    "TV Norge": ("UCYM3pKj9tFQOXc2XcJmj8Vg", "https://www.youtube.com/@tvnorge", "https://yt3.googleusercontent.com/IjZuI0ypNm3zSXtq4rmz0Hp-V2RsoOMGVSTRu_NL-PzoRKwnZeGvtwqgTUJOfZjbiLihKS-e=s0"),
+    "Kurzgesagt – In a Nutshell": ("UCsXVk37bltHxD1rDPwtNM8Q", "https://www.youtube.com/@kurzgesagt", "https://yt3.googleusercontent.com/ytc/AIdro_n1Ribd7LwdP_qKtqWL3ZDfIgv9M1d6g78VwpHGXVR2Ir4=s0"),
+    "TED": ("UCAuUUnT6oDeKwE6v1NGQxug", "https://www.youtube.com/@TED", "https://yt3.googleusercontent.com/ytc/AIdro_koIFcCOrvh0KThLNOiazAIDu6hcs8bjkGNwe1f6A_OYm8=s0"),
+    "NASA": ("UCLA_DiR1FfKNvjuUpBHmylQ", "https://www.youtube.com/@NASA", "https://yt3.googleusercontent.com/eIf5fNPcIcj9ig-wZBeq4stFy1lgjWTW1nLT5dYlFkHZprZ03QBiMcbpwNMB6XSBjrSFGtAGQg=s0"),
+    "NASA Jet Propulsion Laboratory": ("UCryGec9PdUCLjpJW2mgCuLw", "https://www.youtube.com/@NASAJPL", "https://yt3.googleusercontent.com/Qc8LKJsm3lqSGkKSb9kkJbJWW4PXBgt25eLVwWuMFZiSRl6RHptXnC2MwfmSl2kddj4Fhb3yQw=s0"),
+    "National Geographic": ("UCpVm7bg6pXKo1Pr6k5kxG9A", "https://www.youtube.com/@NatGeo", "https://yt3.googleusercontent.com/-FOFg8o1y4dAHDB2MvhORHnLMOaaOKnaNUNsrU-U57Eac6gjB5VO8sYJQC1KkULGQvKP2XpArA=s0"),
+    "Steve Ramsey - Woodworking for Mere Mortals": ("UCBB7sYb14uBtk8UqSQYc9-w", "https://www.youtube.com/@SteveRamsey", "https://yt3.googleusercontent.com/ytc/AIdro_nQ0eOGcisyW6KnwWnidTVPqCoUr5o9hiYODFlke6W5cg=s0"),
 }
 
 # 44 real videos. Real, verified via `yt-dlp` on 2026-08-19 — see
@@ -181,13 +177,10 @@ def bootstrap_schema(db_path: str) -> None:
 
 
 def _channel_metadata(name: str) -> ChannelMetadata:
-    channel_id, channel_url = CHANNELS[name]
-    # No avatar image: thumbnail_url stays None so the UI falls back to the existing
-    # .no-thumb placeholder. See the CHANNELS comment above for why — this was tried and
-    # empirically confirmed to fail, not left unimplemented.
+    channel_id, channel_url, thumbnail_url = CHANNELS[name]
     return ChannelMetadata(
         channel_id=channel_id, channel_name=name, channel_url=channel_url,
-        description=None, subscriber_count=None, thumbnail_url=None,
+        description=None, subscriber_count=None, thumbnail_url=thumbnail_url,
         fetch_status=FetchStatus.OK,
     )
 
