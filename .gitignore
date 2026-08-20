@@ -8,6 +8,7 @@ htmlcov/
 viewtube.db
 .claude/settings.local.json
 viewtube*.db*
+demo.db
 proposals*.json
 approved*.json
 bookmarks*.html*
