@@ -8,6 +8,11 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+# Running this file directly (`python scripts/seed_demo_db.py`, as demo.sh and the
+# README do) sets sys.path[0] to scripts/, not the repo root, so the editable
+# `webapp`/`crawler` install isn't found. Insert the repo root explicitly.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from crawler.datastore import _SCHEMA as _CRAWLER_SCHEMA
 from crawler.models import ChannelMetadata, FetchStatus
 from webapp.db import (
