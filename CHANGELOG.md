@@ -4,6 +4,29 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-08-20
+
+### fix: demo seed data — published dates, real channel avatars, swap freeCodeCamp for Spring I/O
+
+Three follow-ups after trying the demo end to end. `date_published` was never passed to
+`add_video()`, so every demo video showed "Published unknown" — fixed by fetching each
+video's real upload date via `yt-dlp` and wiring it through. Channel avatars: an initial
+attempt to add real `yt3.googleusercontent.com` avatar URLs was reverted after browser
+testing showed 8 of 12 failing to load — that "finding" turned out to be a test artifact
+(claude-in-chrome automation tabs report `document.hidden=true`, and Chrome never fires
+`loading="lazy"` image requests in a hidden tab, independent of image count or the CDN's
+health); confirmed via direct `new Image()` loads bypassing the lazy-load gate, and by the
+real app's own `/channels` page loading the same avatars fine, before re-applying real
+avatars for all 12 channels. Also swapped the freeCodeCamp.org channel for Spring I/O
+(real 2026 conference talks) at the user's request — the "Coding & Tech" tag group's
+canonical tags changed from generic language names (`python`, `machine-learning`,
+`javascript`, `web-dev`) to Spring-specific ones (`keynote`, `spring-ai`,
+`spring-security`, `spring-boot`) to stay authentic to the new content, and the `sql`
+unclassified tag became `queries`. Trade-off: swapping a channel now means touching six
+different lists in `seed_demo_db.py` (content, tags, favorites, watch-later, hidden,
+watched) since a video's role is spread across all of them by ID — a future swap could
+warrant a lookup-by-role helper if this happens often enough to be worth the abstraction.
+
 ## 2026-08-19
 
 ### fix: address final-review findings on the demo seed data branch

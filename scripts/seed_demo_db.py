@@ -40,7 +40,7 @@ ANCHOR = datetime.now(timezone.utc)
 # URL here succeed in well under a second each; the real app's own /channels page (1900+
 # channels, same avatar mechanism) also confirms these load fine in normal use.
 CHANNELS: dict[str, tuple[str, str, str]] = {
-    "freeCodeCamp.org": ("UC8butISFwT-Wl7EV0hUK0BQ", "https://www.youtube.com/@freecodecamp", "https://yt3.googleusercontent.com/ytc/AIdro_lGRc-05M2OoE1ejQdxeFhyP7OkJg9h4Y-7CK_5je3QqFI=s0"),
+    "Spring I/O": ("UCLMPXsvSrhNPN3i9h-u8PYg", "https://www.youtube.com/@SpringIOConference", "https://yt3.googleusercontent.com/WZblQzigEED1WlfnrsMds4u-uL5y7_sgN4K_Ct5_MmCQmXfd-iULG4061RquXHBv7l_Jb3NNjc0=s0"),
     "Bon Appétit": ("UCbpMy0Fg74eXXkvxJrtEn3w", "https://www.youtube.com/@bonappetit", "https://yt3.googleusercontent.com/cXS_yturdFtxAvqzJRnbMtZRYKCv3CDD7VHqHmhGZ2jgM8PYnOAbAbhZaK-Wb1NWgIrxrUjJiA=s0"),
     "JustinGuitar": ("UCBNkm8o5LiEVLxO8w0p2sfQ", "https://www.youtube.com/@justinguitar", "https://yt3.googleusercontent.com/ytc/AIdro_m0JgCBMCYDFIhw7p5T9hzaXP71VvZbEiGDL33_kzeasw=s0"),
     "Rick Astley": ("UCuAXFkgsw1L7xaCfnd5JJOw", "https://www.youtube.com/@RickAstleyYT", "https://yt3.googleusercontent.com/MOWpaiGJdgN4aKMI-NGQLL4jMVP3aDORlQpOBWooi0GSE2TGt4_9ncyepk1pCh-yWQ795AhPbw=s0"),
@@ -57,14 +57,14 @@ CHANNELS: dict[str, tuple[str, str, str]] = {
 # 44 real videos. Real, verified via `yt-dlp` on 2026-08-19 — see
 # docs/superpowers/specs/2026-08-19-demo-seed-data-design.md for the source table.
 VIDEOS: list[dict] = [
-    {"video_id": "rfscVS0vtbw", "title": "Learn Python - Full Course for Beginners [Tutorial]", "channel_name": "freeCodeCamp.org", "date_published": "2018-07-11", "duration_seconds": 16012, "yt_view_count": 49122814},
-    {"video_id": "HXV3zeQKqGY", "title": "SQL Tutorial - Full Database Course for Beginners", "channel_name": "freeCodeCamp.org", "date_published": "2018-07-02", "duration_seconds": 15639, "yt_view_count": 20888367},
-    {"video_id": "i_LwzRVP7bg", "title": "Machine Learning for Everybody – Full Course", "channel_name": "freeCodeCamp.org", "date_published": "2022-09-26", "duration_seconds": 14033, "yt_view_count": 10291171},
-    {"video_id": "bMknfKXIFA8", "title": "React Course - Beginner's Tutorial for React JavaScript Library [2022]", "channel_name": "freeCodeCamp.org", "date_published": "2022-01-10", "duration_seconds": 42927, "yt_view_count": 4266110},
-    {"video_id": "916GWv2Qs08", "title": "HTML Tutorial - Website Crash Course for Beginners", "channel_name": "freeCodeCamp.org", "date_published": "2021-08-05", "duration_seconds": 2719, "yt_view_count": 664733},
-    {"video_id": "n8mNX2YqkUs", "title": "Learn JavaScript Interactively in NEW freeCodeCamp.org Curriculum", "channel_name": "freeCodeCamp.org", "date_published": "2023-12-20", "duration_seconds": 3206, "yt_view_count": 100453},
-    {"video_id": "a_iQb1lnAEQ", "title": "Learn HTML & CSS – Full Course for Beginners", "channel_name": "freeCodeCamp.org", "date_published": "2022-09-14", "duration_seconds": 19304, "yt_view_count": 932945},
-    {"video_id": "OXGznpKZ_sA", "title": "CSS Tutorial – Full Course for Beginners", "channel_name": "freeCodeCamp.org", "date_published": "2022-08-30", "duration_seconds": 40090, "yt_view_count": 2945708},
+    {"video_id": "pYDMhBVspIY", "title": "Spring I/O 2026 Keynote", "channel_name": "Spring I/O", "date_published": "2026-05-21", "duration_seconds": 4123, "yt_view_count": 4688},
+    {"video_id": "nHnKReitDXc", "title": "Bootiful Spring AI by Josh Long / James Ward @ Spring I/O 2026", "channel_name": "Spring I/O", "date_published": "2026-05-22", "duration_seconds": 2523, "yt_view_count": 4369},
+    {"video_id": "zO-bktrLju8", "title": "New in Spring Security 7: MFA, OAuth2 and more by Daniel Garnier @ Spring I/O 2026", "channel_name": "Spring I/O", "date_published": "2026-06-18", "duration_seconds": 2803, "yt_view_count": 5349},
+    {"video_id": "QXQiGS9CL20", "title": "Architectural Patterns for Spring Security You Wish Your Tech Lead Knew @ Spring I/O 2026", "channel_name": "Spring I/O", "date_published": "2026-07-10", "duration_seconds": 2984, "yt_view_count": 5849},
+    {"video_id": "KnLJ-vFsjwE", "title": "Inside Spring Boot 4: Restructuring for the Future by Moritz Halbritter @ Spring I/O 2026", "channel_name": "Spring I/O", "date_published": "2026-06-09", "duration_seconds": 2751, "yt_view_count": 8811},
+    {"video_id": "BvkGbpKb_BY", "title": "Code Once, Use Everywhere: Building a Shared Module used by Multiple Projects @ Spring I/O 2026", "channel_name": "Spring I/O", "date_published": "2026-07-11", "duration_seconds": 2707, "yt_view_count": 6375},
+    {"video_id": "2GHM153fs8g", "title": "Bootiful gRPC by Josh Long & Dave Syer @ Spring I/O 2026", "channel_name": "Spring I/O", "date_published": "2026-06-18", "duration_seconds": 2028, "yt_view_count": 4707},
+    {"video_id": "f5ehQCijgdw", "title": "The Joy of Queries by Mark Paluch @ Spring I/O 2026", "channel_name": "Spring I/O", "date_published": "2026-06-10", "duration_seconds": 2331, "yt_view_count": 1704},
     {"video_id": "g1GFJxVeH9c", "title": "Pastry Chef Attempts to Make Gourmet Instant Ramen | Gourmet Makes | Bon Appétit", "channel_name": "Bon Appétit", "date_published": "2018-11-29", "duration_seconds": 1532, "yt_view_count": 12341661},
     {"video_id": "mvDj7DF1jsk", "title": "Pastry Chef Attempts to Make Gourmet M&M's | Gourmet Makes | Bon Appétit", "channel_name": "Bon Appétit", "date_published": "2019-09-11", "duration_seconds": 2411, "yt_view_count": 6638849},
     {"video_id": "Xi28pEbMdTw", "title": "Pastry Chef Attempts to Make Gourmet Tater Tots | Gourmet Makes | Bon Appétit", "channel_name": "Bon Appétit", "date_published": "2020-05-05", "duration_seconds": 2304, "yt_view_count": 6096692},
@@ -105,7 +105,7 @@ VIDEOS: list[dict] = [
 
 # Tag groups -> canonical tag names.
 TAG_GROUPS: dict[str, list[str]] = {
-    "Coding & Tech": ["python", "machine-learning", "javascript", "web-dev"],
+    "Coding & Tech": ["keynote", "spring-ai", "spring-security", "spring-boot"],
     "Cooking": ["baking", "home-cooking", "chef-technique"],
     "Guitar & Music": ["beginner-guitar", "guitar-technique", "music-video"],
 }
@@ -115,10 +115,10 @@ UNGROUPED_CANONICAL_TAGS = ["science-explainer", "nature-documentary"]
 
 # canonical tag name -> video_ids it applies to.
 CANONICAL_TAG_VIDEOS: dict[str, list[str]] = {
-    "python": ["rfscVS0vtbw"],
-    "machine-learning": ["i_LwzRVP7bg"],
-    "javascript": ["bMknfKXIFA8", "n8mNX2YqkUs"],
-    "web-dev": ["916GWv2Qs08", "a_iQb1lnAEQ", "OXGznpKZ_sA"],
+    "keynote": ["pYDMhBVspIY"],
+    "spring-ai": ["nHnKReitDXc"],
+    "spring-security": ["zO-bktrLju8", "QXQiGS9CL20"],
+    "spring-boot": ["KnLJ-vFsjwE", "BvkGbpKb_BY", "2GHM153fs8g"],
     "baking": ["g1GFJxVeH9c", "mvDj7DF1jsk", "Xi28pEbMdTw", "FyMWRcVTGAI"],
     "home-cooking": ["O1JDBt6WE7A", "lF2sKFnuALw"],
     "chef-technique": ["KUHp3ve4m50", "YGpK6U56oHM"],
@@ -133,11 +133,11 @@ CANONICAL_TAG_VIDEOS: dict[str, list[str]] = {
 # on the /tags page (real tags, never promoted to canonical) — gives the tagging UI
 # something to do, and mirrors how a real library accumulates raw, uncategorized tags.
 # Every tag here needs >= 2 videos: get_unclassified_tags() defaults to min_videos=2, so a
-# 1-video tag never actually surfaces in the pool it's meant to demonstrate. "sql" and
+# 1-video tag never actually surfaces in the pool it's meant to demonstrate. "queries" and
 # "guitar-maintenance" each pick up a second video (a video that already has a canonical
 # tag elsewhere) purely to clear that threshold.
 UNCLASSIFIED_TAG_VIDEOS: dict[str, list[str]] = {
-    "sql": ["HXV3zeQKqGY", "916GWv2Qs08"],
+    "queries": ["f5ehQCijgdw", "KnLJ-vFsjwE"],
     "guitar-maintenance": ["XiOJRhikCBg", "y5D3jMuCipk"],
     "space": ["4czjS9h4Fpg", "wE-aQO9XD1g", "FlpstXNjImY"],
     "woodworking": ["JvzoijD2YaY", "QLSYADN_BzM", "F5oV9FoAKHM", "V7u78RQxjPg", "JgLVfwRltZY"],
@@ -145,7 +145,7 @@ UNCLASSIFIED_TAG_VIDEOS: dict[str, list[str]] = {
 }
 
 FAVORITE_VIDEO_IDS = [
-    "dQw4w9WgXcQ", "h6fcK_fRYaI", "rfscVS0vtbw", "V7u78RQxjPg", "l24FBVeu3Z4", "KUHp3ve4m50",
+    "dQw4w9WgXcQ", "h6fcK_fRYaI", "pYDMhBVspIY", "V7u78RQxjPg", "l24FBVeu3Z4", "KUHp3ve4m50",
 ]
 
 # Order matters: add_to_watch_later assigns position by call order.
@@ -153,17 +153,17 @@ FAVORITE_VIDEO_IDS = [
 # same "already watched" checkmark looks repetitive for a demo. 4 of these overlap with
 # WATCHED_VIDEO_IDS (queued-and-watched is a valid real state); 4 don't.
 WATCH_LATER_VIDEO_IDS = [
-    "rfscVS0vtbw", "bMknfKXIFA8", "_QCt3UBTS1Y", "h6fcK_fRYaI",
+    "pYDMhBVspIY", "KnLJ-vFsjwE", "_QCt3UBTS1Y", "h6fcK_fRYaI",
     "4czjS9h4Fpg", "zfBkJggF9aU", "mvDj7DF1jsk", "iG9CE55wbtY",
 ]
 
-HIDDEN_VIDEO_IDS = ["n8mNX2YqkUs", "YGpK6U56oHM", "XiOJRhikCBg"]
+HIDDEN_VIDEO_IDS = ["QXQiGS9CL20", "YGpK6U56oHM", "XiOJRhikCBg"]
 
 # Previously-watched videos, spread from 2 weeks to ~17 months ago so the Rediscover
 # shelf has a real least-recently-viewed pool to draw from, not 1-2 eligible videos.
 WATCHED_VIDEO_IDS = [
-    "rfscVS0vtbw", "g1GFJxVeH9c", "_QCt3UBTS1Y", "h6fcK_fRYaI", "4czjS9h4Fpg",
-    "JvzoijD2YaY", "i_LwzRVP7bg", "O1JDBt6WE7A", "dQw4w9WgXcQ", "9bZkp7q19f0",
+    "pYDMhBVspIY", "g1GFJxVeH9c", "_QCt3UBTS1Y", "h6fcK_fRYaI", "4czjS9h4Fpg",
+    "JvzoijD2YaY", "nHnKReitDXc", "O1JDBt6WE7A", "dQw4w9WgXcQ", "9bZkp7q19f0",
     "V7u78RQxjPg", "l24FBVeu3Z4", "KUHp3ve4m50", "eaUbs13xBl0", "sNhhvQGsMEc",
     "3lzPv_iHEyQ",
 ]
