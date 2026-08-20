@@ -567,7 +567,7 @@ python -m webapp.cli --db ~/viewtube.db --port 8080 --debug
 ### Demo Data
 
 `scripts/seed_demo_db.py` builds a standalone demo database (`--output <path>`, `--force` to
-overwrite) from a hardcoded list of ~50 real, public YouTube videos — real titles,
+overwrite) from a hardcoded list of 44 real, public YouTube videos — real titles,
 thumbnails, and view counts, no network calls, no crawler/yt-dlp dependency — plus a fully
 fabricated personal-engagement layer on top (favorites, watch-later ordering, tag groups and
 assignments, watch history/view counts). None of the engagement data reflects anyone's real

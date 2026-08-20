@@ -43,7 +43,7 @@ pip install -e .
 ## Try it with sample data
 
 Want to see it running before pointing it at your own bookmarks? This seeds a database with
-~50 real, public YouTube videos across a mix of topics (coding tutorials, cooking, guitar
+44 real, public YouTube videos across a mix of topics (coding tutorials, cooking, guitar
 lessons, science explainers, and more) — real titles/thumbnails/view counts, but the
 favorites/watch-later/tags/watch-history are all fabricated demo data, not anyone's real
 activity.

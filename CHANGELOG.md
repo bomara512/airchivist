@@ -6,9 +6,32 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ## 2026-08-19
 
+### fix: address final-review findings on the demo seed data branch
+
+Bundled fix pass addressing all findings from the whole-branch review of the demo seed data
+work: `ANCHOR` now defaults to `datetime.now(timezone.utc)` instead of a fixed date, and the
+leading `date_added` offset dropped from 10 to 2 days, so a freshly seeded demo always has at
+least one video inside the app's own "added in the last 7 days" filter (previously the
+newest video was already outside the window, and it only got worse as time passed);
+`date_last_viewed` for watched videos is now derived from each video's own `date_added` plus
+a small positive spread instead of from `ANCHOR` independently, so it can no longer predate
+`date_added` (a state the real app can never produce); the `sql` and `guitar-maintenance`
+unclassified tags each picked up a second video so they clear `get_unclassified_tags()`'s
+`min_videos=2` threshold and actually appear in the demo's `/tags` pool; `seed_demo_db.py`
+now seeds to a temporary `<output>.tmp` path and only moves it to the real path via
+`Path.replace()` on full success, so a crash partway through no longer leaves a broken
+`demo.db` that `demo.sh` will never retry; `demo.sh`'s final line uses `exec` for cleaner
+Ctrl-C handling; 4 of the 8 `WATCH_LATER_VIDEO_IDS` were swapped for unwatched videos so the
+watch-later queue shows a mix instead of every card being watched; `docs/feature-sheet.html`
+picked up the demo-mode bullet and stat-line update it was missing; and "~50 real, public
+YouTube videos" was corrected to the exact, already-known count of 44 in `README.md`,
+`CHANGELOG.md`, and `plan-webapp.md`. Trade-off: `ANCHOR` no longer being fixed means seeded
+timestamps are no longer bit-for-bit reproducible across runs (by design â€” the previous fixed
+date is exactly what caused the 7-day filter to go stale over time).
+
 ### docs: add demo.sh wrapper and README fast-path section
 
-Added `scripts/seed_demo_db.py` (a hardcoded list of ~50 real, public YouTube videos seeded
+Added `scripts/seed_demo_db.py` (a hardcoded list of 44 real, public YouTube videos seeded
 with a fabricated favorites/watch-later/tags/watch-history layer, no network calls) and
 `demo.sh`, a thin wrapper that seeds `demo.db` if it's missing and then runs
 `viewtube-web --db demo.db --port 8080`. Added a "Try it with sample data" section to

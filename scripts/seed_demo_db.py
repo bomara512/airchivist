@@ -25,7 +25,7 @@ from webapp.db import (
     upsert_channel,
 )
 
-ANCHOR = datetime(2026, 8, 19, tzinfo=timezone.utc)
+ANCHOR = datetime.now(timezone.utc)
 
 # channel_name -> (channel_id, channel_url). Real, verified via `yt-dlp` on 2026-08-19.
 CHANNELS: dict[str, tuple[str, str]] = {
@@ -121,9 +121,13 @@ CANONICAL_TAG_VIDEOS: dict[str, list[str]] = {
 # Non-canonical tag name -> video_ids it applies to. These sit in the "unclassified" pool
 # on the /tags page (real tags, never promoted to canonical) — gives the tagging UI
 # something to do, and mirrors how a real library accumulates raw, uncategorized tags.
+# Every tag here needs >= 2 videos: get_unclassified_tags() defaults to min_videos=2, so a
+# 1-video tag never actually surfaces in the pool it's meant to demonstrate. "sql" and
+# "guitar-maintenance" each pick up a second video (a video that already has a canonical
+# tag elsewhere) purely to clear that threshold.
 UNCLASSIFIED_TAG_VIDEOS: dict[str, list[str]] = {
-    "sql": ["HXV3zeQKqGY"],
-    "guitar-maintenance": ["XiOJRhikCBg"],
+    "sql": ["HXV3zeQKqGY", "916GWv2Qs08"],
+    "guitar-maintenance": ["XiOJRhikCBg", "y5D3jMuCipk"],
     "space": ["4czjS9h4Fpg", "wE-aQO9XD1g", "FlpstXNjImY"],
     "woodworking": ["JvzoijD2YaY", "QLSYADN_BzM", "F5oV9FoAKHM", "V7u78RQxjPg", "JgLVfwRltZY"],
     "workshop": ["3lzPv_iHEyQ", "SIzDi6pSD4U", "C28ghmZVvd0", "IcQxYrNNDcg"],
@@ -134,9 +138,12 @@ FAVORITE_VIDEO_IDS = [
 ]
 
 # Order matters: add_to_watch_later assigns position by call order.
+# Mix of watched and unwatched entries on purpose — a queue where every card shows the
+# same "already watched" checkmark looks repetitive for a demo. 4 of these overlap with
+# WATCHED_VIDEO_IDS (queued-and-watched is a valid real state); 4 don't.
 WATCH_LATER_VIDEO_IDS = [
-    "rfscVS0vtbw", "g1GFJxVeH9c", "_QCt3UBTS1Y", "h6fcK_fRYaI",
-    "4czjS9h4Fpg", "JvzoijD2YaY", "i_LwzRVP7bg", "O1JDBt6WE7A",
+    "rfscVS0vtbw", "bMknfKXIFA8", "_QCt3UBTS1Y", "h6fcK_fRYaI",
+    "4czjS9h4Fpg", "zfBkJggF9aU", "mvDj7DF1jsk", "iG9CE55wbtY",
 ]
 
 HIDDEN_VIDEO_IDS = ["n8mNX2YqkUs", "YGpK6U56oHM", "XiOJRhikCBg"]
@@ -188,7 +195,10 @@ def seed_content(conn: sqlite3.Connection, videos: list[dict]) -> None:
         # add_video always stamps date_added=now(); backdate it here so the library
         # looks like it grew over time rather than everything arriving in one instant.
         # No public setter exists for an arbitrary date_added — see Global Constraints.
-        date_added = (ANCHOR - timedelta(days=10 + i * 14)).isoformat()
+        # Leading offset is small (2 days) so the newest video or two land inside the
+        # app's own "added in the last 7 days" filter — a fresh demo shouldn't come up
+        # empty for the exact feature meant to show the library looking alive.
+        date_added = (ANCHOR - timedelta(days=2 + i * 14)).isoformat()
         conn.execute(
             "UPDATE videos SET date_added = ? WHERE video_id = ?",
             (date_added, v["video_id"]),
@@ -229,7 +239,18 @@ def seed_engagement(conn: sqlite3.Connection) -> None:
     for j, video_id in enumerate(WATCHED_VIDEO_IDS):
         set_watched(conn, video_id, True)
         view_count = 1 + (j % 4)
-        date_last_viewed = (ANCHOR - timedelta(days=14 + j * 33)).isoformat()
+        # date_last_viewed must never predate the video's own date_added — you can't view
+        # something before you bookmarked it. Derive it from that video's actual
+        # date_added (not from ANCHOR directly, which is indexed independently by
+        # seed_content) plus a small positive spread, capped at "now" so it never lands
+        # in the future.
+        row = conn.execute(
+            "SELECT date_added FROM videos WHERE video_id = ?", (video_id,)
+        ).fetchone()
+        video_date_added = datetime.fromisoformat(row[0])
+        date_last_viewed = min(
+            video_date_added + timedelta(days=1 + (j % 6)), ANCHOR
+        ).isoformat()
         # No public setter for an arbitrary personal_view_count/date_last_viewed —
         # see Global Constraints at the top of this plan.
         conn.execute(
@@ -253,17 +274,26 @@ def run(argv: list[str] | None = None) -> None:
             file=sys.stderr,
         )
         raise SystemExit(1)
-    if output_path.exists():
-        output_path.unlink()
 
-    bootstrap_schema(str(output_path))
-    conn = sqlite3.connect(str(output_path))
+    # Seed to a temporary path first and only move it to the real --output path on full
+    # success. If bootstrap_schema/seed_content/seed_tags/seed_engagement run partway and
+    # then crash, the half-seeded file is left at <output>.tmp, never at the real path —
+    # so demo.sh's `[ ! -f demo.db ]` check still triggers a full re-seed next run instead
+    # of picking up a broken database forever.
+    tmp_path = output_path.with_name(output_path.name + ".tmp")
+    if tmp_path.exists():
+        tmp_path.unlink()
+
+    bootstrap_schema(str(tmp_path))
+    conn = sqlite3.connect(str(tmp_path))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     seed_content(conn, VIDEOS)
     seed_tags(conn)
     seed_engagement(conn)
     conn.close()
+
+    tmp_path.replace(output_path)  # atomic on the same filesystem
     print(f"Seeded {output_path} with {len(VIDEOS)} videos.")
 
 

@@ -9,4 +9,4 @@ if [ ! -f demo.db ]; then
 fi
 
 echo "Starting ViewTube demo at http://localhost:8080"
-viewtube-web --db demo.db --port 8080
+exec viewtube-web --db demo.db --port 8080

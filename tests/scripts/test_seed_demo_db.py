@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 import pytest
 from scripts.seed_demo_db import bootstrap_schema, seed_content, seed_tags, seed_engagement, VIDEOS, CHANNELS, run
 
@@ -40,6 +40,11 @@ class TestSeedContent:
         seed_content(conn, VIDEOS)
         dates = [r[0] for r in conn.execute("SELECT date_added FROM videos").fetchall()]
         assert len(set(dates)) > 1  # not all the same instant
+        # Regression test: the newest video must land within the app's own "added in the
+        # last 7 days" filter, so a freshly seeded demo isn't empty for that filter.
+        parsed_dates = [datetime.fromisoformat(d) for d in dates]
+        newest = max(parsed_dates)
+        assert (datetime.now(timezone.utc) - newest).days <= 7
 
 
 class TestSeedTags:
@@ -95,8 +100,8 @@ class TestSeedEngagement:
             ORDER BY w.position
         """).fetchall()
         assert [r[0] for r in rows] == [
-            "rfscVS0vtbw", "g1GFJxVeH9c", "_QCt3UBTS1Y", "h6fcK_fRYaI",
-            "4czjS9h4Fpg", "JvzoijD2YaY", "i_LwzRVP7bg", "O1JDBt6WE7A",
+            "rfscVS0vtbw", "bMknfKXIFA8", "_QCt3UBTS1Y", "h6fcK_fRYaI",
+            "4czjS9h4Fpg", "zfBkJggF9aU", "mvDj7DF1jsk", "iG9CE55wbtY",
         ]
 
     def test_three_hidden_videos(self, conn):
