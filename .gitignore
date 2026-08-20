@@ -7,6 +7,7 @@ __pycache__/
 htmlcov/
 viewtube.db
 .claude/settings.local.json
+.claude/worktrees/
 viewtube*.db*
 demo.db
 proposals*.json
