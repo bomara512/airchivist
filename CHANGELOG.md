@@ -6,6 +6,10 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ## 2026-08-20
 
+### chore: reorder filter panel â€” Favorites checkbox now follows Unwatched only
+
+Pure markup reorder in `index.html`'s filter panel, no behavior change.
+
 ### feat: Rediscover shelf collapses/expands based on active filters
 
 The shelf now auto-collapses whenever any filter (channel, tag, sort, group,

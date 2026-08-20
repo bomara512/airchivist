@@ -66,11 +66,6 @@
         <option value="tag" {% if group == 'tag' %}selected{% endif %}>By tag</option>
       </select>
 
-      <label class="filter-toggle">
-        <input type="checkbox" name="favorites" value="1" {% if favorites_only %}checked{% endif %}>
-        Favorites
-      </label>
-
       {# Keep options in sync with _DURATION_BUCKETS / _ADDED_WITHIN_DAYS in webapp/db/videos.py #}
       <select name="duration">
         <option value="" {% if not current_duration %}selected{% endif %}>Any duration</option>
@@ -90,6 +85,11 @@
       <label class="filter-toggle">
         <input type="checkbox" name="unwatched" value="1" {% if unwatched_only %}checked{% endif %}>
         Unwatched only
+      </label>
+
+      <label class="filter-toggle">
+        <input type="checkbox" name="favorites" value="1" {% if favorites_only %}checked{% endif %}>
+        Favorites
       </label>
     </div>
 
