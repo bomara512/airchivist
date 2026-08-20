@@ -6,6 +6,25 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-20
 
+### feat: Rediscover shelf collapses/expands based on active filters
+
+The shelf now auto-collapses whenever any filter (channel, tag, sort, group,
+favorites, unwatched, duration, added-within) is active, and auto-expands
+when cleared. Reuses the existing `active_filter_count` expression (now
+computed once in `routes.py:index()` instead of duplicated in Jinja) so this
+matches the "Filters N" badge exactly. Since the shelf lives outside
+`#video-container`, a hidden OOB marker (`#rediscover-filter-state`) rides
+along on every filter-triggered HTMX swap and an inline script syncs the
+shelf's `.collapsed` class from it. This also required moving `#video-container`
+itself from `index.html` into `_video_container.html`, so the marker is a
+sibling rather than a descendant of the element HTMX replaces — nesting it
+inside caused the OOB-updated marker to be immediately wiped out by the
+parent's own innerHTML swap. Clicking the shelf header still works as a
+temporary peek, but the next filter change overrides it back to the
+filter-driven state — as a trade-off, this drops the old `localStorage`
+persistence, so there's no longer a way to keep the shelf permanently
+collapsed while unfiltered, only the transient peek.
+
 ### fix: demo seed data — published dates, real channel avatars, swap freeCodeCamp for Spring I/O
 
 Three follow-ups after trying the demo end to end. `date_published` was never passed to

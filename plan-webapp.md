@@ -440,7 +440,7 @@ All filters live in a single `<form>` wired with HTMX:
 - No Apply button — every change fires automatically
 - **Reset link** (`<a href="/">Reset</a>`) outside the form performs a full page navigation to `/`, restoring all controls to their default state
 
-HTMX swaps only `<div id="video-container">`, preserving the toolbar. `hx-push-url="true"` keeps the browser URL in sync so filters are bookmarkable and shareable.
+HTMX swaps only `<div id="video-container">`, preserving the toolbar. `hx-push-url="true"` keeps the browser URL in sync so filters are bookmarkable and shareable. `#video-container` is defined inside `_video_container.html` itself (not by `index.html`, which just `{% include %}`s the partial) — this keeps it a sibling of the `#rediscover-filter-state` OOB marker described below rather than an ancestor, which matters because an element can't survive being replaced by its own parent's innerHTML swap.
 
 The route returns `_video_container.html` (partial) when the `HX-Request` header is present, or the full `index.html` on a direct load.
 
@@ -448,7 +448,7 @@ The sort select uses human-readable labels (no underscores): Date Added, Title, 
 
 A canonical tag `<select name="tag">` is rendered between the channel dropdown and the sort-by dropdown, but only when at least one canonical tag has at least one associated video. Options are populated from `get_canonical_tags_for_filter`. Selecting a tag filters via the existing `?tag=` query param and `_build_where` logic.
 
-Three quick-filter controls sit alongside the favorites checkbox, all wired into the same auto-submitting HTMX form and the `Filters` badge count (`active_filter_count` in `index.html`):
+Three quick-filter controls sit alongside the favorites checkbox, all wired into the same auto-submitting HTMX form and the `Filters` badge count (`active_filter_count`, computed once in `routes.py:index()` and passed to both `index.html` and `_video_container.html` so the two templates share one definition of "a filter is active" — channel, tag, non-default sort/direction, group, favorites, unwatched, duration, or added-within; search does not count).
 
 - **Unwatched only** — a checkbox (`name="unwatched"`, value `"1"`), mapped to `unwatched_only` in the route.
 - **Duration** — a `<select name="duration">` with "Any duration" plus the three `_DURATION_BUCKETS` options (Short/Medium/Long), mapped straight through to `_build_where`'s `duration` param.
@@ -462,6 +462,8 @@ All three persist across pagination the same way the existing filters do, since 
 - **By tag**: groups are built in Python from the `tags` field on each video (already limited to canonical tags). A video with multiple canonical tags appears in each relevant section. Groups are sorted alphabetically; videos with no canonical tags appear last in an "Untagged" section. SQL ORDER BY is not modified for tag grouping since one video can belong to many groups.
 
 Both modes produce a list of `{"tag": {"name": label}, "videos": [...]}` dicts consumed by the same `_video_container.html` partial. Pagination is applied at the video level before grouping, so a group may span pages if the library is large.
+
+**Rediscover shelf collapse/expand**: The shelf (`#rediscover-shelf`) auto-collapses whenever `active_filter_count > 0` and auto-expands when it's 0 — clearing filters (including via the plain `Reset` link) re-expands it. Since the shelf sits outside `#video-container` and an HTMX filter change only swaps that div, `_video_container.html` carries a hidden OOB sibling, `<div id="rediscover-filter-state" hx-swap-oob="true" data-active="…">`, that rides along on every filter-triggered swap; an inline script in `index.html` reads its `data-active` attribute and toggles `.collapsed` on `#rediscover-shelf`, re-querying the marker by ID on each call rather than caching the element reference (HTMX's OOB swap replaces it outright via `outerHTML`, so a cached reference goes stale after the first swap). The sync runs on page load and on every `htmx:afterSettle`. Clicking the "Rediscover" label still toggles `.collapsed` directly for a temporary peek, but the next filter/sort/search change overrides it back to the filter-driven state — there is no persisted "always collapsed" preference; `localStorage` is not used for this control.
 
 **Bookmarklet / quick-add**: `POST /api/add` accepts `{"url": "<youtube-url>"}` from any origin (CORS headers included). It extracts the video ID via the same `_YT_ID_RE` regex used by the crawler, checks for an existing `fetch_status='ok'` record, then calls `fetch_metadata(video_id, delay=0)` and persists the result via `add_video` in `webapp/db.py`. Returns `{"status": "added"|"exists"|"hidden"|"error", "title": "..."}`. When the video exists but is hidden, returns `"hidden"` — the extension uses this to show the hidden-state UI without a separate status check. `add_video` uses `ON CONFLICT(video_id) DO UPDATE` but does not overwrite `date_added`, `personal_view_count`, or `date_last_viewed`. `GET /install` renders `install.html`, which shows the bookmarklet as a draggable `<a href="javascript:...">` link. The bookmarklet shows a toast notification on the YouTube page while the fetch runs, then updates it with the result. When the API returns `not_found`, the extension popup renders an "Add to ViewTube" button and two opt-in checkboxes ("Also add to Watch Later" and "Also mark as favorite (★)") instead of firing the add immediately; on button click, `doAdd` is called and, if either checkbox is ticked, parallel follow-up calls to `POST /api/watch-later/add` and/or `POST /api/favorite/add` fire after the main add (via `Promise.allSettled` — both must wait for the main add to succeed first, since they both require the video to already be in the DB, but they run in parallel with each other and neither depends on the other). The favorite endpoint returns no 409/already-case (unlike watch-later) since `is_favorite` is a plain boolean. Mirror-image behavior for the `exists` state: the popup's `exists` state also renders a disabled "Add to Watch Later" checkbox that `initWatchLaterToggle` enables once `POST /api/watch-later/status` resolves (`in_queue` sets the initial checked state), and whose `change` event calls `/api/watch-later/add` or `/api/watch-later/remove` directly and reverts on failure (shown via an inline `#wl-error` line) — no separate "apply" step, unlike the add-time checkboxes which are read at click time by `doAdd`.
 
@@ -486,8 +488,8 @@ Cards on `/watch-later` carry `draggable="true"` (set only for `context="watch_l
 | File | Purpose |
 |---|---|
 | `base.html` | Shared layout, nav (includes video/channel count; shows "Hidden (N)" link when hidden_count > 0) |
-| `index.html` | Filter toolbar + `#video-container` shell + `#video-card-menu` right-click context menu |
-| `_video_container.html` | Swapped by HTMX; renders flat grid or grouped sections |
+| `index.html` | Filter toolbar + Rediscover shelf + `{% include %}` of `_video_container.html` + `#video-card-menu` right-click context menu |
+| `_video_container.html` | Swapped by HTMX; defines `#video-container` and renders flat grid or grouped sections, plus the `#rediscover-filter-state` OOB marker |
 | `_video_card.html` | Single card; carries `data-video-id` for right-click hide |
 | `hidden.html` | Hidden videos management page |
 

@@ -104,6 +104,18 @@ def index():
         if untagged:
             groups.append({"tag": {"name": "Untagged"}, "videos": untagged})
 
+    active_filter_count = (
+        (channel is not None)
+        + (tag is not None)
+        + (sort_by != "date_added")
+        + (sort_dir != "desc")
+        + (group is not None and group != "")
+        + favorites_only
+        + unwatched_only
+        + (duration is not None and duration != "")
+        + (added_within is not None)
+    )
+
     template_vars = dict(
         videos=videos,
         channels=channels,
@@ -119,6 +131,7 @@ def index():
         unwatched_only=unwatched_only,
         current_duration=duration,
         current_added_within=added_within,
+        active_filter_count=active_filter_count,
         page=page,
         total_pages=total_pages,
         total=total,

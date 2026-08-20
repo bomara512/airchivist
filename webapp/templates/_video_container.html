@@ -1,3 +1,5 @@
+<div id="rediscover-filter-state" hx-swap-oob="true" data-active="{{ '1' if active_filter_count else '0' }}" hidden></div>
+<div id="video-container">
 {% if groups %}
   {% for grp in groups %}
   <section class="group">
@@ -48,3 +50,4 @@
     {% endif %}
   </div>
 {% endif %}
+</div>

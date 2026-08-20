@@ -2,15 +2,6 @@
 {% block title %}ViewTube — {{ stats.total_videos }} videos{% endblock %}
 
 {% block content %}
-{% set active_filter_count = (current_channel is not none) | int
-    + (current_tag is not none) | int
-    + (sort_by != 'date_added') | int
-    + (sort_dir != 'desc') | int
-    + (group is not none and group != '') | int
-    + favorites_only | int
-    + unwatched_only | int
-    + (current_duration is not none and current_duration != '') | int
-    + (current_added_within is not none) | int %}
 
 <div class="toolbar">
   <form id="filter-form"
@@ -159,9 +150,7 @@
 </section>
 
 <h2 class="section-label">Videos</h2>
-<div id="video-container">
-  {% include "_video_container.html" %}
-</div>
+{% include "_video_container.html" %}
 
 <script>
 (function () {
@@ -312,26 +301,29 @@
     }, 100);
   });
 
-  // Shelf collapse/expand
+  // Shelf collapse/expand — driven by filter state (collapsed when a filter is active,
+  // expanded when cleared). The manual click is a temporary peek: the next filter/sort/
+  // search change re-applies the filter-driven state via syncShelfCollapsed().
   var shelf = document.getElementById('rediscover-shelf');
   var shelfLabel = shelf.querySelector('.shelf-header h2');
-  var COLLAPSED_KEY = 'rediscover-shelf-collapsed';
 
-  function setShelfCollapsed(collapsed) {
-    shelf.classList.toggle('collapsed', collapsed);
-    localStorage.setItem(COLLAPSED_KEY, collapsed ? 'true' : 'false');
+  // Re-queried on every call rather than cached: htmx's OOB swap replaces this
+  // element outright (outerHTML), so a cached reference would go stale after
+  // the first filter change.
+  function syncShelfCollapsed() {
+    var filterState = document.getElementById('rediscover-filter-state');
+    shelf.classList.toggle('collapsed', filterState.dataset.active === '1');
   }
 
   // The "Rediscover" label is the only toggle target, in both directions. It's a sibling
   // of the refresh button (not an ancestor), so there's no event-bubbling path between them
   // and no stopPropagation() needed.
   shelfLabel.addEventListener('click', function () {
-    setShelfCollapsed(!shelf.classList.contains('collapsed'));
+    shelf.classList.toggle('collapsed');
   });
 
-  if (localStorage.getItem(COLLAPSED_KEY) === 'true') {
-    setShelfCollapsed(true);
-  }
+  syncShelfCollapsed();
+  document.body.addEventListener('htmx:afterSettle', syncShelfCollapsed);
 })();
 </script>
 {% endblock %}

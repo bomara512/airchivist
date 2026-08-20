@@ -41,6 +41,26 @@ class TestIndexRoute:
         assert resp.status_code == 200
         assert b"GuitarChannel" in resp.data
 
+    def test_rediscover_filter_state_inactive_with_no_filter(self, client):
+        body = client.get("/").get_data(as_text=True)
+        assert 'id="rediscover-filter-state"' in body
+        assert 'data-active="0"' in body
+
+    def test_rediscover_filter_state_active_with_filter(self, client):
+        body = client.get("/?channel=GuitarChannel").get_data(as_text=True)
+        assert 'data-active="1"' in body
+
+    def test_rediscover_filter_state_active_with_sort_only(self, client):
+        # sort_by counts toward active_filter_count just like the "Filters N" badge does
+        body = client.get("/?sort_by=title").get_data(as_text=True)
+        assert 'data-active="1"' in body
+
+    def test_rediscover_filter_state_marker_present_in_htmx_partial(self, client):
+        body = client.get("/?channel=GuitarChannel", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert 'id="rediscover-filter-state"' in body
+        assert 'hx-swap-oob="true"' in body
+        assert 'data-active="1"' in body
+
 
 class TestIndexFilterQuickWins:
     def _seed(self, client):
