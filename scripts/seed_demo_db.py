@@ -33,6 +33,16 @@ from webapp.db import (
 ANCHOR = datetime.now(timezone.utc)
 
 # channel_name -> (channel_id, channel_url). Real, verified via `yt-dlp` on 2026-08-19.
+#
+# Deliberately no avatar thumbnail: tried wiring in real yt3.googleusercontent.com avatar
+# URLs (fetched via crawler.metadata_fetcher.fetch_channel_metadata) and confirmed via
+# browser-side inspection (img.naturalWidth after img.complete) that 8 of 12 silently fail
+# to load when the /channels page requests all of them at once — each URL is individually
+# valid (curl fetches every one fine on its own), but this CDN doesn't tolerate ~12
+# concurrent requests from one page load. This is the same yt3.googleusercontent.com
+# rate-limiting this project hit and documented earlier (see the design doc) — it applies
+# at lower concurrency than originally assumed. Leaving thumbnail_url unset so the UI falls
+# back to the existing .no-thumb placeholder is the correct fix, not a shortcut.
 CHANNELS: dict[str, tuple[str, str]] = {
     "freeCodeCamp.org": ("UC8butISFwT-Wl7EV0hUK0BQ", "https://www.youtube.com/@freecodecamp"),
     "Bon Appétit": ("UCbpMy0Fg74eXXkvxJrtEn3w", "https://www.youtube.com/@bonappetit"),
@@ -173,7 +183,8 @@ def bootstrap_schema(db_path: str) -> None:
 def _channel_metadata(name: str) -> ChannelMetadata:
     channel_id, channel_url = CHANNELS[name]
     # No avatar image: thumbnail_url stays None so the UI falls back to the existing
-    # .no-thumb placeholder, sidestepping the yt3.googleusercontent.com rate-limit risk.
+    # .no-thumb placeholder. See the CHANNELS comment above for why — this was tried and
+    # empirically confirmed to fail, not left unimplemented.
     return ChannelMetadata(
         channel_id=channel_id, channel_name=name, channel_url=channel_url,
         description=None, subscriber_count=None, thumbnail_url=None,
