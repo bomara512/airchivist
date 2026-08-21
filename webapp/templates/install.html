@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}ViewTube — Install Bookmarklet{% endblock %}
+{% block title %}Airchivist — Install Bookmarklet{% endblock %}
 
 {% block content %}
 <h1>Bookmarklet</h1>
-<p>Drag the button below to your Firefox bookmarks toolbar. While watching a YouTube video, click it to add the video to ViewTube.</p>
+<p>Drag the button below to your Firefox bookmarks toolbar. While watching a YouTube video, click it to add the video to Airchivist.</p>
 
 <a class="bookmarklet-link"
-   href="javascript:(function(){var url=location.href;if(!url.match(/youtube\.com\/watch/)){alert('Not a YouTube video');return;}var t=document.createElement('div');t.style.cssText='position:fixed;top:20px;right:20px;background:%23cc0000;color:%23fff;padding:10px 16px;border-radius:6px;font-family:sans-serif;font-size:14px;font-weight:600;z-index:999999';t.textContent='Adding to ViewTube…';document.body.appendChild(t);fetch('http://localhost:8080/api/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})}).then(function(r){return r.json()}).then(function(d){if(d.status==='exists'){t.textContent='Already in ViewTube';t.style.background='%23555'}else if(d.status==='added'){t.textContent='✓ Added: '+(d.title||'video');t.style.background='%232a7a2a'}else{t.textContent='ViewTube error: '+(d.error||'unknown');t.style.background='%23884400'}setTimeout(function(){t.remove()},3000)}).catch(function(){t.textContent='ViewTube: could not connect';t.style.background='%23884400';setTimeout(function(){t.remove()},3000)})})();">
-  + Add to ViewTube
+   href="javascript:(function(){var url=location.href;if(!url.match(/youtube\.com\/watch/)){alert('Not a YouTube video');return;}var t=document.createElement('div');t.style.cssText='position:fixed;top:20px;right:20px;background:%23cc0000;color:%23fff;padding:10px 16px;border-radius:6px;font-family:sans-serif;font-size:14px;font-weight:600;z-index:999999';t.textContent='Adding to Airchivist…';document.body.appendChild(t);fetch('http://localhost:8080/api/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})}).then(function(r){return r.json()}).then(function(d){if(d.status==='exists'){t.textContent='Already in Airchivist';t.style.background='%23555'}else if(d.status==='added'){t.textContent='✓ Added: '+(d.title||'video');t.style.background='%232a7a2a'}else{t.textContent='Airchivist error: '+(d.error||'unknown');t.style.background='%23884400'}setTimeout(function(){t.remove()},3000)}).catch(function(){t.textContent='Airchivist: could not connect';t.style.background='%23884400';setTimeout(function(){t.remove()},3000)})})();">
+  + Add to Airchivist
 </a>
 
 <p class="install-hint">Don't click it here — drag it to your bookmarks toolbar.</p>
