@@ -7,7 +7,7 @@ from webapp.db import collapse_case_variants
 
 
 def main(args=None):
-    parser = argparse.ArgumentParser(description="ViewTube web server")
+    parser = argparse.ArgumentParser(description="Airchivist web server")
     parser.add_argument("--db", required=True, help="Path to SQLite database")
     parser.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=5000, help="Bind port (default: 5000)")

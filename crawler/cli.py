@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="ViewTube Bookmark Crawler")
+    parser = argparse.ArgumentParser(description="Airchivist Bookmark Crawler")
     parser.add_argument("-i", "--input", required=True, type=Path, metavar="FILE",
                         help="Path to Firefox bookmarks file (.json or .html)")
     parser.add_argument("-o", "--output", required=True, type=Path, metavar="FILE",

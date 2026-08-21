@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Seed a fresh SQLite file with real public YouTube content and fabricated
-personal-engagement data, for a one-command "try it now" ViewTube demo.
+personal-engagement data, for a one-command "try it now" Airchivist demo.
 """
 import argparse
 import sqlite3
@@ -272,7 +272,7 @@ def seed_engagement(conn: sqlite3.Connection) -> None:
 
 
 def run(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Seed a ViewTube demo database.")
+    parser = argparse.ArgumentParser(description="Seed an Airchivist demo database.")
     parser.add_argument("--output", required=True, help="Path to write the demo database")
     parser.add_argument("--force", action="store_true", help="Overwrite an existing file")
     args = parser.parse_args(argv)

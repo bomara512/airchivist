@@ -8,5 +8,5 @@ if [ ! -f demo.db ]; then
     python scripts/seed_demo_db.py --output demo.db
 fi
 
-echo "Starting ViewTube demo at http://localhost:8080"
-exec viewtube-web --db demo.db --port 8080
+echo "Starting Airchivist demo at http://localhost:8080"
+exec airchivist-web --db demo.db --port 8080

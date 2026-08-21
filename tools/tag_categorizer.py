@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-ViewTube tag categorization CLI.
+Airchivist tag categorization CLI.
 
-Default DB: viewtube-test.db (create with: cp viewtube.db viewtube-test.db)
-Writing to the live DB requires explicit --db viewtube.db.
+Default DB: airchivist-test.db (create with: cp airchivist.db airchivist-test.db)
+Writing to the live DB requires explicit --db airchivist.db.
 
 Subcommands:
   stats    Show tag counts and frequency breakdown
@@ -26,7 +26,7 @@ from pathlib import Path
 # Allow importing from the project root (webapp.db, etc.)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-DEFAULT_DB = "viewtube-test.db"
+DEFAULT_DB = "airchivist-test.db"
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 DEFAULT_MIN_VIDEOS = 5
 DEFAULT_BATCH_SIZE = 60
@@ -77,7 +77,7 @@ def open_db(db_path: str) -> sqlite3.Connection:
     if not p.exists():
         msg = f"Error: {db_path} not found."
         if db_path == DEFAULT_DB:
-            msg += f"\nCreate it with: cp viewtube.db {db_path}"
+            msg += f"\nCreate it with: cp airchivist.db {db_path}"
         sys.exit(msg)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
