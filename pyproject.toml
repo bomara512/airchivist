@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "viewtube"
+name = "airchivist"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
@@ -15,8 +15,8 @@ dependencies = [
 ]
 
 [project.scripts]
-viewtube-crawler = "crawler.cli:main"
-viewtube-web = "webapp.cli:main"
+airchivist-crawler = "crawler.cli:main"
+airchivist-web = "webapp.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["webapp*", "crawler*"]

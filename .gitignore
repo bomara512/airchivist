@@ -5,10 +5,10 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
-viewtube.db
+airchivist.db
 .claude/settings.local.json
 .claude/worktrees/
-viewtube*.db*
+airchivist*.db*
 demo.db
 proposals*.json
 approved*.json
