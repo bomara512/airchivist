@@ -6,6 +6,27 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-20
 
+### chore: rename project from ViewTube to Airchivist
+
+Renamed the project end to end: the GitHub repo (`bomara512/viewtube` →
+`bomara512/airchivist`, with GitHub's automatic redirect covering the old
+URL), the local package/CLI identity (`viewtube-web`/`viewtube-crawler` →
+`airchivist-web`/`airchivist-crawler`), and user-facing strings throughout
+the webapp and extension. Two trade-offs are worth calling out rather than
+glossing over. First, the extension's `URL_KEY` (the browser-storage key
+holding the configured server URL, in `extension/popup/popup.js`) changed
+from `'viewtubeUrl'` to `'airchivistUrl'` — any already-installed copy of
+the extension has its stored server URL orphaned by this and will silently
+fall back to the default (`http://localhost:8080`) until the user re-enters
+it once in the popup, if their server actually runs elsewhere. Second, the
+extension's `FOLDER_NAME` (the Firefox bookmarks folder it looks up or
+creates) changed from `'ViewTube'` to `'Airchivist'` — this does *not*
+rename anyone's real, already-existing Firefox bookmarks folder, so a
+fresh install or a storage reset would create a second, differently-named
+folder alongside the real one unless the user manually renames their
+existing folder to match. Both are one-time migration frictions for
+existing installs, not ongoing costs, but neither is automatic.
+
 ### chore: reorder filter panel — Favorites checkbox now follows Unwatched only
 
 Pure markup reorder in `index.html`'s filter panel, no behavior change.
