@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "name": "ViewTube",
+  "name": "Airchivist",
   "version": "1.1",
-  "description": "Bookmark YouTube videos to Firefox and ViewTube in one click",
+  "description": "Bookmark YouTube videos to Firefox and Airchivist in one click",
   "permissions": [
     "bookmarks",
     "activeTab",
@@ -16,7 +16,7 @@
   "browser_action": {
     "default_icon": "icons/icon.svg",
     "default_popup": "popup/popup.html",
-    "default_title": "Save to ViewTube"
+    "default_title": "Save to Airchivist"
   },
   "content_scripts": [
     {

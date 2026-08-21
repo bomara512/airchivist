@@ -7,9 +7,9 @@ function channelUrlFrom(match) {
   return `https://www.youtube.com/${match[1]}`;
 }
 const DEFAULT_URL = 'http://localhost:8080';
-const URL_KEY = 'viewtubeUrl';
+const URL_KEY = 'airchivistUrl';
 const FOLDER_KEY = 'bookmarkFolderId';
-const FOLDER_NAME = 'ViewTube';
+const FOLDER_NAME = 'Airchivist';
 
 function esc(str) {
   return String(str || '')
@@ -44,8 +44,8 @@ async function getOrCreateFolder() {
   return folder.id;
 }
 
-async function checkStatus(viewtubeUrl, tabUrl) {
-  const resp = await fetch(`${viewtubeUrl}/api/status?url=${encodeURIComponent(tabUrl)}`);
+async function checkStatus(airchivistUrl, tabUrl) {
+  const resp = await fetch(`${airchivistUrl}/api/status?url=${encodeURIComponent(tabUrl)}`);
   return resp.json();
 }
 
@@ -58,14 +58,14 @@ async function postJson(url, body) {
   return resp.json();
 }
 
-async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false, alsoFavorite = false) {
+async function doAdd(airchivistUrl, tabUrl, tabTitle, alsoWatchLater = false, alsoFavorite = false) {
   const root = document.getElementById('root');
   root.innerHTML = working('Adding…');
   const [bookmarkResult, vtResult] = await Promise.allSettled([
     getOrCreateFolder().then(id =>
       browser.bookmarks.create({ title: tabTitle, url: tabUrl, parentId: id })
     ),
-    fetch(`${viewtubeUrl}/api/add`, {
+    fetch(`${airchivistUrl}/api/add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: tabUrl }),
@@ -73,17 +73,17 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false, also
   ]);
   const bookmarkOk = bookmarkResult.status === 'fulfilled';
   const vtData = vtResult.status === 'fulfilled' ? vtResult.value : null;
-  const viewtubeOk = vtData && ['added', 'exists'].includes(vtData.status);
+  const airchivistOk = vtData && ['added', 'exists'].includes(vtData.status);
 
   let watchLaterOk = null;
   let favoriteOk = null;
-  if (viewtubeOk) {
+  if (airchivistOk) {
     const [wlResult, favResult] = await Promise.allSettled([
       alsoWatchLater
-        ? postJson(`${viewtubeUrl}/api/watch-later/add`, { url: tabUrl })
+        ? postJson(`${airchivistUrl}/api/watch-later/add`, { url: tabUrl })
         : Promise.resolve(null),
       alsoFavorite
-        ? postJson(`${viewtubeUrl}/api/favorite/add`, { url: tabUrl })
+        ? postJson(`${airchivistUrl}/api/favorite/add`, { url: tabUrl })
         : Promise.resolve(null),
     ]);
     if (alsoWatchLater) {
@@ -95,7 +95,7 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false, also
     }
   }
 
-  if (bookmarkOk && viewtubeOk) {
+  if (bookmarkOk && airchivistOk) {
     const lines = [`&#10003; ${esc(vtData.title || tabTitle)}`];
     if (watchLaterOk === true) lines.push('&#10003; Added to Watch Later');
     if (watchLaterOk === false) lines.push('&#10007; Watch Later failed');
@@ -108,25 +108,25 @@ async function doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater = false, also
   const lines = [];
   if (bookmarkOk) lines.push('&#10003; Bookmarked in Firefox');
   else lines.push(`&#10007; Bookmark failed: ${esc(bookmarkResult.reason?.message || 'unknown')}`);
-  if (viewtubeOk) lines.push('&#10003; Added to ViewTube');
-  else if (vtResult.status === 'rejected') lines.push(`&#10007; ViewTube unreachable`);
-  else lines.push(`&#10007; ViewTube: ${esc(vtData?.error || 'unknown error')}`);
+  if (airchivistOk) lines.push('&#10003; Added to Airchivist');
+  else if (vtResult.status === 'rejected') lines.push(`&#10007; Airchivist unreachable`);
+  else lines.push(`&#10007; Airchivist: ${esc(vtData?.error || 'unknown error')}`);
   if (alsoWatchLater && watchLaterOk === true) lines.push('&#10003; Added to Watch Later');
   if (alsoWatchLater && watchLaterOk === false) lines.push('&#10007; Watch Later failed');
   if (alsoFavorite && favoriteOk === true) lines.push('&#9733; Marked as favorite');
   if (alsoFavorite && favoriteOk === false) lines.push('&#10007; Favorite failed');
-  const cls = (bookmarkOk || viewtubeOk) ? 'partial' : 'error';
+  const cls = (bookmarkOk || airchivistOk) ? 'partial' : 'error';
   root.innerHTML = `<div class="status ${cls}">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
 }
 
-async function doAddChannel(viewtubeUrl, channelUrl, tabTitle) {
+async function doAddChannel(airchivistUrl, channelUrl, tabTitle) {
   const root = document.getElementById('root');
   root.innerHTML = working('Adding channel…');
   const [bookmarkResult, vtResult] = await Promise.allSettled([
     getOrCreateFolder().then(id =>
       browser.bookmarks.create({ title: tabTitle, url: channelUrl, parentId: id })
     ),
-    fetch(`${viewtubeUrl}/api/channel/add`, {
+    fetch(`${airchivistUrl}/api/channel/add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: channelUrl }),
@@ -134,9 +134,9 @@ async function doAddChannel(viewtubeUrl, channelUrl, tabTitle) {
   ]);
   const bookmarkOk = bookmarkResult.status === 'fulfilled';
   const vtData = vtResult.status === 'fulfilled' ? vtResult.value : null;
-  const viewtubeOk = vtData && ['added', 'exists'].includes(vtData.status);
+  const airchivistOk = vtData && ['added', 'exists'].includes(vtData.status);
 
-  if (bookmarkOk && viewtubeOk) {
+  if (bookmarkOk && airchivistOk) {
     root.innerHTML = `<div class="status success">&#10003; ${esc(vtData.channel_name || tabTitle)}</div>`;
     setTimeout(() => window.close(), 1500);
     return;
@@ -144,26 +144,26 @@ async function doAddChannel(viewtubeUrl, channelUrl, tabTitle) {
   const lines = [];
   if (bookmarkOk) lines.push('&#10003; Bookmarked in Firefox');
   else lines.push(`&#10007; Bookmark failed: ${esc(bookmarkResult.reason?.message || 'unknown')}`);
-  if (viewtubeOk) lines.push('&#10003; Added to ViewTube');
-  else if (vtResult.status === 'rejected') lines.push('&#10007; ViewTube unreachable');
-  else lines.push(`&#10007; ViewTube: ${esc(vtData?.error || 'unknown error')}`);
-  const cls = (bookmarkOk || viewtubeOk) ? 'partial' : 'error';
+  if (airchivistOk) lines.push('&#10003; Added to Airchivist');
+  else if (vtResult.status === 'rejected') lines.push('&#10007; Airchivist unreachable');
+  else lines.push(`&#10007; Airchivist: ${esc(vtData?.error || 'unknown error')}`);
+  const cls = (bookmarkOk || airchivistOk) ? 'partial' : 'error';
   root.innerHTML = `<div class="status ${cls}">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
 }
 
-async function doHide(viewtubeUrl, tabUrl, alsoUnbookmark) {
+async function doHide(airchivistUrl, tabUrl, alsoUnbookmark) {
   const root = document.getElementById('root');
   root.innerHTML = working('Hiding…');
   let data;
   try {
-    const resp = await fetch(`${viewtubeUrl}/api/hide`, {
+    const resp = await fetch(`${airchivistUrl}/api/hide`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: tabUrl }),
     });
     data = await resp.json();
   } catch {
-    root.innerHTML = '<div class="status error">&#10007; ViewTube unreachable</div>';
+    root.innerHTML = '<div class="status error">&#10007; Airchivist unreachable</div>';
     return;
   }
   if (data.status !== 'hidden') {
@@ -177,29 +177,29 @@ async function doHide(viewtubeUrl, tabUrl, alsoUnbookmark) {
   root.innerHTML = `<div class="status success">Archived: ${esc(data.title)}</div>`;
 }
 
-async function doRestore(viewtubeUrl, videoId) {
+async function doRestore(airchivistUrl, videoId) {
   const root = document.getElementById('root');
   root.innerHTML = working('Restoring…');
-  await fetch(`${viewtubeUrl}/videos/${videoId}/unhide`, { method: 'POST' });
+  await fetch(`${airchivistUrl}/videos/${videoId}/unhide`, { method: 'POST' });
   root.innerHTML = '<div class="status success">&#10003; Restored</div>';
   setTimeout(() => window.close(), 1500);
 }
 
-async function doDelete(viewtubeUrl, videoId) {
+async function doDelete(airchivistUrl, videoId) {
   const root = document.getElementById('root');
   root.innerHTML = working('Deleting…');
-  await fetch(`${viewtubeUrl}/videos/${videoId}/delete`, { method: 'POST' });
+  await fetch(`${airchivistUrl}/videos/${videoId}/delete`, { method: 'POST' });
   root.innerHTML = '<div class="status success">&#10003; Deleted</div>';
   setTimeout(() => window.close(), 1500);
 }
 
-async function initWatchLaterToggle(viewtubeUrl, tabUrl) {
+async function initWatchLaterToggle(airchivistUrl, tabUrl) {
   const chk = document.getElementById('chk-watch-later');
   const errBox = document.getElementById('wl-error');
 
   let inQueue;
   try {
-    const resp = await fetch(`${viewtubeUrl}/api/watch-later/status`, {
+    const resp = await fetch(`${airchivistUrl}/api/watch-later/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: tabUrl }),
@@ -222,7 +222,7 @@ async function initWatchLaterToggle(viewtubeUrl, tabUrl) {
     const endpoint = wantQueued ? 'add' : 'remove';
     let ok;
     try {
-      const resp = await fetch(`${viewtubeUrl}/api/watch-later/${endpoint}`, {
+      const resp = await fetch(`${airchivistUrl}/api/watch-later/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: tabUrl }),
@@ -244,10 +244,10 @@ async function initWatchLaterToggle(viewtubeUrl, tabUrl) {
   });
 }
 
-function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
+function renderState(root, airchivistUrl, tabUrl, tabTitle, data) {
   if (data.status === 'not_found') {
     root.innerHTML = `
-      <button id="btn-add" class="action-btn">Add to ViewTube</button>
+      <button id="btn-add" class="action-btn">Add to Airchivist</button>
       <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
         <input type="checkbox" id="chk-watch-later" style="margin-right:0.3rem">
         Also add to Watch Later
@@ -260,7 +260,7 @@ function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
     document.getElementById('btn-add').addEventListener('click', () => {
       const alsoWatchLater = document.getElementById('chk-watch-later').checked;
       const alsoFavorite = document.getElementById('chk-favorite').checked;
-      doAdd(viewtubeUrl, tabUrl, tabTitle, alsoWatchLater, alsoFavorite);
+      doAdd(airchivistUrl, tabUrl, tabTitle, alsoWatchLater, alsoFavorite);
     });
     return;
   }
@@ -281,35 +281,35 @@ function renderState(root, viewtubeUrl, tabUrl, tabTitle, data) {
     `;
     document.getElementById('btn-hide').addEventListener('click', () => {
       const alsoUnbookmark = document.getElementById('chk-unbookmark').checked;
-      doHide(viewtubeUrl, tabUrl, alsoUnbookmark);
+      doHide(airchivistUrl, tabUrl, alsoUnbookmark);
     });
-    initWatchLaterToggle(viewtubeUrl, tabUrl);
+    initWatchLaterToggle(airchivistUrl, tabUrl);
     return;
   }
 
   if (data.status === 'hidden') {
     root.innerHTML = `
       <div class="status error" style="margin-bottom:0.5rem">&#8856; Archived: ${esc(data.title)}</div>
-      <button id="btn-restore" class="action-btn">Restore to ViewTube</button>
+      <button id="btn-restore" class="action-btn">Restore to Airchivist</button>
       <button id="btn-delete" class="action-btn action-btn--danger" style="margin-top:0.25rem">Delete permanently</button>
     `;
-    document.getElementById('btn-restore').addEventListener('click', () => doRestore(viewtubeUrl, data.video_id));
-    document.getElementById('btn-delete').addEventListener('click', () => doDelete(viewtubeUrl, data.video_id));
+    document.getElementById('btn-restore').addEventListener('click', () => doRestore(airchivistUrl, data.video_id));
+    document.getElementById('btn-delete').addEventListener('click', () => doDelete(airchivistUrl, data.video_id));
     return;
   }
 
   root.innerHTML = `<div class="status error">&#10007; ${esc(data.error || 'Unknown error')}</div>`;
 }
 
-function renderChannelState(root, viewtubeUrl, channelUrl, tabTitle, data) {
+function renderChannelState(root, airchivistUrl, channelUrl, tabTitle, data) {
   if (data.status === 'exists') {
     root.innerHTML = `<div class="status success">&#10003; Already tracked: ${esc(data.channel_name)}</div>`;
     return;
   }
   if (data.status === 'not_found') {
-    root.innerHTML = `<button id="btn-add-channel" class="action-btn">Add channel to ViewTube</button>`;
+    root.innerHTML = `<button id="btn-add-channel" class="action-btn">Add channel to Airchivist</button>`;
     document.getElementById('btn-add-channel').addEventListener('click', () =>
-      doAddChannel(viewtubeUrl, channelUrl, tabTitle)
+      doAddChannel(airchivistUrl, channelUrl, tabTitle)
     );
     return;
   }
@@ -329,33 +329,33 @@ async function run() {
   }
 
   const settings = await browser.storage.local.get(URL_KEY);
-  const viewtubeUrl = settings[URL_KEY] || DEFAULT_URL;
+  const airchivistUrl = settings[URL_KEY] || DEFAULT_URL;
 
   if (!isVideo && channelMatch) {
     const channelUrl = channelUrlFrom(channelMatch);
     let chData;
     try {
       const resp = await fetch(
-        `${viewtubeUrl}/api/channel/status?url=${encodeURIComponent(channelUrl)}`
+        `${airchivistUrl}/api/channel/status?url=${encodeURIComponent(channelUrl)}`
       );
       chData = await resp.json();
     } catch {
-      root.innerHTML = `<div class="status error">&#10007; ViewTube unreachable<br><small>Is it running at ${esc(viewtubeUrl)}?</small></div>`;
+      root.innerHTML = `<div class="status error">&#10007; Airchivist unreachable<br><small>Is it running at ${esc(airchivistUrl)}?</small></div>`;
       return;
     }
-    renderChannelState(root, viewtubeUrl, channelUrl, tab.title || '', chData);
+    renderChannelState(root, airchivistUrl, channelUrl, tab.title || '', chData);
     return;
   }
 
   let data;
   try {
-    data = await checkStatus(viewtubeUrl, tab.url);
+    data = await checkStatus(airchivistUrl, tab.url);
   } catch {
-    root.innerHTML = `<div class="status error">&#10007; ViewTube unreachable<br><small>Is it running at ${esc(viewtubeUrl)}?</small></div>`;
+    root.innerHTML = `<div class="status error">&#10007; Airchivist unreachable<br><small>Is it running at ${esc(airchivistUrl)}?</small></div>`;
     return;
   }
 
-  renderState(root, viewtubeUrl, tab.url, tab.title || '', data);
+  renderState(root, airchivistUrl, tab.url, tab.title || '', data);
 }
 
 if (typeof module === 'undefined') {

@@ -61,7 +61,7 @@ async function checkCurrentVideo() {
     if (!color) return;
     const h1 = _titleH1();
     if (h1 && extractId(location.href) === id) h1.style.color = color;
-  } catch { /* ViewTube unreachable */ }
+  } catch { /* Airchivist unreachable */ }
 }
 
 // ── Current channel title ─────────────────────────────────────────────────
@@ -90,7 +90,7 @@ async function checkCurrentChannel() {
     if (el && m3 && channelUrlFrom(m3) === channelUrl) {
       el.style.color = TITLE_COLOR.exists;
     }
-  } catch { /* ViewTube unreachable */ }
+  } catch { /* Airchivist unreachable */ }
 }
 
 // ── Related video titles ──────────────────────────────────────────────────
@@ -126,7 +126,7 @@ async function scanRelated() {
       if (!h3) continue;
       (h3.querySelector('a') || h3).style.color = color;
     }
-  } catch { /* ViewTube unreachable */ }
+  } catch { /* Airchivist unreachable */ }
 }
 
 function watchRelated() {

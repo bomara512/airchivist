@@ -25,7 +25,7 @@ describe('module exports', () => {
 });
 
 describe('doAdd', () => {
-  const viewtubeUrl = 'http://localhost:8080';
+  const airchivistUrl = 'http://localhost:8080';
   const tabUrl = 'https://www.youtube.com/watch?v=abc123';
   const tabTitle = 'My Video';
 
@@ -34,7 +34,7 @@ describe('doAdd', () => {
       ['/api/add', () => jsonResponse({ status: 'added', title: tabTitle })],
     ]);
 
-    await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, false, false);
+    await popup.doAdd(airchivistUrl, tabUrl, tabTitle, false, false);
 
     const text = document.getElementById('root').textContent;
     expect(text).toContain(tabTitle);
@@ -54,7 +54,7 @@ describe('doAdd', () => {
       ['/api/watch-later/add', () => jsonResponse({ status: 'added' })],
     ]);
 
-    await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, true, false);
+    await popup.doAdd(airchivistUrl, tabUrl, tabTitle, true, false);
 
     const text = document.getElementById('root').textContent;
     expect(text).toContain('Added to Watch Later');
@@ -69,7 +69,7 @@ describe('doAdd', () => {
       ['/api/favorite/add', () => jsonResponse({ status: 'added' })],
     ]);
 
-    await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, false, true);
+    await popup.doAdd(airchivistUrl, tabUrl, tabTitle, false, true);
 
     const text = document.getElementById('root').textContent;
     expect(text).toContain('Marked as favorite');
@@ -84,7 +84,7 @@ describe('doAdd', () => {
       ['/api/favorite/add', () => jsonResponse({ status: 'added' })],
     ]);
 
-    await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, true, true);
+    await popup.doAdd(airchivistUrl, tabUrl, tabTitle, true, true);
 
     const text = document.getElementById('root').textContent;
     expect(text).toContain('Added to Watch Later');
@@ -98,7 +98,7 @@ describe('doAdd', () => {
       ['/api/favorite/add', () => jsonResponse({ status: 'added' })],
     ]);
 
-    await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, true, true);
+    await popup.doAdd(airchivistUrl, tabUrl, tabTitle, true, true);
 
     const text = document.getElementById('root').textContent;
     expect(text).toContain('Watch Later failed');
@@ -114,7 +114,7 @@ describe('doAdd', () => {
       ['/api/favorite/add', () => jsonResponse({ status: 'error', error: 'Video not found' })],
     ]);
 
-    await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, true, true);
+    await popup.doAdd(airchivistUrl, tabUrl, tabTitle, true, true);
 
     const text = document.getElementById('root').textContent;
     expect(text).toContain('Added to Watch Later');
@@ -122,12 +122,12 @@ describe('doAdd', () => {
     expect(text).not.toContain('Marked as favorite');
   });
 
-  test('ViewTube add itself fails: follow-up endpoints are never called', async () => {
+  test('Airchivist add itself fails: follow-up endpoints are never called', async () => {
     global.fetch = mockFetchRouter([
       ['/api/add', () => jsonResponse({ status: 'error', error: 'Not a YouTube video URL' })],
     ]);
 
-    await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, true, true);
+    await popup.doAdd(airchivistUrl, tabUrl, tabTitle, true, true);
 
     expect(global.fetch.mock.calls.some(([url]) => url.includes('/api/watch-later/add'))).toBe(false);
     expect(global.fetch.mock.calls.some(([url]) => url.includes('/api/favorite/add'))).toBe(false);
@@ -136,7 +136,7 @@ describe('doAdd', () => {
     expect(text).not.toContain('Marked as favorite');
   });
 
-  test('bookmark creation fails but ViewTube succeeds: partial path still shows both follow-up lines', async () => {
+  test('bookmark creation fails but Airchivist succeeds: partial path still shows both follow-up lines', async () => {
     global.browser.bookmarks.create.mockImplementation((opts) => {
       if (opts.url) return Promise.reject(new Error('bookmark failed'));
       return Promise.resolve({ id: 'bm1' }); // folder creation still succeeds
@@ -147,18 +147,18 @@ describe('doAdd', () => {
       ['/api/favorite/add', () => jsonResponse({ status: 'added' })],
     ]);
 
-    await popup.doAdd(viewtubeUrl, tabUrl, tabTitle, true, true);
+    await popup.doAdd(airchivistUrl, tabUrl, tabTitle, true, true);
 
     const text = document.getElementById('root').textContent;
     expect(text).toContain('Bookmark failed');
-    expect(text).toContain('Added to ViewTube');
+    expect(text).toContain('Added to Airchivist');
     expect(text).toContain('Added to Watch Later');
     expect(text).toContain('Marked as favorite');
   });
 });
 
 describe('initWatchLaterToggle', () => {
-  const viewtubeUrl = 'http://localhost:8080';
+  const airchivistUrl = 'http://localhost:8080';
   const tabUrl = 'https://www.youtube.com/watch?v=abc123';
 
   function renderCheckboxFixture() {
@@ -174,7 +174,7 @@ describe('initWatchLaterToggle', () => {
       ['/api/watch-later/status', () => jsonResponse({ in_queue: true })],
     ]);
 
-    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+    await popup.initWatchLaterToggle(airchivistUrl, tabUrl);
 
     const chk = document.getElementById('chk-watch-later');
     expect(chk.checked).toBe(true);
@@ -187,7 +187,7 @@ describe('initWatchLaterToggle', () => {
       ['/api/watch-later/status', () => jsonResponse({ in_queue: false })],
     ]);
 
-    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+    await popup.initWatchLaterToggle(airchivistUrl, tabUrl);
 
     const chk = document.getElementById('chk-watch-later');
     expect(chk.checked).toBe(false);
@@ -200,7 +200,7 @@ describe('initWatchLaterToggle', () => {
       ['/api/watch-later/status', () => Promise.reject(new Error('network fail'))],
     ]);
 
-    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+    await popup.initWatchLaterToggle(airchivistUrl, tabUrl);
 
     const chk = document.getElementById('chk-watch-later');
     expect(chk.disabled).toBe(true);
@@ -212,7 +212,7 @@ describe('initWatchLaterToggle', () => {
       ['/api/watch-later/status', () => jsonResponse({ in_queue: false })],
       ['/api/watch-later/add', () => jsonResponse({ status: 'added' })],
     ]);
-    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+    await popup.initWatchLaterToggle(airchivistUrl, tabUrl);
 
     const chk = document.getElementById('chk-watch-later');
     const errBox = document.getElementById('wl-error');
@@ -231,7 +231,7 @@ describe('initWatchLaterToggle', () => {
       ['/api/watch-later/status', () => jsonResponse({ in_queue: true })],
       ['/api/watch-later/remove', () => jsonResponse({ status: 'removed' })],
     ]);
-    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+    await popup.initWatchLaterToggle(airchivistUrl, tabUrl);
 
     const chk = document.getElementById('chk-watch-later');
     const errBox = document.getElementById('wl-error');
@@ -250,7 +250,7 @@ describe('initWatchLaterToggle', () => {
       ['/api/watch-later/status', () => jsonResponse({ in_queue: false })],
       ['/api/watch-later/add', () => Promise.reject(new Error('network fail'))],
     ]);
-    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+    await popup.initWatchLaterToggle(airchivistUrl, tabUrl);
 
     const chk = document.getElementById('chk-watch-later');
     const errBox = document.getElementById('wl-error');
@@ -270,7 +270,7 @@ describe('initWatchLaterToggle', () => {
       ['/api/watch-later/status', () => jsonResponse({ in_queue: false })],
       ['/api/watch-later/add', () => jsonResponse({ status: 'already_in_queue' })],
     ]);
-    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+    await popup.initWatchLaterToggle(airchivistUrl, tabUrl);
 
     const chk = document.getElementById('chk-watch-later');
     const errBox = document.getElementById('wl-error');
@@ -288,7 +288,7 @@ describe('initWatchLaterToggle', () => {
       ['/api/watch-later/status', () => jsonResponse({ in_queue: true })],
       ['/api/watch-later/remove', () => jsonResponse({ status: 'error', error: 'Not in queue' })],
     ]);
-    await popup.initWatchLaterToggle(viewtubeUrl, tabUrl);
+    await popup.initWatchLaterToggle(airchivistUrl, tabUrl);
 
     const chk = document.getElementById('chk-watch-later');
     const errBox = document.getElementById('wl-error');
