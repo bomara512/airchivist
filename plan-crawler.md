@@ -1,4 +1,4 @@
-# ViewTube Crawler — Implementation Plan
+# Airchivist Crawler — Implementation Plan
 
 ## Overview
 
@@ -25,7 +25,7 @@ The crawler is a standalone CLI tool that reads a Firefox bookmarks export file 
 ## File Structure
 
 ```
-viewtube/
+airchivist/
 ├── crawler/
 │   ├── __init__.py
 │   ├── cli.py                  # argparse entry point
@@ -204,10 +204,10 @@ Example invocations:
 
 ```bash
 # Firefox JSON export, no API key
-python -m crawler.cli -i ~/Downloads/bookmarks.json -o ~/viewtube.db
+python -m crawler.cli -i ~/Downloads/bookmarks.json -o ~/airchivist.db
 
 # HTML export with API key
-python -m crawler.cli -i ~/Downloads/bookmarks.html -o ~/viewtube.db --api-key AIza...
+python -m crawler.cli -i ~/Downloads/bookmarks.html -o ~/airchivist.db --api-key AIza...
 
 # Dry-run: first 10 videos only
 python -m crawler.cli -i ~/Downloads/bookmarks.json -o /tmp/test.db --limit 10
@@ -222,7 +222,7 @@ python -m crawler.cli -i ~/Downloads/bookmarks.json -o /tmp/test.db --limit 10
 **Goal:** Directory layout, dependency files, and a working test runner before any feature code.
 
 Steps:
-1. Create `pyproject.toml` with project metadata, entry point `viewtube-crawler = "crawler.cli:main"`, and `pytest` config.
+1. Create `pyproject.toml` with project metadata, entry point `airchivist-crawler = "crawler.cli:main"`, and `pytest` config.
 2. Create `requirements.txt`: `yt-dlp`, `beautifulsoup4`, `requests`, `google-api-python-client`.
 3. Create `requirements-dev.txt`: `pytest`, `pytest-cov`, `pytest-mock`.
 4. Create all `__init__.py` files and empty module stubs so imports resolve.
@@ -484,7 +484,7 @@ File: `crawler/cli.py`
 
 ```python
 def main():
-    parser = argparse.ArgumentParser(description='ViewTube Bookmark Crawler')
+    parser = argparse.ArgumentParser(description='Airchivist Bookmark Crawler')
     parser.add_argument('-i', '--input', required=True, type=Path)
     parser.add_argument('-o', '--output', required=True, type=Path)
     parser.add_argument('--api-key', default=None)
@@ -569,7 +569,7 @@ Use fixture files, mock `yt-dlp`, call `main()` directly, assert final database 
 
 ```toml
 [project]
-name = "viewtube"
+name = "airchivist"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
@@ -581,8 +581,8 @@ dependencies = [
 ]
 
 [project.scripts]
-viewtube-crawler = "crawler.cli:main"
-viewtube-web = "webapp.cli:main"
+airchivist-crawler = "crawler.cli:main"
+airchivist-web = "webapp.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

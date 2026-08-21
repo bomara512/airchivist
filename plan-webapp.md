@@ -1,4 +1,4 @@
-# ViewTube Web Interface — Implementation Plan
+# Airchivist Web Interface — Implementation Plan
 
 ## Overview
 
@@ -25,7 +25,7 @@ The web interface is a locally-run Flask application that reads from the SQLite 
 ## File Structure
 
 ```
-viewtube/
+airchivist/
 ├── webapp/
 │   ├── __init__.py
 │   ├── app.py                  # Flask application factory
@@ -246,7 +246,7 @@ These are Tasks 1–3 of the channels listing view (see `.superpowers/sdd/2026-0
 `extension/popup/popup.js`'s `run()` now branches three ways on the active tab's URL:
 
 1. **Video** (`YT_ID_RE` matches, e.g. `/watch?v=...`) — existing behavior via `checkStatus` + `renderState` (add/archive/restore/delete), unchanged.
-2. **Channel** (`YT_CHANNEL_RE` matches — `/channel/UC…`, `/c/<name>`, `/user/<name>`, or `/@<handle>`, and it's not a video URL) — `channelUrlFrom(match)` normalizes the match to `https://www.youtube.com/<path>`, then the popup calls `/api/channel/status` and renders via `renderChannelState`: "Already tracked: `<name>`" if `exists`, an "Add channel to ViewTube" button if `not_found` (wired to `doAddChannel`, which bookmarks the tab in the ViewTube Firefox folder and calls `/api/channel/add` in parallel via `Promise.allSettled`, mirroring `doAdd`'s partial-failure reporting), or an error message otherwise.
+2. **Channel** (`YT_CHANNEL_RE` matches — `/channel/UC…`, `/c/<name>`, `/user/<name>`, or `/@<handle>`, and it's not a video URL) — `channelUrlFrom(match)` normalizes the match to `https://www.youtube.com/<path>`, then the popup calls `/api/channel/status` and renders via `renderChannelState`: "Already tracked: `<name>`" if `exists`, an "Add channel to Airchivist" button if `not_found` (wired to `doAddChannel`, which bookmarks the tab in the Airchivist Firefox folder and calls `/api/channel/add` in parallel via `Promise.allSettled`, mirroring `doAdd`'s partial-failure reporting), or an error message otherwise.
 3. **Neither** — "Not a YouTube video or channel." (previously "Not a YouTube video.").
 
 **Known limitation — status pre-check is URL-based, not `channel_id`-based**: `get_channel_by_source_url` matches on `channel_url` or `source_url` string equality. If a channel was previously added via its `@handle` URL and the user later opens `/channel/UC…` for the same channel (or vice versa), the pre-check GET can report `not_found` even though the channel is already tracked. This is resolved correctly on click: `/api/channel/add`'s own existence check runs again, and if it still doesn't match by URL, `upsert_channel` upserts by `channel_id` (the primary key), so no duplicate row is created — worst case is a harmless "Add channel" button appearing for an already-tracked channel, not silent duplication. Not fixed further for now (YAGNI); revisit if this proves confusing in practice.
@@ -262,7 +262,7 @@ When the user clicks a video title or thumbnail in the webapp:
 1. The link targets `/visit/<video_id>` (not the YouTube URL directly).
 2. The Flask route calls `record_visit(g.db, video_id)`, which increments `personal_view_count` and sets `date_last_viewed` to the current UTC time.
 3. The route responds with a `302` redirect to the video's YouTube URL.
-4. The browser follows the redirect. Because the link uses `target="_blank"`, YouTube opens in a new tab while the ViewTube page remains open.
+4. The browser follows the redirect. Because the link uses `target="_blank"`, YouTube opens in a new tab while the Airchivist page remains open.
 
 This is transparent to the user — the click feels like a direct link — while allowing the app to track every view. The crawler never touches `personal_view_count` or `date_last_viewed`, so re-running the crawler does not reset this data.
 
@@ -465,7 +465,7 @@ Both modes produce a list of `{"tag": {"name": label}, "videos": [...]}` dicts c
 
 **Rediscover shelf collapse/expand**: The shelf (`#rediscover-shelf`) auto-collapses whenever `active_filter_count > 0` and auto-expands when it's 0 — clearing filters (including via the plain `Reset` link) re-expands it. Since the shelf sits outside `#video-container` and an HTMX filter change only swaps that div, `_video_container.html` carries a hidden OOB sibling, `<div id="rediscover-filter-state" hx-swap-oob="true" data-active="…">`, that rides along on every filter-triggered swap; an inline script in `index.html` reads its `data-active` attribute and toggles `.collapsed` on `#rediscover-shelf`, re-querying the marker by ID on each call rather than caching the element reference (HTMX's OOB swap replaces it outright via `outerHTML`, so a cached reference goes stale after the first swap). The sync runs on page load and on every `htmx:afterSettle`. Clicking the "Rediscover" label still toggles `.collapsed` directly for a temporary peek, but the next filter/sort/search change overrides it back to the filter-driven state — there is no persisted "always collapsed" preference; `localStorage` is not used for this control.
 
-**Bookmarklet / quick-add**: `POST /api/add` accepts `{"url": "<youtube-url>"}` from any origin (CORS headers included). It extracts the video ID via the same `_YT_ID_RE` regex used by the crawler, checks for an existing `fetch_status='ok'` record, then calls `fetch_metadata(video_id, delay=0)` and persists the result via `add_video` in `webapp/db.py`. Returns `{"status": "added"|"exists"|"hidden"|"error", "title": "..."}`. When the video exists but is hidden, returns `"hidden"` — the extension uses this to show the hidden-state UI without a separate status check. `add_video` uses `ON CONFLICT(video_id) DO UPDATE` but does not overwrite `date_added`, `personal_view_count`, or `date_last_viewed`. `GET /install` renders `install.html`, which shows the bookmarklet as a draggable `<a href="javascript:...">` link. The bookmarklet shows a toast notification on the YouTube page while the fetch runs, then updates it with the result. When the API returns `not_found`, the extension popup renders an "Add to ViewTube" button and two opt-in checkboxes ("Also add to Watch Later" and "Also mark as favorite (★)") instead of firing the add immediately; on button click, `doAdd` is called and, if either checkbox is ticked, parallel follow-up calls to `POST /api/watch-later/add` and/or `POST /api/favorite/add` fire after the main add (via `Promise.allSettled` — both must wait for the main add to succeed first, since they both require the video to already be in the DB, but they run in parallel with each other and neither depends on the other). The favorite endpoint returns no 409/already-case (unlike watch-later) since `is_favorite` is a plain boolean. Mirror-image behavior for the `exists` state: the popup's `exists` state also renders a disabled "Add to Watch Later" checkbox that `initWatchLaterToggle` enables once `POST /api/watch-later/status` resolves (`in_queue` sets the initial checked state), and whose `change` event calls `/api/watch-later/add` or `/api/watch-later/remove` directly and reverts on failure (shown via an inline `#wl-error` line) — no separate "apply" step, unlike the add-time checkboxes which are read at click time by `doAdd`.
+**Bookmarklet / quick-add**: `POST /api/add` accepts `{"url": "<youtube-url>"}` from any origin (CORS headers included). It extracts the video ID via the same `_YT_ID_RE` regex used by the crawler, checks for an existing `fetch_status='ok'` record, then calls `fetch_metadata(video_id, delay=0)` and persists the result via `add_video` in `webapp/db.py`. Returns `{"status": "added"|"exists"|"hidden"|"error", "title": "..."}`. When the video exists but is hidden, returns `"hidden"` — the extension uses this to show the hidden-state UI without a separate status check. `add_video` uses `ON CONFLICT(video_id) DO UPDATE` but does not overwrite `date_added`, `personal_view_count`, or `date_last_viewed`. `GET /install` renders `install.html`, which shows the bookmarklet as a draggable `<a href="javascript:...">` link. The bookmarklet shows a toast notification on the YouTube page while the fetch runs, then updates it with the result. When the API returns `not_found`, the extension popup renders an "Add to Airchivist" button and two opt-in checkboxes ("Also add to Watch Later" and "Also mark as favorite (★)") instead of firing the add immediately; on button click, `doAdd` is called and, if either checkbox is ticked, parallel follow-up calls to `POST /api/watch-later/add` and/or `POST /api/favorite/add` fire after the main add (via `Promise.allSettled` — both must wait for the main add to succeed first, since they both require the video to already be in the DB, but they run in parallel with each other and neither depends on the other). The favorite endpoint returns no 409/already-case (unlike watch-later) since `is_favorite` is a plain boolean. Mirror-image behavior for the `exists` state: the popup's `exists` state also renders a disabled "Add to Watch Later" checkbox that `initWatchLaterToggle` enables once `POST /api/watch-later/status` resolves (`in_queue` sets the initial checked state), and whose `change` event calls `/api/watch-later/add` or `/api/watch-later/remove` directly and reverts on failure (shown via an inline `#wl-error` line) — no separate "apply" step, unlike the add-time checkboxes which are read at click time by `doAdd`.
 
 **Pagination / Load more**: `PAGE_SIZE = 100`. Flat view uses a "Load more" button; grouped view uses Prev/Next links (appending across channel sections is awkward with HTMX).
 
@@ -512,7 +512,7 @@ Usage: python -m crawler.cli [OPTIONS]
 
 Options:
   --bookmarks FILE                 Firefox bookmarks JSON file [required]
-  --db FILE                        Path to the ViewTube SQLite database [required]
+  --db FILE                        Path to the Airchivist SQLite database [required]
   --delay SECONDS                  Delay between yt-dlp fetches (default: 1)
   --force-refresh                  Re-fetch videos and channels even if already in DB
   --backfill-channels              Fetch full metadata for all channels missing description (opt-in, expensive)
@@ -538,7 +538,7 @@ File: `webapp/cli.py`
 Usage: python -m webapp.cli [OPTIONS]
 
 Options:
-  --db FILE     Path to the ViewTube SQLite database [required]
+  --db FILE     Path to the Airchivist SQLite database [required]
   --host HOST   Host to bind to (default: 127.0.0.1)
   --port PORT   Port to listen on (default: 5000)
   --debug       Enable Flask debug mode (auto-reload)
@@ -554,8 +554,8 @@ Exit codes:
 Example invocations:
 
 ```bash
-python -m webapp.cli --db ~/viewtube.db
-python -m webapp.cli --db ~/viewtube.db --port 8080 --debug
+python -m webapp.cli --db ~/airchivist.db
+python -m webapp.cli --db ~/airchivist.db --port 8080 --debug
 ```
 
 `main()` flow:
@@ -563,7 +563,7 @@ python -m webapp.cli --db ~/viewtube.db --port 8080 --debug
 2. Check `--db` path exists; exit 1 with message if not.
 3. Call `init_webapp_tables(db_path)` to add `tag_keywords` if missing.
 4. Call `create_app(db_path)`.
-5. Print `ViewTube running at http://<host>:<port>`.
+5. Print `Airchivist running at http://<host>:<port>`.
 6. Call `app.run(host, port, debug)`.
 
 ### Demo Data
@@ -577,7 +577,7 @@ activity; it exists purely so the seeded database exercises every feature (redis
 tag groups, watch-later reorder) out of the box.
 
 `demo.sh` at the project root wraps this into a one-command path: seed `demo.db` if it
-doesn't already exist, then run `viewtube-web --db demo.db --port 8080` (re-running it after
+doesn't already exist, then run `airchivist-web --db demo.db --port 8080` (re-running it after
 the first seed skips straight to starting the server). `demo.db` is explicitly gitignored
 (`.gitignore`), so it's never committed — only `scripts/seed_demo_db.py` is.
 
@@ -922,7 +922,7 @@ File: `webapp/cli.py`
 
 ```python
 def main():
-    parser = argparse.ArgumentParser(description='ViewTube Web Interface')
+    parser = argparse.ArgumentParser(description='Airchivist Web Interface')
     parser.add_argument('--db', required=True, type=Path)
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=5000)

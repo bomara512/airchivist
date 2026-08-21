@@ -1,4 +1,4 @@
-# ViewTube Changelog
+# Airchivist Changelog
 
 Decisions are listed chronologically. Dates before 2026-05-28 are approximate — the project was built across multiple sessions without recorded timestamps.
 

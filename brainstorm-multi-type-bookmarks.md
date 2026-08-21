@@ -1,10 +1,10 @@
-# Brainstorm: Extending ViewTube to All Bookmark Types
+# Brainstorm: Extending Airchivist to All Bookmark Types
 
 **Status:** Raw ideas, not yet scoped into a spec/plan. Continue here later.
 
 ## Premise
 
-ViewTube's discovery/rediscovery machinery (tags, favorites, watch-later, rediscover shelf,
+Airchivist's discovery/rediscovery machinery (tags, favorites, watch-later, rediscover shelf,
 archive) is mostly content-type-agnostic already — it operates on engagement metadata, not
 video-specific fields. The blocker to handling all bookmark types (articles, repos, tweets,
 tools, PDFs, etc.) — not just YouTube — is that the schema, crawler, and card UI are

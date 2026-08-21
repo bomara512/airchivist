@@ -1,4 +1,4 @@
-# ViewTube — Tag Maintenance Guide
+# Airchivist — Tag Maintenance Guide
 
 ## How tags flow in
 
@@ -44,16 +44,16 @@ Run the CLI tool after adding many videos or when the pool count is large:
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # See current state
-python tools/tag_categorizer.py stats --db viewtube.db
+python tools/tag_categorizer.py stats --db airchivist.db
 
 # LLM categorization pass (adjust --min-videos as needed)
-python tools/tag_categorizer.py suggest --db viewtube.db --min-videos 2
+python tools/tag_categorizer.py suggest --db airchivist.db --min-videos 2
 
 # Interactive review: a)pprove  r)ename  e)dit members  s)kip  q)uit
 python tools/tag_categorizer.py review proposals.json
 
 # Apply to live DB
-python tools/tag_categorizer.py apply approved.json --db viewtube.db
+python tools/tag_categorizer.py apply approved.json --db airchivist.db
 ```
 
 The `suggest` command sends each tag with sample video titles so the LLM can disambiguate by content, not just tag name. Review takes ~5 min for 30–50 proposals.

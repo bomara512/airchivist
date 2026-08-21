@@ -1,4 +1,4 @@
-# ViewTube — Productionalization Plan
+# Airchivist — Productionalization Plan
 
 ## Current State
 
@@ -12,7 +12,7 @@ Single-user, locally-run app. Flask dev server, SQLite file on disk, no auth, no
 |---|---|---|
 | WSGI server | Flask dev server | `gunicorn` with multiple workers |
 | Reverse proxy | None | nginx in front of gunicorn (TLS termination, static files) |
-| Container | None | Docker image; `viewtube-web` and `viewtube-crawler` as separate services |
+| Container | None | Docker image; `airchivist-web` and `airchivist-crawler` as separate services |
 | Platform | Local | Any VPS (Hetzner, Fly.io, Render) or self-hosted home server |
 | Static files | Flask serves them | nginx or a CDN; add cache headers |
 
@@ -59,7 +59,7 @@ Each user has their own bookmark set. Simplest to reason about; each user effect
 ## Bookmarklet / API Security
 
 `POST /api/add` currently accepts requests from any origin with no authentication. In production:
-- Add an API key header (`X-ViewTube-Key`) checked server-side
+- Add an API key header (`X-Airchivist-Key`) checked server-side
 - The bookmarklet includes the key in the `fetch` headers
 - Key is a random token stored in the app config, not committed to source
 
@@ -95,7 +95,7 @@ Move from hardcoded values to environment variables / a config file:
 |---|---|---|
 | `db_path` | CLI arg | `DATABASE_URL` env var |
 | Port | `--port` CLI arg | `PORT` env var |
-| API key | None | `VIEWTUBE_API_KEY` env var |
+| API key | None | `AIRCHIVIST_API_KEY` env var |
 | Debug mode | Flask default | `FLASK_ENV=production` |
 
 ---

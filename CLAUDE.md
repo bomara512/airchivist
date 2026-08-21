@@ -1,4 +1,4 @@
-# ViewTube — Claude Code Instructions
+# Airchivist — Claude Code Instructions
 
 ## Living architecture docs stay in the project root
 
@@ -123,7 +123,7 @@ being asked.
 ## Keep the feature sheet current
 
 `docs/feature-sheet.html` is a plain-language, functionality-focused
-summary of everything ViewTube does — for a non-technical read of the
+summary of everything Airchivist does — for a non-technical read of the
 product, not an implementation reference.
 
 - Whenever a change ships a new user-facing feature, update the relevant

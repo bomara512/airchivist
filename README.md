@@ -1,11 +1,11 @@
-# ViewTube
+# Airchivist
 
 This is my playground for getting better at AI-assisted development — practicing prompt engineering, learning Claude Code's skill/plugin ecosystem
 well, and building real instincts for working with an AI pair-programmer on a long-lived,
 real codebase.
 
-The vehicle for that practice is **ViewTube**, a personal video bookmark manager that scratches a long-running itch for me. I have a decade-plus of
-YouTube bookmarks that pretty much became invisible the moment they were saved. ViewTube ingests, tags,
+The vehicle for that practice is **Airchivist**, a personal video bookmark manager that scratches a long-running itch for me. I have a decade-plus of
+YouTube bookmarks that pretty much became invisible the moment they were saved. Airchivist ingests, tags,
 and actively resurfaces what I've forgotten about. (YouTube probably does the same thing with an account :-), 
 but that's not how I've used it over the years. Just bookmarked interesting videos.)
 
@@ -35,8 +35,8 @@ history and docs to reflect that ongoing learning process.
 ## Setup
 
 ```bash
-git clone https://github.com/bomara512/viewtube.git
-cd viewtube
+git clone https://github.com/bomara512/airchivist.git
+cd airchivist
 pip install -e .
 ```
 
@@ -61,19 +61,19 @@ python scripts/seed_demo_db.py --output demo.db --force
 ## Ingest your bookmarks
 
 ```bash
-viewtube-crawler -i path/to/bookmarks.json -o viewtube.db
+airchivist-crawler -i path/to/bookmarks.json -o airchivist.db
 ```
 
 This fetches metadata (title, description, view count, duration, thumbnail, channel) for
 every YouTube video and channel link found, via `yt-dlp`. It's polite by default (a delay
 between requests) and safe to re-run — already-fetched videos are skipped unless you pass
-`--force-refresh`. Run `viewtube-crawler --help` for all options, including `--api-key` to
+`--force-refresh`. Run `airchivist-crawler --help` for all options, including `--api-key` to
 use the YouTube Data API v3 for faster batch fetching instead.
 
 ## Run the app
 
 ```bash
-viewtube-web --db viewtube.db --port 8080
+airchivist-web --db airchivist.db --port 8080
 ```
 
 Open http://localhost:8080. The database schema (tags, watch-later, favorites, etc.) is
@@ -86,7 +86,7 @@ created and migrated automatically on first run.
 3. That's it — the extension defaults to `http://localhost:8080`, so it works out of the box
    if you ran the webapp on the default port above. No configuration needed unless you're
    using a different host/port, in which case set it via the extension's storage (see
-   `extension/popup/popup.js` for the `viewtubeUrl` key).
+   `extension/popup/popup.js` for the `airchivistUrl` key).
 
 ## Optional: AI-assisted tag suggestions
 

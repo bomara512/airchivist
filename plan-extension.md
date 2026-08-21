@@ -1,11 +1,11 @@
-# ViewTube — Browser Extension Plan
+# Airchivist — Browser Extension Plan
 
 ## Goal
 
 A Firefox extension that, with one toolbar button click on a YouTube video page:
 
 1. Creates a Firefox bookmark for the current video (title + URL)
-2. Posts the URL to ViewTube's `/api/add` endpoint
+2. Posts the URL to Airchivist's `/api/add` endpoint
 
 The extension replaces the need for both the manual Ctrl+D bookmark and the existing bookmarklet. It surfaces as a toolbar icon that is active only on YouTube video pages.
 
@@ -17,7 +17,7 @@ The extension replaces the need for both the manual Ctrl+D bookmark and the exis
 
 ### Why not intercept normal bookmarks?
 
-`browser.bookmarks.onCreated` fires whenever any bookmark is created, including ones from Ctrl+D, the star button, and other extensions. Listening on this event would silently add every YouTube bookmark to ViewTube, which is likely desirable but also surprising. It could be added as an option later ("Also watch for bookmarks made with Ctrl+D") but should not be the default.
+`browser.bookmarks.onCreated` fires whenever any bookmark is created, including ones from Ctrl+D, the star button, and other extensions. Listening on this event would silently add every YouTube bookmark to Airchivist, which is likely desirable but also surprising. It could be added as an option later ("Also watch for bookmarks made with Ctrl+D") but should not be the default.
 
 ### Why not a notification instead of a popup?
 
@@ -28,7 +28,7 @@ Firefox notifications (`browser.notifications`) require the `notifications` perm
 ## File Structure
 
 ```
-viewtube-extension/
+airchivist-extension/
 ├── manifest.json
 ├── background.js           # optional: bookmark-watcher feature (future)
 ├── popup/
@@ -36,7 +36,7 @@ viewtube-extension/
 │   ├── popup.js            # core logic: create bookmark + call api/add
 │   └── popup.css
 └── options/
-    ├── options.html        # settings page: ViewTube URL, bookmark folder
+    ├── options.html        # settings page: Airchivist URL, bookmark folder
     └── options.js
 ```
 
@@ -51,9 +51,9 @@ Firefox supports both MV2 and MV3; MV2 is used here because Firefox's MV3 suppor
 ```json
 {
   "manifest_version": 2,
-  "name": "ViewTube",
+  "name": "Airchivist",
   "version": "1.0",
-  "description": "Bookmark YouTube videos to Firefox and ViewTube in one click",
+  "description": "Bookmark YouTube videos to Firefox and Airchivist in one click",
   "permissions": [
     "bookmarks",
     "activeTab",
@@ -64,7 +64,7 @@ Firefox supports both MV2 and MV3; MV2 is used here because Firefox's MV3 suppor
       "48": "icons/icon-48.png"
     },
     "default_popup": "popup/popup.html",
-    "default_title": "Save to ViewTube"
+    "default_title": "Save to Airchivist"
   },
   "options_ui": {
     "page": "options/options.html",
@@ -79,7 +79,7 @@ Firefox supports both MV2 and MV3; MV2 is used here because Firefox's MV3 suppor
 |---|---|
 | `bookmarks` | Create Firefox bookmarks via `browser.bookmarks.create` |
 | `activeTab` | Read the current tab's URL and title without a broad host permission |
-| `storage` | Persist user settings (ViewTube URL, target bookmark folder) |
+| `storage` | Persist user settings (Airchivist URL, target bookmark folder) |
 
 No `host_permissions` block is needed because `activeTab` grants temporary access to the current page URL, and the fetch to `localhost:8080` is a regular cross-origin request allowed by the CORS headers already on `/api/add`.
 
@@ -94,17 +94,17 @@ User on youtube.com/watch?v=... → clicks toolbar button
   → validate: is this a YouTube video URL? (check yt ID regex)
        if not: show "Not a YouTube video" and stop
   → read settings from browser.storage.local
-       (viewtubeUrl, bookmarkFolderId)
+       (airchivistUrl, bookmarkFolderId)
   → in parallel:
        browser.bookmarks.create({ title, url, parentId })
-       fetch(viewtubeUrl + '/api/add', { method: 'POST', body: {url} })
+       fetch(airchivistUrl + '/api/add', { method: 'POST', body: {url} })
   → on both resolved:
        show "✓ Saved: <title>" for 1.5 s, then close popup
   → on any error:
        show error message, leave popup open so user can read it
 ```
 
-Both saves run in parallel (`Promise.all`) so the popup is responsive even if one is slow. If ViewTube's `/api/add` returns `"status": "exists"`, that is treated as success (video was already saved; `record_visit` is called server-side to log the re-visit).
+Both saves run in parallel (`Promise.all`) so the popup is responsive even if one is slow. If Airchivist's `/api/add` returns `"status": "exists"`, that is treated as success (video was already saved; `record_visit` is called server-side to log the re-visit).
 
 ---
 
@@ -114,10 +114,10 @@ Two settings, persisted via `browser.storage.local`:
 
 | Setting | Default | Notes |
 |---|---|---|
-| ViewTube URL | `http://localhost:8080` | Displayed as a text input; no trailing slash |
-| Bookmark folder | "ViewTube" (auto-created) | Shown as a folder picker or text input; if blank, saves to Bookmarks Toolbar |
+| Airchivist URL | `http://localhost:8080` | Displayed as a text input; no trailing slash |
+| Bookmark folder | "Airchivist" (auto-created) | Shown as a folder picker or text input; if blank, saves to Bookmarks Toolbar |
 
-On first run (no `bookmarkFolderId` in storage), the extension creates a "ViewTube" folder in Other Bookmarks and saves its ID. Subsequent bookmarks go into that folder, keeping ViewTube saves distinct from regular browser bookmarks.
+On first run (no `bookmarkFolderId` in storage), the extension creates a "Airchivist" folder in Other Bookmarks and saves its ID. Subsequent bookmarks go into that folder, keeping Airchivist saves distinct from regular browser bookmarks.
 
 ---
 
@@ -138,8 +138,8 @@ The toolbar icon should only be fully active on YouTube video pages. Two options
 | Scenario | Behavior |
 |---|---|
 | Not a YouTube video URL | Popup shows "Not a YouTube video" |
-| ViewTube not running (fetch fails) | Popup shows "ViewTube unreachable — is it running at `<url>`?". Firefox bookmark is still created. |
-| ViewTube returns `status: error` | Popup shows the error message from the response |
+| Airchivist not running (fetch fails) | Popup shows "Airchivist unreachable — is it running at `<url>`?". Firefox bookmark is still created. |
+| Airchivist returns `status: error` | Popup shows the error message from the response |
 | Bookmark creation fails (duplicate?) | `browser.bookmarks.create` does not deduplicate; a second bookmark is created. This is Firefox's default behavior. |
 | Settings not yet configured | Uses defaults (`localhost:8080`, auto-created folder) |
 
@@ -153,16 +153,16 @@ Files in `extension/`:
 - `manifest.json` — MV2, permissions: `bookmarks`, `activeTab`, `storage`
 - `icons/icon.svg` — red rounded square with white V stroke
 - `popup/popup.html` — minimal shell, status div, loads popup.js
-- `popup/popup.css` — dark theme matching ViewTube; `.success` (green), `.partial` (orange), `.error` (red)
+- `popup/popup.css` — dark theme matching Airchivist; `.success` (green), `.partial` (orange), `.error` (red)
 - `popup/popup.js`:
-  - `getOrCreateFolder()` — finds or creates "ViewTube" bookmark folder; caches ID in `browser.storage.local`; validates cached ID still exists on each open
+  - `getOrCreateFolder()` — finds or creates "Airchivist" bookmark folder; caches ID in `browser.storage.local`; validates cached ID still exists on each open
   - `run()` — validates YouTube URL (`/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/`); loads folder + settings in parallel; runs `browser.bookmarks.create` and `fetch /api/add` in parallel via `Promise.allSettled`; shows per-action status on partial failure; auto-closes after 1.5 s on full success
-  - ViewTube `status: "exists"` treated as success (visit is still recorded server-side)
+  - Airchivist `status: "exists"` treated as success (visit is still recorded server-side)
 
 ### Phase 2 — Options
 
 - `options/options.html` + `options.js`
-  - ViewTube URL field
+  - Airchivist URL field
   - Bookmark folder picker (lists existing bookmark folders)
   - "Test connection" button that POSTs a dummy request and shows the response
 
@@ -171,8 +171,8 @@ Files in `extension/`:
 Content script (`extension/content/content.js`) injected on `youtube.com/watch*`:
 
 **Current video badge** — after the video title (`#above-the-fold #title`), a colored pill shows:
-- `✓ In ViewTube` (green) if the video is saved
-- `⊘ Hidden in ViewTube` (red) if it's hidden
+- `✓ In Airchivist` (green) if the video is saved
+- `⊘ Hidden in Airchivist` (red) if it's hidden
 - Nothing if not found (no noise for unsaved videos)
 
 **Related video badges** — for each `ytd-compact-video-renderer` in the side panel, a smaller version of the same badge is prepended into the `#meta` text area (below the video title in the card). A `MutationObserver` on `#secondary` catches cards loading after the initial page render.
@@ -183,7 +183,7 @@ Content script (`extension/content/content.js`) injected on `youtube.com/watch*`
 
 **Manifest changes:**
 - Version bumped to `1.1`
-- Added `"http://localhost:*/*"` permission so the content script can fetch from the local ViewTube server
+- Added `"http://localhost:*/*"` permission so the content script can fetch from the local Airchivist server
 - Added `content_scripts` block
 
 **Known limitation:** YouTube's DOM element names change occasionally; if selectors break after a YouTube update, `ytd-compact-video-renderer a#thumbnail` and `#above-the-fold #title` are the ones to re-check.
@@ -192,7 +192,7 @@ Content script (`extension/content/content.js`) injected on `youtube.com/watch*`
 
 The content script now also injects on channel pages, not just `/watch*` — `content_scripts.matches` in `manifest.json` was broadened to `https://www.youtube.com/watch*`, `/@*`, `/channel/*`, `/c/*`, and `/user/*`.
 
-**Current channel title** — on a channel page, the header title (`CHANNEL_TITLE_SELECTOR`, a comma-separated list of known YouTube channel-header selectors) is colored green (`TITLE_COLOR.exists`) if the channel is already tracked in ViewTube. Unlike video titles, there is no red/hidden case — channels have no "hidden" state, so the title is either green or left at its default color.
+**Current channel title** — on a channel page, the header title (`CHANNEL_TITLE_SELECTOR`, a comma-separated list of known YouTube channel-header selectors) is colored green (`TITLE_COLOR.exists`) if the channel is already tracked in Airchivist. Unlike video titles, there is no red/hidden case — channels have no "hidden" state, so the title is either green or left at its default color.
 
 `content.js` gained `YT_CHANNEL_RE` (kept byte-identical to the copy in `popup.js`, itself synced to `crawler/models.py`'s `_YT_CHANNEL_RE`) and `channelUrlFrom()` to derive the canonical channel URL, plus `checkCurrentChannel()` which mirrors `checkCurrentVideo()`'s structure: it re-checks the URL after each `await` so a fast SPA navigation away from the channel (or to a different channel) can't leave a stale green title behind.
 
@@ -205,7 +205,7 @@ The content script now also injects on channel pages, not just `/watch*` — `co
 ### Phase 4 — Bookmark watcher (optional)
 
 - `background.js` listens to `browser.bookmarks.onCreated`
-- When a new bookmark's URL matches a YouTube video, post it to ViewTube automatically
+- When a new bookmark's URL matches a YouTube video, post it to Airchivist automatically
 - Guarded by a toggle in the options page (off by default to avoid surprises)
 
 ---
@@ -217,7 +217,7 @@ The content script now also injects on channel pages, not just `/watch*` — `co
 npm install -g web-ext
 
 # Run in Firefox with auto-reload
-cd viewtube-extension
+cd airchivist-extension
 web-ext run --firefox=/Applications/Firefox.app/Contents/MacOS/firefox
 
 # Build a signed .xpi for permanent installation
@@ -231,7 +231,7 @@ For local use without signing, Firefox Developer Edition or Nightly allow unsign
 
 ## Open Questions
 
-1. **Should the Firefox bookmark be created even when ViewTube fails?** Current plan: yes — the bookmark is the "ground truth" fallback. ViewTube is bonus metadata.
-2. **Bookmark folder hierarchy**: Should saves go into a date-organized subfolder (e.g. `ViewTube/2026-05`)? Probably overkill; a flat "ViewTube" folder is fine at personal-library scale.
+1. **Should the Firefox bookmark be created even when Airchivist fails?** Current plan: yes — the bookmark is the "ground truth" fallback. Airchivist is bonus metadata.
+2. **Bookmark folder hierarchy**: Should saves go into a date-organized subfolder (e.g. `Airchivist/2026-05`)? Probably overkill; a flat "Airchivist" folder is fine at personal-library scale.
 3. **What if the user is watching a YouTube short or channel page?** The URL regex will reject non-video URLs cleanly. Shorts URLs (`/shorts/<id>`) should probably be supported — the same regex can be extended.
 4. **Icon design**: A simple red "V" or the YouTube play-button shape with a red accent would signal the extension's purpose clearly.
