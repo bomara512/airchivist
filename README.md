@@ -25,7 +25,7 @@ Expect the commit history and docs to reflect this ongoing learning process.
 - Channel tracking, separate from individual videos
 - Firefox extension for one-click saving and status badges on YouTube itself
 
-## Screenshots
+## Screenshots with sample data loaded
 
 ### Main View (+ Rediscover shelf)
 ![Favorites](demo-screenshots/airchivist.png)
