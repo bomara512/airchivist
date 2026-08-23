@@ -1,19 +1,20 @@
-# Airchivist
+# Airchivist (AI-rchivist)
 
-This is my playground for getting better at AI-assisted development — practicing prompt engineering, learning Claude Code's skill/plugin ecosystem
-well, and building real instincts for working with an AI pair-programmer on a long-lived,
+This is my little playground for getting better at AI-assisted development — practicing prompt engineering, learning Claude Code's skill/plugin ecosystem
+well, and building a true feel for working with an AI pair-programmer on a long-lived,
 real codebase.
 
-The vehicle for that practice is **Airchivist**, a personal video bookmark manager that scratches a long-running itch for me. I have a decade-plus of
+**Airchivist** is a personal video bookmark manager that scratches a long-running itch for me. I have a decade-plus of
 YouTube bookmarks that pretty much became invisible the moment they were saved. Airchivist ingests, tags,
 and actively resurfaces what I've forgotten about. (YouTube probably does the same thing with an account :-), 
 but that's not how I've used it over the years. Just bookmarked interesting videos.)
 
 The [original prompt](prompt.md) that kicked this off spells things out by hand — "use a
 test-driven approach, write the test first, make sure it fails, then implement," "create a
-separate plan for each component." Now that kind of process guidance lives in reusable skills (e.g.
-[superpowers](https://github.com/obra/superpowers), a Claude Code plugin) — TDD, structured planning, and code review are things I invoke, not things I re-explain. Expect the commit
-history and docs to reflect that ongoing learning process.
+separate plan for each component." Now, that kind of process guidance lives in reusable skills (e.g.
+[superpowers](https://github.com/obra/superpowers), a Claude Code plugin) so that TDD, structured planning, and code review are things I invoke, not things I re-explain. 
+
+Expect the commit history and docs to reflect this ongoing learning process.
 
 ## Features
 
@@ -23,6 +24,17 @@ history and docs to reflect that ongoing learning process.
 - Rediscover shelf — resurfaces videos you've forgotten about
 - Channel tracking, separate from individual videos
 - Firefox extension for one-click saving and status badges on YouTube itself
+
+## Screenshots
+
+### Main View (+ Rediscover shelf)
+![Favorites](demo-screenshots/airchivist.png)
+
+### Favorites
+![Favorites](demo-screenshots/favorites.png)
+
+### Channels
+![Favorites](demo-screenshots/channels.png)
 
 ## Prerequisites
 
