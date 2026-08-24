@@ -28,13 +28,13 @@ Expect the commit history and docs to reflect this ongoing learning process.
 ## Screenshots with sample data loaded
 
 ### Main View (+ Rediscover shelf)
-![Favorites](demo-screenshots/airchivist.png)
+![Main View ( plus Rediscover shelf)](demo-screenshots/airchivist.png)
 
 ### Favorites
 ![Favorites](demo-screenshots/favorites.png)
 
 ### Channels
-![Favorites](demo-screenshots/channels.png)
+![Channels](demo-screenshots/channels.png)
 
 ## Prerequisites
 
