@@ -36,6 +36,21 @@ previously-unengaged video (`zO-bktrLju8`) for the new hidden entry instead, and
   list already declared in `pyproject.toml` — not addressed here, since consolidating them
   was out of scope for this fix.
 
+**Follow-up**: swapping the hidden video was the wrong fix — `h6fcK_fRYaI` ("The Egg") is
+supposed to stay hidden in the demo. Reverted `HIDDEN_VIDEO_IDS` to `h6fcK_fRYaI` and
+instead removed it from `WATCH_LATER_VIDEO_IDS` (replaced with `sNhhvQGsMEc`, another
+Kurzgesagt video, to keep the queue's intentional 4-watched/4-unwatched mix), since it's
+the *watch-later* membership that conflicts with hiding, not the hidden status itself.
+Verified this also restores `demo-screenshots/airchivist.png` and `favorites.png` to
+matching the seed data exactly again (both were already accurate — the earlier fix would
+have made them stale), so only `demo-screenshots/channels.png` needed a refresh — it had
+an unrelated pre-existing staleness (header read "41 videos" vs. the other two pages'
+"40 videos", from never being retaken after the 2026-08-24 hidden-count bump). Regenerating
+that screenshot via browser automation hit a separate limitation: the tool's fetch sandbox
+blocks requests to the channel avatar CDN URLs (`yt3.googleusercontent.com/...`) as
+"[BLOCKED: Cookie/query string data]", a deliberate privacy guard, not a bug — so a
+same-quality replacement needs to be captured manually rather than through automation.
+
 ### docs: fix changelog ordering and remove a stray empty header
 
 A consistency check found this file's ordering was split in two: everything from

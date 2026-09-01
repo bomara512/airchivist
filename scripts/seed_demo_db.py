@@ -153,11 +153,15 @@ FAVORITE_VIDEO_IDS = [
 # same "already watched" checkmark looks repetitive for a demo. 4 of these overlap with
 # WATCHED_VIDEO_IDS (queued-and-watched is a valid real state); 4 don't.
 WATCH_LATER_VIDEO_IDS = [
-    "pYDMhBVspIY", "KnLJ-vFsjwE", "_QCt3UBTS1Y", "h6fcK_fRYaI",
+    "pYDMhBVspIY", "KnLJ-vFsjwE", "_QCt3UBTS1Y", "sNhhvQGsMEc",
     "4czjS9h4Fpg", "zfBkJggF9aU", "mvDj7DF1jsk", "iG9CE55wbtY",
 ]
 
-HIDDEN_VIDEO_IDS = ["QXQiGS9CL20", "YGpK6U56oHM", "XiOJRhikCBg", "zO-bktrLju8"]
+# h6fcK_fRYaI ("The Egg") is favorited, watched, and hidden below, but deliberately
+# NOT here — hide_video() removes a hidden video from watch_later as real production
+# behavior, so keeping it in both lists would just have this list silently seed one
+# short. sNhhvQGsMEc (also Kurzgesagt) fills the "watched" slot instead.
+HIDDEN_VIDEO_IDS = ["QXQiGS9CL20", "YGpK6U56oHM", "XiOJRhikCBg", "h6fcK_fRYaI"]
 
 # Previously-watched videos, spread from 2 weeks to ~17 months ago so the Rediscover
 # shelf has a real least-recently-viewed pool to draw from, not 1-2 eligible videos.
