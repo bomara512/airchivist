@@ -138,6 +138,26 @@ being asked.
 - Run `python -m pytest -q` at the end and confirm all tests pass before
   finishing the response.
 
+## Test-run warnings are blocking, not optional cleanup
+
+Any warning printed by `python -m pytest -q` or `npm test` (a warnings
+summary entry, a deprecation notice, console output flagged during a Jest
+run, etc.) must be resolved in the same response — not deferred, not noted
+as a "nice to have" for later. A task is not complete while the test run
+still prints a warning, even if every test passes.
+
+- Find the root cause the same way as a failing test (see
+  `superpowers:systematic-debugging` for anything non-obvious) — don't just
+  suppress the warning with a filter unless the warning is a false positive
+  from the tool itself, and say so explicitly if that's the call.
+- This came up 2026-08-31: 5 `ResourceWarning`s from leaked `Datastore`
+  connections in `test_datastore.py` sat in the test output across several
+  responses before being tracked down — a clean `pytest -q` run (0 warnings)
+  is now part of what "tests pass" means for this project, not a separate,
+  skippable step.
+- Re-run the full suite after the fix and confirm the warnings summary is
+  empty before finishing.
+
 ## Keep README setup/test instructions runnable from a clean checkout
 
 `pip install -e .` only pulls runtime deps from `pyproject.toml`, and

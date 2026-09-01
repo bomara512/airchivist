@@ -6,6 +6,12 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-31
 
+### docs: CLAUDE.md — test-run warnings are now blocking, not optional cleanup
+
+User instruction after the leaked-`Datastore`-connections fix (below): any warning from
+`pytest -q` or `npm test` must be resolved in the same response, not deferred — "tests
+pass" now means a clean warnings summary too, not just green tests.
+
 ### fix(test): close 5 leaked `Datastore` connections in `test_datastore.py`
 
 `python -m pytest -q` reported 5 warnings; all were `ResourceWarning: unclosed database
