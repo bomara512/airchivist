@@ -4,6 +4,22 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-08-23
+
+### docs: add screenshots to README
+
+Added a "Screenshots with sample data loaded" section to `README.md` — three
+screenshots (main view + Rediscover shelf, Favorites, Channels) captured
+from the demo seed database — plus a lighter rewrite of the intro
+paragraph. `demo-screenshots/*.png` are committed alongside the README so
+the images render on GitHub without a build step.
+
+**2026-08-24 update**: Re-took two of the three screenshots and fixed their
+alt text, which had all three images alt-tagged "Favorites" (a copy-paste
+leftover). Also added one more seeded video (`h6fcK_fRYaI`, "The Egg - A
+Short Story") to `scripts/seed_demo_db.py`'s `HIDDEN_VIDEO_IDS` so the
+retaken screenshots show a hidden video in the mix.
+
 ## 2026-08-20
 
 ### chore: rename project from ViewTube to Airchivist
