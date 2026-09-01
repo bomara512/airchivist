@@ -381,31 +381,31 @@ class TestUpsertChannelStub:
 
 class TestHasFullChannelRecord:
     def test_returns_false_when_no_record(self, tmp_path):
-        ds = Datastore(tmp_path / "db.sqlite")
-        assert ds.has_full_channel_record("https://www.youtube.com/@none") is False
+        with Datastore(tmp_path / "db.sqlite") as ds:
+            assert ds.has_full_channel_record("https://www.youtube.com/@none") is False
 
     def test_returns_false_for_stub_only(self, tmp_path):
-        ds = Datastore(tmp_path / "db.sqlite")
-        ds.upsert_channel_stub("UC123", "Chan", "https://www.youtube.com/channel/UC123")
-        assert ds.has_full_channel_record("https://www.youtube.com/channel/UC123") is False
+        with Datastore(tmp_path / "db.sqlite") as ds:
+            ds.upsert_channel_stub("UC123", "Chan", "https://www.youtube.com/channel/UC123")
+            assert ds.has_full_channel_record("https://www.youtube.com/channel/UC123") is False
 
     def test_returns_true_when_full_record_matches_channel_url(self, tmp_path):
-        ds = Datastore(tmp_path / "db.sqlite")
-        meta = _make_channel_meta()  # has description set
-        ds.upsert_channel(meta)
-        assert ds.has_full_channel_record(meta.channel_url) is True
+        with Datastore(tmp_path / "db.sqlite") as ds:
+            meta = _make_channel_meta()  # has description set
+            ds.upsert_channel(meta)
+            assert ds.has_full_channel_record(meta.channel_url) is True
 
     def test_returns_true_when_full_record_matches_source_url(self, tmp_path):
-        ds = Datastore(tmp_path / "db.sqlite")
-        meta = _make_channel_meta()
-        ds.upsert_channel(meta, source_url="https://www.youtube.com/@rickastley")
-        assert ds.has_full_channel_record("https://www.youtube.com/@rickastley") is True
+        with Datastore(tmp_path / "db.sqlite") as ds:
+            meta = _make_channel_meta()
+            ds.upsert_channel(meta, source_url="https://www.youtube.com/@rickastley")
+            assert ds.has_full_channel_record("https://www.youtube.com/@rickastley") is True
 
     def test_returns_false_for_unrelated_url(self, tmp_path):
-        ds = Datastore(tmp_path / "db.sqlite")
-        meta = _make_channel_meta()
-        ds.upsert_channel(meta, source_url="https://www.youtube.com/@rickastley")
-        assert ds.has_full_channel_record("https://www.youtube.com/@other") is False
+        with Datastore(tmp_path / "db.sqlite") as ds:
+            meta = _make_channel_meta()
+            ds.upsert_channel(meta, source_url="https://www.youtube.com/@rickastley")
+            assert ds.has_full_channel_record("https://www.youtube.com/@other") is False
 
 
 class TestGetChannelIdsForBackfill:

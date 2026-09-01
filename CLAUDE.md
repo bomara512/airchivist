@@ -74,6 +74,24 @@ row = conn.execute("SELECT id, ... FROM t ...").fetchone()
 conn.execute("UPDATE t ... WHERE id = ?", (row["id"],))
 ```
 
+## Always open `Datastore`/`sqlite3` connections with `with` in tests
+
+Every test that constructs `crawler.datastore.Datastore(...)` or calls
+`sqlite3.connect(...)` must use it as a context manager (`with Datastore(...)
+as ds:`) or otherwise guarantee `.close()` runs — never `ds = Datastore(...)`
+left to the garbage collector.
+
+- An unclosed connection doesn't fail the test — it leaks and surfaces later
+  as a `ResourceWarning: unclosed database` attributed to whatever unrelated
+  test happens to be running when Python's GC finalizes it, which is
+  confusing to debug. This bit `tests/crawler/test_datastore.py`'s
+  `TestHasFullChannelRecord` on 2026-08-31: 5 tests skipped the `with`
+  pattern used by every other test in the file, producing 5 warnings
+  attributed to an unrelated crawler integration test.
+- Run `python -m pytest -q` and confirm the warnings summary is empty before
+  finishing any response that adds a new `Datastore`/`sqlite3.connect` call
+  in tests.
+
 ## Name CSS classes for their purpose, not their first use
 
 When a CSS class is introduced for one page and then reused on another,

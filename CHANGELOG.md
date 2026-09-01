@@ -6,6 +6,24 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-08-31
 
+### fix(test): close 5 leaked `Datastore` connections in `test_datastore.py`
+
+`python -m pytest -q` reported 5 warnings; all were `ResourceWarning: unclosed database
+in <sqlite3.Connection>`, but pytest attributed them to an unrelated crawler integration
+test (`TestFullPipelineJson::test_exits_zero`) — a red herring, since the warning fires
+only when Python's garbage collector happens to finalize the leaked object, stamped with
+whatever test is executing at that moment, not where the leak occurred. The real source:
+`TestHasFullChannelRecord`'s 5 tests constructed `Datastore(...)` directly instead of
+using `with Datastore(...) as ds:` like every other test in the file, so the underlying
+`sqlite3.Connection` never got explicitly closed. Switched all 5 to the `with` pattern;
+confirmed the full suite (562 tests) now runs with zero warnings, and grepped for any
+other non-context-managed `Datastore(` construction (none found).
+
+**Implications**
+- **+** `pytest -q` output is now clean, so a real future warning won't get lost in noise.
+- **+** Added a CLAUDE.md rule requiring the `with` pattern for `Datastore`/`sqlite3`
+  connections in tests, to prevent recurrence.
+
 ### fix: README missing dev-dependency install step; demo seed data cross-list conflict
 
 A fresh checkout following the README's "Running tests" section (`pip install -e .` →
