@@ -113,7 +113,14 @@ Without it, tagging still works fully — just manually rather than with suggest
 
 ## Running tests
 
+`pip install -e .` only installs runtime dependencies. Test tooling (pytest and
+friends, or Jest for the extension) isn't installed by the Setup steps above —
+install it first, then run the suites:
+
 ```bash
+pip install -r requirements-dev.txt
 python -m pytest -q   # backend (Python)
+
+npm install
 npm test               # extension (Jest) — requires Node.js
 ```

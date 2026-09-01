@@ -157,7 +157,7 @@ WATCH_LATER_VIDEO_IDS = [
     "4czjS9h4Fpg", "zfBkJggF9aU", "mvDj7DF1jsk", "iG9CE55wbtY",
 ]
 
-HIDDEN_VIDEO_IDS = ["QXQiGS9CL20", "YGpK6U56oHM", "XiOJRhikCBg", "h6fcK_fRYaI"]
+HIDDEN_VIDEO_IDS = ["QXQiGS9CL20", "YGpK6U56oHM", "XiOJRhikCBg", "zO-bktrLju8"]
 
 # Previously-watched videos, spread from 2 weeks to ~17 months ago so the Rediscover
 # shelf has a real least-recently-viewed pool to draw from, not 1-2 eligible videos.

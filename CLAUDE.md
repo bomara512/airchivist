@@ -120,6 +120,41 @@ being asked.
 - Run `python -m pytest -q` at the end and confirm all tests pass before
   finishing the response.
 
+## Keep README setup/test instructions runnable from a clean checkout
+
+`pip install -e .` only pulls runtime deps from `pyproject.toml`, and
+`npm test` needs `npm install` first — neither installs pytest, pytest-cov,
+pytest-mock, or Jest. This bit a fresh checkout on 2026-08-31: the README's
+"Running tests" section ran straight to `python -m pytest -q` / `npm test`
+with no install step, so a truly clean clone failed with "No module named
+pytest" — the person catching it happened to have pytest on their machine
+some other way, and every prior editor of the README did too.
+
+- Whenever you add or change what `README.md` tells someone to run
+  (setup, demo, tests, ingest, etc.), verify it in a clean environment —
+  a fresh venv and/or `rm -rf node_modules` — not just in your existing
+  dev environment, which already has stray tooling installed.
+- If a command depends on a file the Setup section doesn't install
+  (`requirements-dev.txt`, `package.json` devDependencies, an optional
+  extras group), the README step for that command must say so explicitly.
+
+## Check for cross-list conflicts when editing `scripts/seed_demo_db.py`
+
+The hardcoded ID lists (`FAVORITE_VIDEO_IDS`, `WATCH_LATER_VIDEO_IDS`,
+`HIDDEN_VIDEO_IDS`, `WATCHED_VIDEO_IDS`) aren't independent: `hide_video()`
+deletes the video from `watch_later` as real production behavior (hidden
+videos shouldn't stay queued). Adding an ID to `HIDDEN_VIDEO_IDS` that's
+already in `WATCH_LATER_VIDEO_IDS` silently drops it from the watch-later
+demo state — this happened on 2026-08-24 and broke
+`tests/scripts/test_seed_demo_db.py`'s watch-later and hidden-count
+assertions until caught here on 2026-08-31.
+
+- Before adding an ID to one of these lists, check it isn't already in a
+  list whose seeding function has a side effect on another list (mainly:
+  don't hide anything that's meant to stay in watch-later).
+- Run `python -m pytest tests/scripts/test_seed_demo_db.py -q` after
+  editing any of these lists, in the same response.
+
 ## Keep the feature sheet current
 
 `docs/feature-sheet.html` is a plain-language, functionality-focused

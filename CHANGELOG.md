@@ -4,6 +4,38 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-08-31
+
+### fix: README missing dev-dependency install step; demo seed data cross-list conflict
+
+A fresh checkout following the README's "Running tests" section (`pip install -e .` →
+`python -m pytest -q`) failed with `No module named pytest`. Root cause: `pip install -e .`
+only installs the runtime deps in `pyproject.toml`; pytest/pytest-cov/pytest-mock live in
+`requirements-dev.txt`, which the README never referenced. The same gap existed for the
+extension suite (`npm test` needs `npm install` first; `node_modules` isn't committed).
+Fixed by adding the missing install steps to the README, verified against a throwaway venv
+and a `node_modules`-free checkout rather than the existing dev environment (which already
+had both installed some other way, masking the gap).
+
+Installing dev deps for the first time surfaced a second, unrelated bug: 2 of 562 backend
+tests failed. The 2026-08-24 demo-seed tweak (see 2026-08-23 entry below) added
+`h6fcK_fRYaI` to both `WATCH_LATER_VIDEO_IDS` and `HIDDEN_VIDEO_IDS` in
+`scripts/seed_demo_db.py`. `hide_video()` deletes a video from `watch_later` as real
+production behavior (hidden videos shouldn't stay queued), so seeding silently dropped that
+video from the demo watch-later queue — 7 videos landed in the table instead of 8, and 4
+videos ended up hidden instead of the tests' expected 3. Fixed by using a different,
+previously-unengaged video (`zO-bktrLju8`) for the new hidden entry instead, and updated
+`test_three_hidden_videos` → `test_four_hidden_videos` to match the now-intentional count of
+4 hidden demo videos.
+
+**Implications**
+- **+** A genuinely clean checkout can now follow the README top-to-bottom, including tests,
+  without prior local state papering over missing steps.
+- **+** The demo watch-later queue actually seeds all 8 intended videos again.
+- **−** `requirements.txt` and `requirements-dev.txt` still duplicate the runtime dependency
+  list already declared in `pyproject.toml` — not addressed here, since consolidating them
+  was out of scope for this fix.
+
 ## 2026-08-23
 
 ### docs: add screenshots to README

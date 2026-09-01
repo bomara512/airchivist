@@ -104,13 +104,13 @@ class TestSeedEngagement:
             "4czjS9h4Fpg", "zfBkJggF9aU", "mvDj7DF1jsk", "iG9CE55wbtY",
         ]
 
-    def test_three_hidden_videos(self, conn):
+    def test_four_hidden_videos(self, conn):
         seed_content(conn, VIDEOS)
         seed_engagement(conn)
         count = conn.execute(
             "SELECT COUNT(*) FROM videos WHERE is_hidden = 1"
         ).fetchone()[0]
-        assert count == 3
+        assert count == 4
 
     def test_view_history_has_a_real_spread(self, conn):
         seed_content(conn, VIDEOS)
