@@ -76,7 +76,7 @@ airchivist/
 # Read functions
 def get_all_videos(conn, sort_by='date_added', sort_dir='desc',
                    channel=None, tag=None, search=None,
-                   page=1, page_size=None) -> list[dict]
+                   page=1, page_size=None, unwatched_first=False) -> list[dict]
 
 def count_videos(conn, channel=None, tag=None, search=None) -> int
 
@@ -158,6 +158,8 @@ def collapse_case_variants(conn) -> int        # one-time admin: merges case-dup
 - `added_within: Optional[int]` — one of `7`, `30`, `90`, `365` (days), validated against the `_ADDED_WITHIN_DAYS` frozenset, then applied as `v.date_added >= date('now', '-N days')`.
 
 Both allow-lists live next to `_build_where` in `webapp/db/videos.py`. As with `sort_by`, an unrecognized `duration` or `added_within` raises `ValueError` rather than being interpolated — the `index` route's `try/except ValueError: abort(400)` (see below) turns that into an HTTP 400, e.g. `/?duration=epic`.
+
+`unwatched_first: bool` (on `get_all_videos` only, not `_build_where`) is not a filter — it doesn't exclude any videos. It's an ORDER BY modifier: when set, `v.is_watched ASC` is prepended to the ORDER BY, ahead of whichever `sort_by`/`sort_dir` is active, so all unwatched videos surface before watched ones while the chosen sort still governs order within each group. Same composition pattern as `group == "channel"` prepending `channel_name ASC` (see Grouping below) — both stack as ORDER BY prefixes rather than replacing the base sort.
 
 The `search` filter matches against four sources, all using word-prefix regex (`\bterm`, case-insensitive):
 1. `v.title`
@@ -448,13 +450,14 @@ The sort select uses human-readable labels (no underscores): Date Added, Title, 
 
 A canonical tag `<select name="tag">` is rendered between the channel dropdown and the sort-by dropdown, but only when at least one canonical tag has at least one associated video. Options are populated from `get_canonical_tags_for_filter`. Selecting a tag filters via the existing `?tag=` query param and `_build_where` logic.
 
-Three quick-filter controls sit alongside the favorites checkbox, all wired into the same auto-submitting HTMX form and the `Filters` badge count (`active_filter_count`, computed once in `routes.py:index()` and passed to both `index.html` and `_video_container.html` so the two templates share one definition of "a filter is active" — channel, tag, non-default sort/direction, group, favorites, unwatched, duration, or added-within; search does not count).
+Four quick-filter controls sit alongside the favorites checkbox, all wired into the same auto-submitting HTMX form and the `Filters` badge count (`active_filter_count`, computed once in `routes.py:index()` and passed to both `index.html` and `_video_container.html` so the two templates share one definition of "a filter is active" — channel, tag, non-default sort/direction, group, favorites, unwatched, unwatched-first, duration, or added-within; search does not count).
 
-- **Unwatched only** — a checkbox (`name="unwatched"`, value `"1"`), mapped to `unwatched_only` in the route.
+- **Unwatched only** — a checkbox (`name="unwatched"`, value `"1"`), mapped to `unwatched_only` in the route. A true filter — excludes watched videos entirely.
+- **Unwatched first** — a checkbox (`name="unwatched_first"`, value `"1"`), mapped to `unwatched_first` in the route. Not a filter — reorders instead of excluding (see `unwatched_first` under `get_all_videos` above). Independent of "Unwatched only"; combining both is a no-op on top of the filter (everything shown is already unwatched) but harmless.
 - **Duration** — a `<select name="duration">` with "Any duration" plus the three `_DURATION_BUCKETS` options (Short/Medium/Long), mapped straight through to `_build_where`'s `duration` param.
 - **Added within** — a `<select name="added_within">` with "Any time" plus the four `_ADDED_WITHIN_DAYS` presets (7/30/90/365 days, labeled "Last 7 days" … "Last year"). The route casts the query string to `int` (falling back to `None` on a bad value) before passing it to `_build_where`.
 
-All three persist across pagination the same way the existing filters do, since `page_url` only strips `page`/`append` from the current query string.
+All four persist across pagination the same way the existing filters do, since `page_url` only strips `page`/`append` from the current query string.
 
 **Grouping**: The group select offers "No grouping" (default), "By channel", and "By tag". Both grouped modes use Prev/Next pagination (not Load more).
 

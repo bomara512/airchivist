@@ -61,6 +61,18 @@ class TestIndexRoute:
         assert 'hx-swap-oob="true"' in body
         assert 'data-active="1"' in body
 
+    def test_unwatched_first_orders_unwatched_videos_before_watched(self, client):
+        # aaaaaaaaaa1 (Guitar Lesson 1) is unwatched but has the oldest date_added,
+        # so default sort (date_added desc) puts it LAST, after the watched
+        # aaaaaaaaaa3 (Advanced Chords, newer date_added). unwatched_first must
+        # override that and put it first.
+        body = client.get("/?unwatched_first=1", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert body.index("Guitar Lesson 1") < body.index("Advanced Chords")
+
+    def test_unwatched_first_counts_toward_active_filter_count(self, client):
+        body = client.get("/?unwatched_first=1").get_data(as_text=True)
+        assert 'data-active="1"' in body
+
 
 class TestIndexFilterQuickWins:
     def _seed(self, client):

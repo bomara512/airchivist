@@ -88,6 +88,11 @@
       </label>
 
       <label class="filter-toggle">
+        <input type="checkbox" name="unwatched_first" value="1" {% if unwatched_first %}checked{% endif %}>
+        Unwatched first
+      </label>
+
+      <label class="filter-toggle">
         <input type="checkbox" name="favorites" value="1" {% if favorites_only %}checked{% endif %}>
         Favorites
       </label>

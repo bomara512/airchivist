@@ -4,6 +4,20 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ---
 
+## 2026-09-18
+
+### feat: "Unwatched first" sort toggle on the main video list
+
+New checkbox (`unwatched_first`) alongside "Unwatched only" that reorders instead of
+filtering: unwatched videos surface before watched ones, with the currently-selected
+sort column still governing order within each group (`ORDER BY v.is_watched ASC,
+v.{sort_by} {sort_dir}`), the same ORDER-BY-prefix composition already used for
+"group by channel". Scoped to the main video list only, not the hidden-videos page.
+Trade-off: combining it with "Unwatched only" is a harmless no-op (everything shown
+is already unwatched), which was accepted rather than adding UI logic to prevent it.
+
+---
+
 ## 2026-08-31
 
 ### docs: CLAUDE.md â€” test-run warnings are now blocking, not optional cleanup

@@ -89,6 +89,18 @@ class TestGetAllVideos:
         rows = get_all_videos(db_conn, search="uitar")
         assert len(rows) == 0
 
+    def test_unwatched_first_groups_unwatched_before_watched(self, db_conn):
+        rows = get_all_videos(db_conn, unwatched_first=True)
+        watched_flags = [r["is_watched"] for r in rows]
+        assert watched_flags == sorted(watched_flags)
+
+    def test_unwatched_first_keeps_chosen_sort_as_secondary_key(self, db_conn):
+        rows = get_all_videos(db_conn, unwatched_first=True)
+        ids = [r["video_id"] for r in rows]
+        # aaaaaaaaaa1 and aaaaaaaaaa4 are unwatched; aaaaaaaaaa2 and aaaaaaaaaa3
+        # are watched. Default sort is date_added desc, applied within each group.
+        assert ids == ["aaaaaaaaaa4", "aaaaaaaaaa1", "aaaaaaaaaa3", "aaaaaaaaaa2"]
+
     def test_invalid_sort_by_raises(self, db_conn):
         with pytest.raises(ValueError):
             get_all_videos(db_conn, sort_by="DROP TABLE videos")

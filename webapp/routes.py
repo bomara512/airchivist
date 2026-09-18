@@ -45,6 +45,7 @@ def index():
     group = request.args.get("group") or None
     favorites_only = request.args.get("favorites") == "1"
     unwatched_only = request.args.get("unwatched") == "1"
+    unwatched_first = request.args.get("unwatched_first") == "1"
     duration = request.args.get("duration") or None
     try:
         added_within = int(request.args["added_within"]) if request.args.get("added_within") else None
@@ -67,6 +68,7 @@ def index():
             channel=channel, tag=tag, search=search,
             page=page, page_size=PAGE_SIZE, group=group,
             favorites_only=favorites_only, unwatched_only=unwatched_only,
+            unwatched_first=unwatched_first,
             duration=duration, added_within=added_within,
         )
     except ValueError:
@@ -112,6 +114,7 @@ def index():
         + (group is not None and group != "")
         + favorites_only
         + unwatched_only
+        + unwatched_first
         + (duration is not None and duration != "")
         + (added_within is not None)
     )
@@ -129,6 +132,7 @@ def index():
         group=group,
         favorites_only=favorites_only,
         unwatched_only=unwatched_only,
+        unwatched_first=unwatched_first,
         current_duration=duration,
         current_added_within=added_within,
         active_filter_count=active_filter_count,

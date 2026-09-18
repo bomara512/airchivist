@@ -91,6 +91,7 @@ def get_all_videos(
     group: Optional[str] = None,
     favorites_only: bool = False,
     unwatched_only: bool = False,
+    unwatched_first: bool = False,
     duration: Optional[str] = None,
     added_within: Optional[int] = None,
 ) -> list:
@@ -111,6 +112,8 @@ def get_all_videos(
     order_sql = f"v.{sort_by} {sort_dir}"
     if group == "channel":
         order_sql = f"v.channel_name ASC, {order_sql}"
+    if unwatched_first:
+        order_sql = f"v.is_watched ASC, {order_sql}"
 
     sql = f"""
         SELECT v.*, GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END) as tags
