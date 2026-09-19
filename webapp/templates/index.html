@@ -82,14 +82,11 @@
         <option value="365" {% if current_added_within == 365 %}selected{% endif %}>Last year</option>
       </select>
 
-      <div class="filter-select-group">
-        <select name="watch_status" id="watch-status-select">
-          <option value=""                data-hint="Show all videos." {% if not watch_status %}selected{% endif %}>All videos</option>
-          <option value="unwatched"        data-hint="Hide videos you've already watched." {% if watch_status == 'unwatched' %}selected{% endif %}>Unwatched only</option>
-          <option value="unwatched_first"  data-hint="Show unwatched videos first; watched ones stay, just later." {% if watch_status == 'unwatched_first' %}selected{% endif %}>Unwatched first</option>
-        </select>
-        <span class="filter-select-hint" id="watch-status-hint"></span>
-      </div>
+      <select name="watch_status">
+        <option value=""                {% if not watch_status %}selected{% endif %}>Include watched</option>
+        <option value="unwatched"        {% if watch_status == 'unwatched' %}selected{% endif %}>Unwatched only</option>
+        <option value="unwatched_first"  {% if watch_status == 'unwatched_first' %}selected{% endif %}>Unwatched first</option>
+      </select>
 
       <label class="filter-toggle">
         <input type="checkbox" name="favorites" value="1" {% if favorites_only %}checked{% endif %}>
@@ -122,19 +119,6 @@
 })();
 </script>
 
-<script>
-(function () {
-  var select = document.getElementById('watch-status-select');
-  var hint = document.getElementById('watch-status-hint');
-
-  function syncHint() {
-    hint.textContent = select.options[select.selectedIndex].dataset.hint || '';
-  }
-
-  syncHint();
-  select.addEventListener('change', syncHint);
-})();
-</script>
 
 <section class="rediscover-shelf" id="rediscover-shelf">
   <div class="shelf-header">

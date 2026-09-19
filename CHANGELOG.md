@@ -6,6 +6,20 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-19
 
+### refactor: watch-status select drops its hint caption for self-explanatory labels
+
+Follow-up to the checkbox-to-select collapse below, same day. The select's caption
+span (showing the current option's `data-hint` text) is gone; the default option is
+renamed "All videos" → "Include watched" instead, so the three labels read clearly
+by contrast alone ("Include watched" / "Unwatched *only*" / "Unwatched *first*")
+without needing extra explanatory text. Considered and rejected `title` tooltips on
+individual `<option>` elements as an alternative to the caption — per-option
+tooltips inside a native `<select>` render unreliably across browsers (often not at
+all), unlike `title` on ordinary buttons elsewhere in this app. Con: relies on the
+reader parsing "only" vs. "first" as the distinguishing signal, which is a smaller
+ask than a full sentence but not zero — no explicit fallback for someone who skims
+past that distinction.
+
 ### refactor: collapse "Unwatched only" + "Unwatched first" into one select
 
 The two independent checkboxes allowed a confusing fourth state: checking both
