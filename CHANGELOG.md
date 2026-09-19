@@ -4,6 +4,23 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-09-19
+
+### fix: Rediscover shelf now hides while a search term is active
+
+The shelf collapsed for every quick-filter (channel, tag, duration, etc.) but not
+for search — present since the collapse feature shipped on 2026-08-20 by reusing
+`active_filter_count`, which has excluded search since it was first introduced on
+2026-06-18 for an unrelated reason (search sits outside the collapsible secondary-
+filters panel, so it was never meant to count toward *that* panel's badge). Fixed
+narrowly in `_video_container.html`'s `data-active` expression only, rather than
+adding search to the shared `active_filter_count` — doing that instead would have
+also bumped the `Filters N` badge and force-opened the secondary panel on every
+search keystroke, an unrelated and unwanted side effect since the search box is
+already always visible outside that panel.
+
+---
+
 ## 2026-09-18
 
 ### feat: "Unwatched first" sort toggle on the main video list

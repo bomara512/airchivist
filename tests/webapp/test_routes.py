@@ -61,6 +61,17 @@ class TestIndexRoute:
         assert 'hx-swap-oob="true"' in body
         assert 'data-active="1"' in body
 
+    def test_rediscover_filter_state_active_with_search_only(self, client):
+        body = client.get("/?search=guitar").get_data(as_text=True)
+        assert 'data-active="1"' in body
+
+    def test_search_only_does_not_affect_filter_badge(self, client):
+        # search narrows the shelf's visibility, but it's not part of the
+        # collapsible secondary-filters panel, so it must not bump the
+        # "Filters N" badge or force that panel open.
+        body = client.get("/?search=guitar").get_data(as_text=True)
+        assert "filter-badge" not in body
+
     def test_unwatched_first_orders_unwatched_videos_before_watched(self, client):
         # aaaaaaaaaa1 (Guitar Lesson 1) is unwatched but has the oldest date_added,
         # so default sort (date_added desc) puts it LAST, after the watched
