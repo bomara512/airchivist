@@ -44,8 +44,9 @@ def index():
     search = request.args.get("search") or None
     group = request.args.get("group") or None
     favorites_only = request.args.get("favorites") == "1"
-    unwatched_only = request.args.get("unwatched") == "1"
-    unwatched_first = request.args.get("unwatched_first") == "1"
+    watch_status = request.args.get("watch_status", "")
+    unwatched_only = watch_status == "unwatched"
+    unwatched_first = watch_status == "unwatched_first"
     duration = request.args.get("duration") or None
     try:
         added_within = int(request.args["added_within"]) if request.args.get("added_within") else None
@@ -113,8 +114,7 @@ def index():
         + (sort_dir != "desc")
         + (group is not None and group != "")
         + favorites_only
-        + unwatched_only
-        + unwatched_first
+        + (watch_status != "")
         + (duration is not None and duration != "")
         + (added_within is not None)
     )
@@ -131,8 +131,7 @@ def index():
         current_search=search,
         group=group,
         favorites_only=favorites_only,
-        unwatched_only=unwatched_only,
-        unwatched_first=unwatched_first,
+        watch_status=watch_status,
         current_duration=duration,
         current_added_within=added_within,
         active_filter_count=active_filter_count,

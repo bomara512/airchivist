@@ -6,6 +6,22 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-19
 
+### refactor: collapse "Unwatched only" + "Unwatched first" into one select
+
+The two independent checkboxes allowed a confusing fourth state: checking both
+was a silent no-op, since filtering to unwatched-only videos leaves nothing for
+the "first" reordering to distinguish, but both still showed checked and each
+counted separately toward the `Filters N` badge. Replaced with a single
+`<select name="watch_status">` (All videos / Unwatched only / Unwatched first)
+so that state is unrepresentable. The two old query params are dropped with no
+backward-compat mapping — the checkboxes shipped less than a day earlier, so no
+bookmarked URL was likely to depend on them yet. A small caption next to the
+select shows the currently-selected option's one-line explanation (populated
+from a `data-hint` attribute via a tiny inline script, no server round-trip),
+since a plain `<select>` only surfaces the active choice when closed — this was
+added specifically to offset the discoverability the two-checkbox layout had
+(both states visible at once, however confusingly) that a bare dropdown loses.
+
 ### fix: Rediscover shelf now hides while a search term is active
 
 The shelf collapsed for every quick-filter (channel, tag, duration, etc.) but not

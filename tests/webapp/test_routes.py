@@ -72,17 +72,41 @@ class TestIndexRoute:
         body = client.get("/?search=guitar").get_data(as_text=True)
         assert "filter-badge" not in body
 
-    def test_unwatched_first_orders_unwatched_videos_before_watched(self, client):
+    def test_watch_status_unwatched_first_orders_unwatched_videos_before_watched(self, client):
         # aaaaaaaaaa1 (Guitar Lesson 1) is unwatched but has the oldest date_added,
         # so default sort (date_added desc) puts it LAST, after the watched
         # aaaaaaaaaa3 (Advanced Chords, newer date_added). unwatched_first must
         # override that and put it first.
-        body = client.get("/?unwatched_first=1", headers={"HX-Request": "true"}).get_data(as_text=True)
+        body = client.get("/?watch_status=unwatched_first", headers={"HX-Request": "true"}).get_data(as_text=True)
         assert body.index("Guitar Lesson 1") < body.index("Advanced Chords")
 
-    def test_unwatched_first_counts_toward_active_filter_count(self, client):
-        body = client.get("/?unwatched_first=1").get_data(as_text=True)
+    def test_watch_status_unwatched_first_counts_toward_active_filter_count(self, client):
+        body = client.get("/?watch_status=unwatched_first").get_data(as_text=True)
         assert 'data-active="1"' in body
+
+    def test_watch_status_unwatched_only_filters_out_watched_videos(self, client):
+        body = client.get("/?watch_status=unwatched", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "Guitar Lesson 1" in body       # aaaaaaaaaa1, unwatched
+        assert "Thai Food Recipe" not in body  # aaaaaaaaaa2, watched (personal_view_count 3)
+
+    def test_watch_status_default_shows_all_videos(self, client):
+        body = client.get("/", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "Guitar Lesson 1" in body
+        assert "Thai Food Recipe" in body
+
+    def test_watch_status_unrecognized_value_behaves_like_default(self, client):
+        # No 400 — falls back to "All videos", same as an unrecognized `group` value.
+        resp = client.get("/?watch_status=bogus", headers={"HX-Request": "true"})
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        assert "Guitar Lesson 1" in body
+        assert "Thai Food Recipe" in body
+
+    def test_watch_status_select_reflects_current_choice(self, client):
+        body = client.get("/?watch_status=unwatched_first").get_data(as_text=True)
+        assert 'name="watch_status"' in body
+        option_line = next(l for l in body.splitlines() if 'value="unwatched_first"' in l)
+        assert "selected" in option_line
 
 
 class TestIndexFilterQuickWins:
@@ -102,7 +126,7 @@ class TestIndexFilterQuickWins:
 
     def test_unwatched_filter(self, client):
         self._seed(client)
-        body = client.get("/?unwatched=1", headers={"HX-Request": "true"}).get_data(as_text=True)
+        body = client.get("/?watch_status=unwatched", headers={"HX-Request": "true"}).get_data(as_text=True)
         assert "QW Short Vid" in body      # personal_view_count 0
         assert "QW Long Vid" not in body   # personal_view_count 5
 
@@ -125,8 +149,8 @@ class TestIndexFilterQuickWins:
         assert client.get("/?added_within=5").status_code == 400
 
     def test_controls_render_current_state(self, client):
-        body = client.get("/?duration=short&unwatched=1").get_data(as_text=True)
-        assert 'name="duration"' in body and 'name="unwatched"' in body
+        body = client.get("/?duration=short&watch_status=unwatched").get_data(as_text=True)
+        assert 'name="duration"' in body and 'name="watch_status"' in body
 
 
 class TestVisitRoute:
@@ -402,7 +426,7 @@ class TestToggleWatched:
 
     def test_unwatched_filter_reflects_toggle(self, client):
         client.post("/videos/aaaaaaaaaa1/watched")  # mark watched
-        body = client.get("/?unwatched=1", headers={"HX-Request": "true"}).get_data(as_text=True)
+        body = client.get("/?watch_status=unwatched", headers={"HX-Request": "true"}).get_data(as_text=True)
         assert "Guitar Lesson 1" not in body   # aaaaaaaaaa1's title now excluded
 
 
