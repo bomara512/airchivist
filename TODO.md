@@ -49,7 +49,7 @@
 - [ ] Detect and flag dead videos (deleted/private) with a badge rather than silently hiding them
 - ~~Rating system for videos — favorite toggle (★) on video cards with filter~~
 - [ ] Import from YouTube Watch Later playlist or a public playlist URL
-- [ ] Fix font consistency — audit typography across pages/components and unify to a single consistent font system
+- ~~Fix font consistency — audit typography across pages/components and unify to a single consistent font system~~
 - ~~Dark/light mode toggle — theme switcher for the web UI, ideally following OS preference by default~~
 
 ---

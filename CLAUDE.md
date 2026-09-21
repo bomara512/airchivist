@@ -105,6 +105,33 @@ rename it to reflect the shared purpose before the second use lands.
   same response.
 - The same rule applies to JS handlers, template partials, and route names.
 
+## Use design tokens for colors, font sizes, and font weights — never new literals
+
+`webapp/static/style.css` defines the full color and type-scale system as CSS
+custom properties in `:root` (`--bg`, `--text`, `--font-size-sm`,
+`--font-weight-semibold`, etc.). Every new style declaration must reuse one of
+these tokens — never introduce a new hex color, `rem`/`px` font-size, or raw
+font-weight number.
+
+- This came up twice on 2026-09-20/21: the app shipped with 169 hardcoded hex
+  colors and zero CSS variables (found while adding a dark/light theme
+  toggle), and separately with 15 near-duplicate font-size values used
+  interchangeably for the same role — e.g. `.video-channel` at `0.85rem` right
+  next to `.video-meta` at `0.8rem` on the same card, and the header nav's own
+  secondary links (Tags/Channels/Watch Later vs. Archived/Install bookmarklet)
+  rendering at two different sizes for no reason. Both were the same failure
+  mode: nobody could see the drift by eye (the differences are sub-pixel at
+  normal zoom), so it accumulated silently over many separate edits.
+- If a genuinely new color or size is needed, add a new token to `:root`
+  (and its light-theme override, for colors) rather than writing a literal
+  value inline — a reviewer should never see a bare `#` hex or a bare
+  `rem`/`px` font-size/weight number in a new rule.
+- Exception: colors and sizes that are self-contained and intentionally
+  theme-invariant (a status badge's own background+foreground pair, an
+  icon-glyph size like a caret or dismiss-button character) may stay literal
+  — but say so via a comment if it's not obvious why, so the next pass
+  doesn't "fix" it into a token that doesn't actually vary.
+
 ## Remove old approaches when replacing them
 
 When pivoting an implementation (different algorithm, different UI pattern,

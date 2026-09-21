@@ -6,6 +6,27 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-21
 
+### refactor: consolidate 15 drifted font-size values into a 5-step type scale
+
+`style.css` had 15 distinct font-size literals used interchangeably for the same
+visual role — e.g. `.video-channel` at `0.85rem` sat directly above `.video-meta`
+at `0.8rem` on the same card, and small buttons were variously `0.8`/`0.85`/`0.9rem`
+with no discernible pattern. Added `--font-size-2xs/xs/sm/base/lg` and
+`--font-weight-normal/semibold/bold` tokens to `:root`; `--font-size-sm` (0.85rem)
+alone absorbs five near-duplicate values (~50 of the file's ~80 font-size
+declarations). Concrete bug this caught: the header nav's own secondary links
+weren't consistent with each other (Tags/Channels/Watch Later inline-styled at
+0.9rem vs. Archived/Install bookmarklet's classes at 0.85rem) — fixed with a
+shared `.nav-link-secondary` class. Left as literal: icon-glyph sizes (dismiss
+buttons, carousel arrows, the shelf caret) — these size a single character, not
+reading text, so folding them into the scale risked breaking icon proportions
+for no consistency benefit. Added a standing `CLAUDE.md` rule (new
+declarations must reuse a token, never a new literal) so this doesn't drift
+again the way both this and the color system did before being caught.
+
+No Python/test changes — pure CSS + one template class change, verified via the
+full test suite (572 passed) plus an in-process `test_client()` render check.
+
 ### feat: dark/light/system theme toggle
 
 `webapp/static/style.css` had zero CSS custom properties before this — 169 hardcoded
