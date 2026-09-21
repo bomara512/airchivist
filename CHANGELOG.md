@@ -4,6 +4,41 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-09-21
+
+### feat: dark/light/system theme toggle
+
+`webapp/static/style.css` had zero CSS custom properties before this — 169 hardcoded
+hex colors across the file. Converted the dozen or so that recur throughout the whole
+app (backgrounds, the text-gray hierarchy, borders, pills, thumbnail placeholders,
+link-hover reds) into `:root` custom properties, with a light-palette override applied
+via `@media (prefers-color-scheme: light)` (guarded by `:not([data-theme="dark"])`) and
+via `:root[data-theme="light"]` for an explicit forced choice. An icon-only button in
+the header (`#theme-toggle-btn`) cycles System → Light → Dark → System, persisting the
+explicit choice to `localStorage` (or clearing it, for "System"). A separate synchronous
+`<script>` in `<head>` — not deferred, unlike the app's other scripts — applies the
+stored choice before first paint, avoiding a flash of the wrong theme on load, since the
+preference lives client-side only.
+
+Deliberately left as literal, unconverted colors: the accent red (already has enough
+contrast on both a dark and a light background), white text on colored/overlay
+backgrounds, and every one-off status/decorative color (LLM tag-suggestion panel,
+confidence badges, favorite-star gold, watched/applied green, tags-admin form colors)
+— these are self-contained bg+fg pairs that render fine either way, but their contrast
+against a *light* page was never individually re-verified. Con: a full, deliberately
+color-audited light theme across every page would have been considerably more work;
+this trades completeness for shipping a broadly-working toggle now, with a known gap
+documented in `plan-webapp.md` rather than silently swept under the rug.
+
+Designed collaboratively via the `superpowers:brainstorming` visual companion —
+mockups of toggle placement/style and the light palette were shown and approved before
+writing any code, and the final implementation was re-previewed for real (actual
+`style.css` + toggle script inlined into a static page, not another mockup) before
+calling it done, since live curl/browser verification is blocked in this environment
+(see the `feedback-sandbox-localhost-port-unreliable` memory).
+
+---
+
 ## 2026-09-19
 
 ### refactor: watch-status select drops its hint caption for self-explanatory labels

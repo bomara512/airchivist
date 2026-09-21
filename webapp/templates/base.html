@@ -3,6 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    (function () {
+      var t = localStorage.getItem('theme');
+      if (t === 'light' || t === 'dark') {
+        document.documentElement.dataset.theme = t;
+      }
+    })();
+  </script>
   <title>{% block title %}Airchivist{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script src="{{ url_for('static', filename='htmx.min.js') }}" defer></script>
@@ -21,11 +29,49 @@
       <a href="{{ url_for('main.hidden') }}" class="nav-hidden">Archived</a>
       {% endif %}
       <a href="{{ url_for('main.install') }}" class="nav-install">Install bookmarklet</a>
+      <button type="button" id="theme-toggle-btn" class="theme-toggle-btn"></button>
     </nav>
   </header>
   <main>
     {% block content %}{% endblock %}
   </main>
+
+  <script>
+    (function () {
+      var STATES = ['system', 'light', 'dark'];
+      var ICONS = { system: '◐', light: '☀', dark: '☾' };
+      var LABELS = { system: 'System', light: 'Light', dark: 'Dark' };
+      var btn = document.getElementById('theme-toggle-btn');
+
+      function current() {
+        var t = localStorage.getItem('theme');
+        return (t === 'light' || t === 'dark') ? t : 'system';
+      }
+
+      function render(state) {
+        btn.textContent = ICONS[state];
+        btn.title = 'Theme: ' + LABELS[state] + ' (click to change)';
+      }
+
+      function apply(state) {
+        if (state === 'system') {
+          delete document.documentElement.dataset.theme;
+          localStorage.removeItem('theme');
+        } else {
+          document.documentElement.dataset.theme = state;
+          localStorage.setItem('theme', state);
+        }
+        render(state);
+      }
+
+      render(current());
+
+      btn.addEventListener('click', function () {
+        var next = STATES[(STATES.indexOf(current()) + 1) % STATES.length];
+        apply(next);
+      });
+    })();
+  </script>
 
   <!-- Delete confirmation modal -->
   <div id="delete-modal" class="modal-overlay" aria-hidden="true">
