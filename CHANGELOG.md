@@ -6,6 +6,25 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-21
 
+### refactor: unify tag pill styling and make it theme-aware
+
+`.alias-pill` (an alias pattern under its canonical tag on `/tags`) rendered in
+`font-family: monospace` with hardcoded, non-theme-aware colors — inconsistent
+with `.tag-pill` on the main video list (sans-serif, theme tokens). Unified
+`.alias-pill`, `.group-member-pill`, and `.pool-tag` to the same base look
+(`--pill-bg`/`--pill-text`/`--font-size-xs`), dropped the monospace (its sibling
+*editable* field, `.alias-edit-input`, legitimately keeps it), and added a
+shared `--pill-hover-bg` token replacing three near-identical literal hover
+backgrounds. `.pool-tag-related` (AI-suggested "related tags") deliberately
+keeps its own green color scheme — signals "suggestion, not a real tag yet,"
+a distinction worth preserving — now theme-aware via a dedicated token family
+with hand-picked light-mode greens (no pre-existing light equivalent to mirror,
+unlike the rest of the theme).
+
+Verified via the same real-CSS visual-companion preview technique as the
+theme toggle and font-scale work (live curl/browser is blocked in this
+environment) — approved before finalizing.
+
 ### refactor: consolidate 15 drifted font-size values into a 5-step type scale
 
 `style.css` had 15 distinct font-size literals used interchangeably for the same
