@@ -18,9 +18,10 @@ afterEach(() => {
 });
 
 describe('module exports', () => {
-  test('exports doAdd and initWatchLaterToggle as functions', () => {
+  test('exports doAdd, initWatchLaterToggle, and initFavoriteToggle as functions', () => {
     expect(typeof popup.doAdd).toBe('function');
     expect(typeof popup.initWatchLaterToggle).toBe('function');
+    expect(typeof popup.initFavoriteToggle).toBe('function');
   });
 });
 
@@ -292,6 +293,132 @@ describe('initWatchLaterToggle', () => {
 
     const chk = document.getElementById('chk-watch-later');
     const errBox = document.getElementById('wl-error');
+    chk.checked = false;
+    chk.dispatchEvent(new Event('change'));
+    await flushPromises();
+
+    expect(chk.checked).toBe(true);
+    expect(errBox.style.display).toBe('block');
+  });
+});
+
+describe('initFavoriteToggle', () => {
+  const airchivistUrl = 'http://localhost:8080';
+  const tabUrl = 'https://www.youtube.com/watch?v=abc123';
+
+  function renderCheckboxFixture() {
+    document.getElementById('root').innerHTML = `
+      <input type="checkbox" id="chk-favorite" disabled>
+      <div id="fav-error" style="display:none"></div>
+    `;
+  }
+
+  test('status fetch resolves is_favorite=true: checkbox becomes checked and enabled', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/favorite/status', () => jsonResponse({ is_favorite: true })],
+    ]);
+
+    await popup.initFavoriteToggle(airchivistUrl, tabUrl);
+
+    const chk = document.getElementById('chk-favorite');
+    expect(chk.checked).toBe(true);
+    expect(chk.disabled).toBe(false);
+  });
+
+  test('status fetch resolves is_favorite=false: checkbox becomes unchecked and enabled', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/favorite/status', () => jsonResponse({ is_favorite: false })],
+    ]);
+
+    await popup.initFavoriteToggle(airchivistUrl, tabUrl);
+
+    const chk = document.getElementById('chk-favorite');
+    expect(chk.checked).toBe(false);
+    expect(chk.disabled).toBe(false);
+  });
+
+  test('status fetch rejects: checkbox stays disabled', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/favorite/status', () => Promise.reject(new Error('network fail'))],
+    ]);
+
+    await popup.initFavoriteToggle(airchivistUrl, tabUrl);
+
+    const chk = document.getElementById('chk-favorite');
+    expect(chk.disabled).toBe(true);
+  });
+
+  test('toggle on, /add succeeds: stays checked, re-enabled, no error', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/favorite/status', () => jsonResponse({ is_favorite: false })],
+      ['/api/favorite/add', () => jsonResponse({ status: 'added' })],
+    ]);
+    await popup.initFavoriteToggle(airchivistUrl, tabUrl);
+
+    const chk = document.getElementById('chk-favorite');
+    const errBox = document.getElementById('fav-error');
+    chk.checked = true;
+    chk.dispatchEvent(new Event('change'));
+    await flushPromises();
+
+    expect(chk.checked).toBe(true);
+    expect(chk.disabled).toBe(false);
+    expect(errBox.style.display).toBe('none');
+  });
+
+  test('toggle off, /remove succeeds: stays unchecked, re-enabled, no error', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/favorite/status', () => jsonResponse({ is_favorite: true })],
+      ['/api/favorite/remove', () => jsonResponse({ status: 'removed' })],
+    ]);
+    await popup.initFavoriteToggle(airchivistUrl, tabUrl);
+
+    const chk = document.getElementById('chk-favorite');
+    const errBox = document.getElementById('fav-error');
+    chk.checked = false;
+    chk.dispatchEvent(new Event('change'));
+    await flushPromises();
+
+    expect(chk.checked).toBe(false);
+    expect(chk.disabled).toBe(false);
+    expect(errBox.style.display).toBe('none');
+  });
+
+  test('toggle on, /add network error: reverts to unchecked, shows error, re-enabled', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/favorite/status', () => jsonResponse({ is_favorite: false })],
+      ['/api/favorite/add', () => Promise.reject(new Error('network fail'))],
+    ]);
+    await popup.initFavoriteToggle(airchivistUrl, tabUrl);
+
+    const chk = document.getElementById('chk-favorite');
+    const errBox = document.getElementById('fav-error');
+    chk.checked = true;
+    chk.dispatchEvent(new Event('change'));
+    await flushPromises();
+
+    expect(chk.checked).toBe(false);
+    expect(chk.disabled).toBe(false);
+    expect(errBox.style.display).toBe('block');
+    expect(errBox.textContent).toBe('✗ Favorite update failed');
+  });
+
+  test('toggle off, /remove returns error status: treated as failure, reverts to checked', async () => {
+    renderCheckboxFixture();
+    global.fetch = mockFetchRouter([
+      ['/api/favorite/status', () => jsonResponse({ is_favorite: true })],
+      ['/api/favorite/remove', () => jsonResponse({ status: 'error', error: 'Video not found' })],
+    ]);
+    await popup.initFavoriteToggle(airchivistUrl, tabUrl);
+
+    const chk = document.getElementById('chk-favorite');
+    const errBox = document.getElementById('fav-error');
     chk.checked = false;
     chk.dispatchEvent(new Event('change'));
     await flushPromises();

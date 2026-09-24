@@ -244,6 +244,55 @@ async function initWatchLaterToggle(airchivistUrl, tabUrl) {
   });
 }
 
+async function initFavoriteToggle(airchivistUrl, tabUrl) {
+  const chk = document.getElementById('chk-favorite');
+  const errBox = document.getElementById('fav-error');
+
+  let isFavorite;
+  try {
+    const resp = await fetch(`${airchivistUrl}/api/favorite/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: tabUrl }),
+    });
+    const data = await resp.json();
+    isFavorite = !!data.is_favorite;
+  } catch {
+    return; // Leave disabled — unknown state, nothing safe to toggle.
+  }
+
+  chk.checked = isFavorite;
+  chk.disabled = false;
+
+  chk.addEventListener('change', async () => {
+    const wantFavorite = chk.checked;
+    const prevChecked = !wantFavorite;
+    chk.disabled = true;
+    errBox.style.display = 'none';
+
+    const endpoint = wantFavorite ? 'add' : 'remove';
+    let ok;
+    try {
+      const resp = await fetch(`${airchivistUrl}/api/favorite/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: tabUrl }),
+      });
+      const data = await resp.json();
+      ok = wantFavorite ? data.status === 'added' : data.status === 'removed';
+    } catch {
+      ok = false;
+    }
+
+    if (!ok) {
+      chk.checked = prevChecked;
+      errBox.textContent = '✗ Favorite update failed';
+      errBox.style.display = 'block';
+    }
+    chk.disabled = false;
+  });
+}
+
 function renderState(root, airchivistUrl, tabUrl, tabTitle, data) {
   if (data.status === 'not_found') {
     root.innerHTML = `
@@ -278,12 +327,18 @@ function renderState(root, airchivistUrl, tabUrl, tabTitle, data) {
         Add to Watch Later
       </label>
       <div id="wl-error" class="status error" style="margin-top:0.3rem;display:none"></div>
+      <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
+        <input type="checkbox" id="chk-favorite" disabled style="margin-right:0.3rem">
+        Mark as favorite (&#9733;)
+      </label>
+      <div id="fav-error" class="status error" style="margin-top:0.3rem;display:none"></div>
     `;
     document.getElementById('btn-hide').addEventListener('click', () => {
       const alsoUnbookmark = document.getElementById('chk-unbookmark').checked;
       doHide(airchivistUrl, tabUrl, alsoUnbookmark);
     });
     initWatchLaterToggle(airchivistUrl, tabUrl);
+    initFavoriteToggle(airchivistUrl, tabUrl);
     return;
   }
 
@@ -366,7 +421,7 @@ if (typeof module === 'undefined') {
 } else {
   module.exports = {
     doAdd, doAddChannel, doHide, doRestore, doDelete,
-    initWatchLaterToggle, renderState, renderChannelState,
+    initWatchLaterToggle, initFavoriteToggle, renderState, renderChannelState,
     checkStatus, channelUrlFrom, esc, getOrCreateFolder, postJson,
   };
 }

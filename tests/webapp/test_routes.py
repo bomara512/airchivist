@@ -637,6 +637,81 @@ class TestApiFavoriteAdd:
         assert "Access-Control-Allow-Origin" in resp.headers
 
 
+class TestApiFavoriteRemove:
+    def test_remove_video_returns_removed(self, client):
+        client.post("/api/favorite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.post("/api/favorite/remove", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["status"] == "removed"
+
+    def test_video_is_unmarked_favorite(self, client):
+        client.post("/api/favorite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        client.post("/api/favorite/remove", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        conn = sqlite3.connect(client.application.config["DATABASE"])
+        row = conn.execute(
+            "SELECT is_favorite FROM videos WHERE video_id = ?", ("aaaaaaaaaa1",)
+        ).fetchone()
+        conn.close()
+        assert row[0] == 0
+
+    def test_idempotent_remove_still_returns_removed(self, client):
+        resp = client.post("/api/favorite/remove", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["status"] == "removed"
+
+    def test_invalid_video_returns_error(self, client):
+        resp = client.post("/api/favorite/remove", json={"url": "https://www.youtube.com/watch?v=XXXXXXXXXXX"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+        assert resp.status_code == 404
+
+    def test_invalid_url_returns_error(self, client):
+        resp = client.post("/api/favorite/remove", json={"url": "https://example.com"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+        assert resp.status_code == 400
+
+    def test_cors_header_present(self, client):
+        resp = client.post("/api/favorite/remove", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+    def test_options_preflight(self, client):
+        resp = client.options("/api/favorite/remove")
+        assert resp.status_code == 204
+
+
+class TestApiFavoriteStatus:
+    def test_status_for_favorited_video(self, client):
+        client.post("/api/favorite/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        resp = client.post("/api/favorite/status", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["is_favorite"] is True
+
+    def test_status_for_non_favorited_video(self, client):
+        resp = client.post("/api/favorite/status", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        data = resp.get_json()
+        assert data["is_favorite"] is False
+
+    def test_nonexistent_video_returns_error(self, client):
+        resp = client.post("/api/favorite/status", json={"url": "https://www.youtube.com/watch?v=XXXXXXXXXXX"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+        assert resp.status_code == 404
+
+    def test_invalid_url_returns_error(self, client):
+        resp = client.post("/api/favorite/status", json={"url": "https://example.com"})
+        data = resp.get_json()
+        assert data["status"] == "error"
+
+    def test_cors_header_present(self, client):
+        resp = client.post("/api/favorite/status", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        assert "Access-Control-Allow-Origin" in resp.headers
+
+    def test_options_preflight(self, client):
+        resp = client.options("/api/favorite/status")
+        assert resp.status_code == 204
+
+
 class TestAddTagRoute:
     def _seed_canonical(self, client, name):
         import sqlite3

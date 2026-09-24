@@ -831,3 +831,54 @@ def api_favorite_add():
     return resp
 
 
+@bp.route("/api/favorite/remove", methods=["POST", "OPTIONS"])
+def api_favorite_remove():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    m = _YT_ID_RE.search(url)
+    if not m:
+        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 400
+
+    video_id = m.group(1)
+    video = _db.get_video_by_id(g.db, video_id)
+    if not video:
+        resp = jsonify({"status": "error", "error": "Video not found"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 404
+
+    _db.set_favorite(g.db, video_id, False)
+    resp = jsonify({"status": "removed"})
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+
+@bp.route("/api/favorite/status", methods=["POST", "OPTIONS"])
+def api_favorite_status():
+    if request.method == "OPTIONS":
+        return make_response("", 204, _CORS_HEADERS)
+
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    m = _YT_ID_RE.search(url)
+    if not m:
+        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 400
+
+    video_id = m.group(1)
+    video = _db.get_video_by_id(g.db, video_id)
+    if not video:
+        resp = jsonify({"status": "error", "error": "Video not found"})
+        resp.headers.update(_CORS_HEADERS)
+        return resp, 404
+
+    resp = jsonify({"is_favorite": bool(video.get("is_favorite"))})
+    resp.headers.update(_CORS_HEADERS)
+    return resp
+
+

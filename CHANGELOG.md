@@ -4,6 +4,34 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-09-24
+
+### feat: extension — toggle favorite status on a video already in Airchivist
+
+Mirrors the watch-later toggle's growth from add-time-only to anytime-toggleable.
+The favorite API previously only had `POST /api/favorite/add` (idempotent,
+force-sets `is_favorite=True`, no 409/already case since it's a plain boolean
+column, not a join table) — added `POST /api/favorite/remove` and
+`POST /api/favorite/status`, both following the exact `_YT_ID_RE` → lookup →
+CORS pattern already used by watch-later's three-route set. No new DB
+functions needed: `remove` reuses `set_favorite(..., False)`, `status` reads
+`is_favorite` straight off the existing `get_video_by_id` row.
+
+Extension: the popup's `exists` state (a video already in Airchivist) now
+renders a second toggle checkbox, "Mark as favorite (★)", right below the
+existing "Add to Watch Later" one — same disabled-until-status-resolves,
+revert-on-failure pattern via a new `initFavoriteToggle`, a near-line-for-line
+copy of `initWatchLaterToggle`. Con of copying rather than extracting a shared
+helper: the two functions are now ~90% identical, which is acceptable given
+watch-later's own success-check is one comparison wider (`already_in_queue`
+counts as success; favorite has no equivalent) — a shared helper would need a
+parameter for that difference, and wasn't judged worth the indirection for
+two call sites.
+
+13 new pytest cases (mirroring the existing watch-later route test classes)
+and 8 new Jest cases (mirroring the existing `initWatchLaterToggle` suite,
+minus the `already_in_queue`-equivalent case which doesn't apply here).
+
 ## 2026-09-21
 
 ### refactor: unify tag pill styling and make it theme-aware
