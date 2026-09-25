@@ -1,13 +1,12 @@
 import math
 from datetime import datetime, timezone
 
-from flask import Blueprint, abort, g, jsonify, make_response, redirect, render_template, request, url_for
+from flask import Blueprint, abort, g, jsonify, redirect, render_template, request, url_for
 
-from crawler.models import YT_CHANNEL_RE, YT_ID_RE, FetchStatus
+from crawler.models import YT_CHANNEL_RE, FetchStatus, extract_video_id
 from webapp import db as _db
 from webapp import llm_tagger as _llm
-from webapp.api import CORS_HEADERS as _CORS_HEADERS
-from webapp.api import ApiStatus, video_api_route
+from webapp.api import ApiStatus, cors_json, video_api_route
 from webapp.db import MatchType
 
 bp = Blueprint("main", __name__)
@@ -238,31 +237,20 @@ def visit(video_id):
 
 
 @bp.route("/api/add", methods=["POST", "OPTIONS"])
+@cors_json
 def api_add():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
+    video_id = extract_video_id((request.get_json(silent=True) or {}).get("url"))
+    if video_id is None:
+        return {"status": ApiStatus.ERROR, "error": "Not a YouTube video URL"}, 400
 
-    data = request.get_json(silent=True) or {}
-    url = (data.get("url") or "").strip()
-
-    m = YT_ID_RE.search(url)
-    if not m:
-        resp = jsonify({"status": "error", "error": "Not a YouTube video URL"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 400
-
-    video_id = m.group(1)
     existing = _db.get_video_by_id(g.db, video_id)
     if existing and existing.get("fetch_status") == FetchStatus.OK:
         if existing.get("is_hidden"):
-            resp = jsonify({"status": "hidden", "title": existing.get("title")})
-            resp.headers.update(_CORS_HEADERS)
-            return resp
+            return {"status": ApiStatus.HIDDEN, "title": existing.get("title")}
         _db.record_visit(g.db, video_id)
-        resp = jsonify({"status": "exists", "title": existing.get("title")})
-        resp.headers.update(_CORS_HEADERS)
-        return resp
+        return {"status": ApiStatus.EXISTS, "title": existing.get("title")}
 
+    # Imported locally so tests can monkeypatch crawler.metadata_fetcher.fetch_metadata.
     from crawler.metadata_fetcher import fetch_metadata
     meta = fetch_metadata(video_id, delay=0)
     _db.add_video(
@@ -282,70 +270,53 @@ def api_add():
         yt_tags=[*meta.yt_categories, *meta.yt_tags],
     )
 
+    # A failed fetch is reported with HTTP 200: the row was still written, and
+    # the extension shows the error text rather than treating it as a transport
+    # failure.
     if meta.fetch_status != FetchStatus.OK:
-        resp = jsonify({"status": "error", "error": meta.fetch_error or "fetch failed"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 200
+        return {"status": ApiStatus.ERROR, "error": meta.fetch_error or "fetch failed"}
 
     video_row = _db.get_video_by_id(g.db, video_id)
     if video_row:
         _db.retroactive_apply(g.db, video_id=video_row["id"])
     _db.record_visit(g.db, video_id)
-    resp = jsonify({"status": "added", "title": meta.title})
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+    return {"status": ApiStatus.ADDED, "title": meta.title}
 
 
 @bp.route("/api/channel/status", methods=["GET", "OPTIONS"])
+@cors_json
 def api_channel_status():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-
     url = (request.args.get("url") or "").strip()
     if not YT_CHANNEL_RE.search(url):
-        resp = jsonify({"status": "error", "error": "Not a YouTube channel URL"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 400
+        return {"status": ApiStatus.ERROR, "error": "Not a YouTube channel URL"}, 400
 
     existing = _db.get_channel_by_source_url(g.db, url)
     if existing:
-        resp = jsonify({"status": "exists", "channel_name": existing["channel_name"]})
-    else:
-        resp = jsonify({"status": "not_found"})
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+        return {"status": ApiStatus.EXISTS, "channel_name": existing["channel_name"]}
+    return {"status": ApiStatus.NOT_FOUND}
 
 
 @bp.route("/api/channel/add", methods=["POST", "OPTIONS"])
+@cors_json
 def api_channel_add():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
     if not YT_CHANNEL_RE.search(url):
-        resp = jsonify({"status": "error", "error": "Not a YouTube channel URL"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 400
+        return {"status": ApiStatus.ERROR, "error": "Not a YouTube channel URL"}, 400
 
     existing = _db.get_channel_by_source_url(g.db, url)
     if existing:
-        resp = jsonify({"status": "exists", "channel_name": existing["channel_name"]})
-        resp.headers.update(_CORS_HEADERS)
-        return resp
+        return {"status": ApiStatus.EXISTS, "channel_name": existing["channel_name"]}
 
     # Imported locally so tests can monkeypatch crawler.metadata_fetcher.fetch_channel_metadata.
     from crawler.metadata_fetcher import fetch_channel_metadata
     meta = fetch_channel_metadata(url, delay=0)
+    # HTTP 200 on a failed fetch, as in api_add: the caller shows the message.
     if meta.fetch_status != FetchStatus.OK:
-        resp = jsonify({"status": "error", "error": meta.fetch_error or "fetch failed"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 200
+        return {"status": ApiStatus.ERROR, "error": meta.fetch_error or "fetch failed"}
 
     _db.upsert_channel(g.db, meta, source_url=url)
-    resp = jsonify({"status": "added", "channel_name": meta.channel_name})
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+    return {"status": ApiStatus.ADDED, "channel_name": meta.channel_name}
 
 
 @bp.route("/install")
@@ -651,39 +622,26 @@ def hidden():
 
 
 @bp.route("/api/status", methods=["GET", "OPTIONS"])
+@cors_json
 def api_status():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-    url = (request.args.get("url") or "").strip()
-    m = YT_ID_RE.search(url)
-    if not m:
-        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 400
-    video_id = m.group(1)
+    video_id = extract_video_id(request.args.get("url"))
+    if video_id is None:
+        return {"status": ApiStatus.ERROR, "error": "Not a YouTube URL"}, 400
     video = _db.get_video_by_id(g.db, video_id)
     if video is None:
-        resp = jsonify({"status": "not_found"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp
-    status = "hidden" if video.get("is_hidden") else "exists"
-    resp = jsonify({"status": status, "video_id": video_id, "title": video.get("title")})
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+        return {"status": ApiStatus.NOT_FOUND}
+    status = ApiStatus.HIDDEN if video.get("is_hidden") else ApiStatus.EXISTS
+    return {"status": status, "video_id": video_id, "title": video.get("title")}
 
 
 @bp.route("/api/status/batch", methods=["POST", "OPTIONS"])
+@cors_json
 def api_status_batch():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
     data = request.get_json(silent=True) or {}
     raw_ids = data.get("ids") or []
     ids = [v.strip() for v in raw_ids if isinstance(v, str) and v.strip()][:50]
     found = _db.get_videos_status_batch(g.db, ids)
-    result = {vid: found.get(vid, "not_found") for vid in ids}
-    resp = jsonify(result)
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+    return {vid: found.get(vid, ApiStatus.NOT_FOUND) for vid in ids}
 
 
 @bp.route("/api/hide", methods=["POST", "OPTIONS"])

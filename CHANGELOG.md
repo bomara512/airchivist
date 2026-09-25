@@ -6,6 +6,38 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-24
 
+### refactor: migrate the last five API routes onto cors_json
+
+Task 5 of the code-quality remediation plan, finishing what Task 4 started. All
+12 API routes now go through `webapp/api.py`; `webapp/routes.py` carries no CORS
+or preflight code of its own. Cumulative: 885 → 699 lines,
+`resp.headers.update(...)` 38 → 0, hand-written OPTIONS branches 12 → 0, and the
+temporary `CORS_HEADERS as _CORS_HEADERS` alias is gone.
+
+These five keep `@cors_json` without `@resolve_video`, because that decorator's
+"video must already exist" contract does not fit them: `api_add` creates the
+video, `api_status` returns `not_found` with HTTP 200 rather than 404,
+`api_status_batch` takes a list of IDs instead of a URL, and the two channel
+routes parse channel URLs.
+
+- **+** No new tests were written, deliberately: the fix pass's
+  `url_map`-parametrized check already asserts every `/api/*` route answers
+  OPTIONS with 204 and carries CORS on errors, which covers these five and any
+  route added later. The plan's own narrower five-path test would have been a
+  strict subset.
+- **+** `ruff` caught a real mistake mid-migration: `extract_video_id` used in two
+  routes without being imported. That is the linter from Task 1 paying for
+  itself on the same branch that introduced it.
+- **−** `api_add` and `api_channel_add` return HTTP **200** when the metadata
+  fetch fails, which reads as odd next to a body whose status is `"error"`. That
+  is pre-existing behavior the extension depends on (it shows the error text
+  rather than treating it as a transport failure), so it was preserved — now with
+  a comment at both sites saying why, where before it was silent.
+- **−** Two local `from crawler.metadata_fetcher import ...` imports remain
+  inside route bodies, for test monkeypatching. Previously only one of the two
+  explained itself; both now carry the same comment. The underlying testability
+  smell is untouched.
+
 ### fix: make transposed API decorators impossible, pin ruff, sweep stale docs
 
 Fix pass from an independent review of Tasks 1–4. The review disproved a claim

@@ -161,13 +161,15 @@ headers dict, and never a hand-rolled OPTIONS branch.
   `cors_json`, and `video_api_route` exists so there is no order to get wrong.
 - Never write a new API status literal: add a member to `ApiStatus` in
   `webapp/api.py` instead.
-- These replaced ~110 lines of per-route copy-paste on 2026-09-24 (38 copies of
-  `resp.headers.update(...)`, 12 hand-written OPTIONS branches, 8 identical
-  "Not a YouTube URL" blocks). The routes that *cannot* use `@resolve_video` —
-  `api_add` creates the video, `api_status` returns `not_found` with HTTP 200
-  rather than 404, `api_status_batch` takes IDs not a URL, and the two channel
-  routes parse channel URLs — still use `@cors_json`. If you find a route
-  building its own response dict and headers, it is a leftover: migrate it.
+- These replaced ~190 lines of per-route copy-paste across 2026-09-24/25: all 12
+  API routes now go through `webapp/api.py`, and `routes.py` went 885 → 699
+  lines with `resp.headers.update(...)` 38 → 0 and hand-written OPTIONS branches
+  12 → 0. Five routes use `@cors_json` alone because `@resolve_video`'s
+  "must already exist" contract does not fit them: `api_add` creates the video,
+  `api_status` returns `not_found` with HTTP 200 rather than 404,
+  `api_status_batch` takes IDs not a URL, and the two channel routes parse
+  channel URLs. If you find a route building its own response dict and headers,
+  it is a regression, not a leftover.
 
 ## Always write tests alongside new server code
 

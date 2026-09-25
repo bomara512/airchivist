@@ -72,7 +72,7 @@ Items identified in the 2026-06-07 architectural review. Completed items are str
 ### Medium (next)
 
 - [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js` and `content.js` are still untested; `popup.js` has Jest coverage for `doAdd`/`initWatchLaterToggle`/`initFavoriteToggle` only (`doAddChannel`, `doHide`, `doRestore`, `doDelete`, `renderState`, `renderChannelState`, `run` remain untested)
-- [ ] Code quality remediation — Tasks 1–4 of 14 done (ruff + pre-commit + dev extras; two dead modules deleted; public `extract_video_id`; `cors_json`/`resolve_video`/`video_api_route` decorators, `routes.py` 885→748 lines). Remaining: migrate the last 5 API routes onto `@cors_json` (Task 5), then pagination/`index()` extraction, `db/videos.py` fragments, presentation logic into `filters.py`, the LLM error hierarchy, typing + mypy, and the extension popup cleanup. Spec: `docs/superpowers/specs/2026-09-24-code-quality-audit.md`. Plan: `docs/superpowers/plans/2026-09-24-code-quality-remediation.md`
+- [ ] Code quality remediation — Tasks 1–5 of 14 done (ruff + pre-commit + dev extras; two dead modules deleted; public `extract_video_id`; `cors_json`/`resolve_video`/`video_api_route` decorators; all 12 API routes now go through `webapp/api.py`, `routes.py` 885→699 lines). Remaining: pagination/`index()` extraction, `db/videos.py` fragments, presentation logic into `filters.py`, the LLM error hierarchy, typing + mypy, and the extension popup cleanup. Spec: `docs/superpowers/specs/2026-09-24-code-quality-audit.md`. Plan: `docs/superpowers/plans/2026-09-24-code-quality-remediation.md`
 
 ### Larger lifts
 
