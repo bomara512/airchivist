@@ -6,6 +6,33 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate â€
 
 ## 2026-09-25
 
+### refactor: move shelf label and last-viewed copy into webapp/filters (Task 11/14)
+
+Two user-facing strings were being built outside the presentation layer:
+`_shelf_expires_label` lived in `routes.py`, and `get_current_rediscover_shelf`
+wrote a `reason` string into every row it returned from the DB layer. Both are now
+in `webapp/filters.py` as `shelf_expires_label` and `last_viewed_reason`, the
+latter reaching templates through a one-argument `shelf_reason` Jinja filter.
+
+- **Pro:** the DB function returns data only, so its query result no longer changes
+  shape depending on what a card wants to display. Both strings are now unit-tested
+  against a fixed `now` (13 tests) rather than only through a rendered page, and the
+  bare `except Exception` in the old expiry label is narrowed to
+  `(TypeError, ValueError)`.
+- **Con:** a template now calls a filter where it used to read a field, so the
+  "why am I seeing this" copy is one indirection further from the card markup.
+- **Bug found and fixed while verifying:** both labels raised `TypeError` on a
+  timestamp with no UTC offset ("can't subtract offset-naive and offset-aware
+  datetimes"), which surfaced as a 500 on the whole index page rather than a bad
+  label on one card. Everything in the app writes tz-aware UTC, so production never
+  hit it, but a row written at the SQL level (`datetime('now')`) is naive â€” which is
+  exactly how the verification DB was seeded, which is how this was caught. The
+  pre-existing code had the same hole. Both now read a naive timestamp as UTC.
+- **Cosmetic issue found, not changed:** `shelf_expires_label` truncates rather than
+  rounding, so a shelf generated 7 days out reads "6 days" for its whole first day.
+  Preserved (changing it is user-visible) and now pinned by a test that says so;
+  filed in `TODO.md`.
+
 ### refactor: extract repeated SQL fragments and row handling in db/videos (Task 10/14)
 
 Five copies of the video-PK lookup (`SELECT id FROM videos WHERE video_id = ?`),

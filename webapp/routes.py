@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 
 from flask import Blueprint, abort, g, jsonify, redirect, render_template, request, url_for
 
@@ -7,6 +6,7 @@ from webapp import db as _db
 from webapp import llm_tagger as _llm
 from webapp.api import ApiStatus, cors_json, video_api_route
 from webapp.db import MatchType
+from webapp.filters import shelf_expires_label
 from webapp.pagination import pagination_context, requested_page
 from webapp.video_filters import VideoListFilters, group_videos
 
@@ -14,23 +14,6 @@ bp = Blueprint("main", __name__)
 
 PAGE_SIZE = 100
 
-
-
-def _shelf_expires_label(expires_at_str: str | None) -> str:
-    if not expires_at_str:
-        return "—"
-    try:
-        expires = datetime.fromisoformat(expires_at_str)
-        diff = expires - datetime.now(timezone.utc)
-        if diff.total_seconds() <= 0:
-            return "expired"
-        days = diff.days
-        hours = diff.seconds // 3600
-        if days > 0:
-            return f"{days} day{'s' if days != 1 else ''}"
-        return f"{hours} hour{'s' if hours != 1 else ''}"
-    except Exception:
-        return "—"
 
 
 @bp.route("/")
@@ -77,7 +60,7 @@ def index():
 
     shelf = _db.get_current_rediscover_shelf(g.db)
     template_vars["shelf"] = shelf
-    template_vars["expires_label"] = _shelf_expires_label(shelf.get("expires_at"))
+    template_vars["expires_label"] = shelf_expires_label(shelf.get("expires_at"))
     return render_template("index.html", **template_vars)
 
 

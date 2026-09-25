@@ -440,22 +440,9 @@ def get_current_rediscover_shelf(conn: sqlite3.Connection) -> dict:
         GROUP BY v.id
     """, video_ids).fetchall()
 
-    video_dict = {}
-    for v in _to_video_dicts(rows):
-        if v["personal_view_count"] == 0:
-            v["reason"] = "Never opened"
-        elif v["date_last_viewed"]:
-            last_viewed = datetime.fromisoformat(v["date_last_viewed"])
-            days_ago = (now - last_viewed).days
-            if days_ago == 0:
-                v["reason"] = "Last viewed today"
-            elif days_ago == 1:
-                v["reason"] = "Last viewed 1 day ago"
-            else:
-                v["reason"] = f"Last viewed {days_ago} days ago"
-        else:
-            v["reason"] = "Not recently viewed"
-        video_dict[v["video_id"]] = v
+    # The card's "why am I seeing this" line is presentation, built by the
+    # `shelf_reason` Jinja filter from personal_view_count + date_last_viewed.
+    video_dict = {v["video_id"]: v for v in _to_video_dicts(rows)}
 
     ordered_videos = [video_dict[vid] for vid in video_ids if vid in video_dict]
     return {"videos": ordered_videos, "generated_at": generated_at, "expires_at": expires_at}

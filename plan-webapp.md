@@ -31,7 +31,7 @@ airchivist/
 │   ├── app.py                  # Flask application factory
 │   ├── cli.py                  # Entry point: parses --db arg, calls create_app()
 │   ├── db/                     # SQLite query and write functions, split by domain
-│   ├── filters.py              # Jinja2 template filters (format_number, format_date)
+│   ├── filters.py              # Jinja2 template filters + user-facing label strings
 │   └── templates/
 │       ├── base.html           # Shared layout, nav, HTMX script tag
 │       ├── index.html          # Main bookmarks table/card view
@@ -514,6 +514,24 @@ All three persist across pagination the same way the existing filters do, since 
 - **By tag**: groups are built in Python from the `tags` field on each video (already limited to canonical tags). A video with multiple canonical tags appears in each relevant section. Groups are sorted alphabetically; videos with no canonical tags appear last in an "Untagged" section. SQL ORDER BY is not modified for tag grouping since one video can belong to many groups.
 
 Both modes produce a list of `{"tag": {"name": label}, "videos": [...]}` dicts consumed by the same `_video_container.html` partial. Pagination is applied at the video level before grouping, so a group may span pages if the library is large. Both live in `group_videos(videos, group)` in `webapp/video_filters.py`, not in the route.
+
+**Rediscover shelf copy**: the two user-facing strings the shelf renders live in
+`webapp/filters.py`, not in the DB layer or the route. `shelf_expires_label(expires_at)`
+is the "Refreshes automatically in …" value; `last_viewed_reason(personal_view_count,
+date_last_viewed)` is a card's "why am I seeing this" line, exposed to templates via the
+one-argument `shelf_reason` Jinja filter (a Jinja filter receives only the piped value,
+so the wrapper reads both fields off the row). `get_current_rediscover_shelf` returns data
+only — it stopped writing a `reason` string into each row on 2026-09-25.
+
+- Both labels treat a timestamp with no UTC offset as UTC. Everything in the app writes
+  tz-aware UTC, but a row written at the SQL level (`datetime('now')`) is naive, and
+  subtracting naive from aware raises `TypeError` — which rendered as a 500 on the entire
+  index page rather than one bad label. Found by rendering the page during the refactor;
+  the pre-existing code had the same hole.
+- `shelf_expires_label` truncates rather than rounding, so a freshly generated 7-day shelf
+  reads "6 days" for its whole first day. Preserved deliberately (changing it is a
+  user-visible change) and pinned by `test_truncates_rather_than_rounding`; filed in
+  `TODO.md`.
 
 **Rediscover shelf collapse/expand**: The shelf (`#rediscover-shelf`) auto-collapses whenever `active_filter_count or current_search` is truthy and auto-expands when both are falsy — clearing filters and search (including via the plain `Reset` link) re-expands it. Note this is a *different* condition than the `Filters N` badge and secondary-panel auto-open, which use `active_filter_count` alone (search excluded — see above); the shelf's own `data-active` expression in `_video_container.html` deliberately widens that to include search, since search narrows the video list just as much as any other filter even though it isn't part of the collapsible panel and shouldn't force that panel open or bump its badge. Since the shelf sits outside `#video-container` and an HTMX filter change only swaps that div, `_video_container.html` carries a hidden OOB sibling, `<div id="rediscover-filter-state" hx-swap-oob="true" data-active="…">`, that rides along on every filter-triggered swap; an inline script in `index.html` reads its `data-active` attribute and toggles `.collapsed` on `#rediscover-shelf`, re-querying the marker by ID on each call rather than caching the element reference (HTMX's OOB swap replaces it outright via `outerHTML`, so a cached reference goes stale after the first swap). The sync runs on page load and on every `htmx:afterSettle`. Clicking the "Rediscover" label still toggles `.collapsed` directly for a temporary peek, but the next filter/sort/search change overrides it back to the filter-driven state — there is no persisted "always collapsed" preference; `localStorage` is not used for this control.
 

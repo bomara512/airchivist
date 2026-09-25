@@ -19,6 +19,7 @@
 - [ ] "Continue watching" section — videos started but not finished (requires progress tracking)
 - ~~Minimize the Rediscover panel when the main list is filtered~~
 - [ ] Per-channel Rediscover shelf — when filtered to a single channel (e.g. arrived via the channels listing), surface that channel's own rediscover pool instead of just collapsing the shelf. *(Future, brainstorm-only: a per-channel Rediscover shelf mirroring the global rediscover feature — not scoped yet.)*
+- [ ] Rediscover shelf expiry label reads one day low — `shelf_expires_label` truncates instead of rounding, so a shelf generated with 7 days to run shows "6 days" for its whole first day. Cosmetic; fixing it is a user-visible change so it was left alone during the 2026-09-25 refactor and pinned by `test_truncates_rather_than_rounding` in `tests/webapp/test_filters.py`.
 
 ## Organization
 
@@ -73,7 +74,7 @@ Items identified in the 2026-06-07 architectural review. Completed items are str
 ### Medium (next)
 
 - [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js` and `content.js` are still untested; `popup.js` has Jest coverage for `doAdd`/`initWatchLaterToggle`/`initFavoriteToggle` only (`doAddChannel`, `doHide`, `doRestore`, `doDelete`, `renderState`, `renderChannelState`, `run` remain untested)
-- [ ] Code quality remediation — Tasks 1–10 of 14 done (ruff + pre-commit + dev extras; two dead modules deleted; public `extract_video_id`; `cors_json`/`resolve_video`/`video_api_route` decorators; all 12 API routes now go through `webapp/api.py`, `routes.py` 885→699 lines; zero raw SQL left in `routes.py`; uniform 404 contract on video mutation routes; shared pagination helper, `append=1` leak fixed; `VideoListFilters` + `group_videos` extracted, `index()` 115→45 lines; `db/videos.py` SQL fragments and row handling deduped). Remaining, in plan order: Task 11 presentation logic into `filters.py`, Task 12 the LLM error hierarchy, Task 13 typing + mypy, Task 14 the extension popup cleanup. Spec: `docs/superpowers/specs/2026-09-24-code-quality-audit.md`. Plan: `docs/superpowers/plans/2026-09-24-code-quality-remediation.md`
+- [ ] Code quality remediation — Tasks 1–11 of 14 done (ruff + pre-commit + dev extras; two dead modules deleted; public `extract_video_id`; `cors_json`/`resolve_video`/`video_api_route` decorators; all 12 API routes now go through `webapp/api.py`, `routes.py` 885→699 lines; zero raw SQL left in `routes.py`; uniform 404 contract on video mutation routes; shared pagination helper, `append=1` leak fixed; `VideoListFilters` + `group_videos` extracted, `index()` 115→45 lines; `db/videos.py` SQL fragments and row handling deduped; shelf label + last-viewed copy moved into `filters.py`). Remaining, in plan order: Task 12 the LLM error hierarchy, Task 13 typing + mypy, Task 14 the extension popup cleanup. Spec: `docs/superpowers/specs/2026-09-24-code-quality-audit.md`. Plan: `docs/superpowers/plans/2026-09-24-code-quality-remediation.md`
 
 ### Larger lifts
 

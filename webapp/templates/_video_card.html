@@ -68,8 +68,8 @@
     </div>
 
     {# Secondary meta line — context-specific #}
-    {% if ctx == "shelf" and video.reason %}
-    <p class="card-secondary-meta">{{ video.reason }}</p>
+    {% if ctx == "shelf" %}
+    <p class="card-secondary-meta">{{ video | shelf_reason }}</p>
     {% elif ctx == "watch_later" and video.queue_added_at %}
     <p class="card-secondary-meta">Queued {{ video.queue_added_at | date }}</p>
     {% elif ctx == "hidden" and video.date_hidden %}

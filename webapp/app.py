@@ -56,5 +56,6 @@ def create_app(db_path: str) -> Flask:
     app.jinja_env.filters["view_count"] = _filters.format_view_count
     app.jinja_env.filters["date"] = _filters.format_date
     app.jinja_env.filters["duration"] = _filters.format_duration
+    app.jinja_env.filters["shelf_reason"] = _filters.shelf_reason
 
     return app
