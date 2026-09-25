@@ -30,9 +30,8 @@ airchivist/
 │   ├── __init__.py
 │   ├── app.py                  # Flask application factory
 │   ├── cli.py                  # Entry point: parses --db arg, calls create_app()
-│   ├── db.py                   # SQLite query and write functions
+│   ├── db/                     # SQLite query and write functions, split by domain
 │   ├── filters.py              # Jinja2 template filters (format_number, format_date)
-│   ├── keyword_matcher.py      # Keyword group matching logic
 │   └── templates/
 │       ├── base.html           # Shared layout, nav, HTMX script tag
 │       ├── index.html          # Main bookmarks table/card view
@@ -48,7 +47,6 @@ airchivist/
 │       ├── __init__.py
 │       ├── conftest.py          # Fixtures: test Flask app, seeded in-memory SQLite DB
 │       ├── test_db.py
-│       ├── test_keyword_matcher.py
 │       ├── test_routes.py
 │       └── test_filters.py
 ```
@@ -276,15 +274,15 @@ This is transparent to the user — the click feels like a direct link — while
 
 1. **Tag definitions**: A tag has a name (e.g., "guitar tutorials") and associated keywords (e.g., `["guitar", "tutorial", "lesson", "chord"]`). Tags are stored in the `tags` table shared with the crawler.
 
-2. **Keyword matching**: `keyword_matcher.py` provides `find_matching_tags(video, all_tags_with_keywords)` that checks whether any tag keyword appears in the video's `title` or `description` using word-boundary regex (`\b` + keyword + `\b`, case-insensitive).
+2. **Keyword matching**: keywords feed **search**, not grouping. `_build_where`'s `search` clause matches a term against `tags.name` and `tag_keywords.keyword` (alongside title and description) with a word-prefix regex, so a keyword on a canonical tag makes every video carrying that tag findable by it. A standalone `keyword_matcher` module that grouped videos this way was deleted on 2026-09-24 — it had no callers, having been superseded by the alias system plus LLM suggestions.
 
 3. **Manual override**: The `video_tags` table stores manually confirmed tag associations. The UI offers a "Tag this video" button that opens a modal listing all defined tags.
 
 ### Tag Management UI Flow
 
 - **Define tags**: `/tags` page lets the user create tag names with comma-separated keywords.
-- **Auto-group view**: `/group/keywords` runs `get_all_videos`, calls `find_matching_tags` for each video, groups results in Python. Videos matching no tags appear in an "Untagged" group.
-- **Manual tagging**: POST to `/videos/<video_id>/tags` with `tag_id`; DELETE to `/videos/<video_id>/tags/<tag_id>`.
+- **Grouped views**: the main list's `?group=channel` and `?group=tag` partition the current page in Python (see "Main View" above). Tag grouping keys off each video's canonical tags, not keyword matching; videos with no canonical tag land in an "Untagged" group.
+- **Manual tagging**: POST `/videos/<video_id>/tags/add` with form field `tag_name` (creates the canonical tag if needed); POST `/videos/<video_id>/tags/remove` with `tag_name`.
 
 ### `tag_keywords` Table
 

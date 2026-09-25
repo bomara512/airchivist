@@ -6,6 +6,31 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-24
 
+### refactor: delete superseded tag_suggester and keyword_matcher modules
+
+Task 2 of the code-quality remediation plan. Both modules had zero callers in
+`webapp/`, `crawler/`, `tools/`, `scripts/`, or templates — only their own test
+files — having been superseded by `llm_tagger` plus the alias system. Deleted
+along with two never-called DB functions (`is_rediscover_shelf_expired`,
+`get_watch_later_count`), which were defined, re-exported through the `webapp/db`
+facade, listed in `__all__`, and called by nothing, not even a test. Per the
+project's own "remove old approaches when replacing them" rule; git history is
+the reference copy.
+
+- **−** 110 lines of production code and 30 tests removed, so the suite drops
+  from 585 to 555. Total coverage moves 68% → 67%: the deleted code was
+  well-covered dead weight, so removing it lowers the average while improving
+  what the number means.
+- **+** Deleting these two also retires two latent performance traps nobody
+  would have found until the code was revived: one recompiled a regex per
+  keyword inside a nested loop over videos, the other was O(n²) with two string
+  normalizations per pair — unusable against a pool the size of this library's.
+- **+** Forced a correction to `plan-webapp.md`, which still documented a
+  `/group/keywords` route that does not exist and described keyword matching as
+  the grouping mechanism. Keywords now feed *search* only; grouping keys off
+  canonical tags. That section had been stale since before this change and the
+  deletion made it unambiguous.
+
 ### chore: add ruff + pre-commit, declare dev extras, fix 21 lint findings
 
 Task 1 of the code-quality remediation plan. The project had no linter,

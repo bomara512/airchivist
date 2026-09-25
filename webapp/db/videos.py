@@ -450,16 +450,6 @@ def get_current_rediscover_shelf(conn: sqlite3.Connection) -> dict:
     return {"videos": ordered_videos, "generated_at": generated_at, "expires_at": expires_at}
 
 
-def is_rediscover_shelf_expired(conn: sqlite3.Connection) -> bool:
-    """Check if current shelf has passed expires_at."""
-    row = conn.execute(
-        "SELECT expires_at FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
-    ).fetchone()
-    if not row:
-        return True
-    return datetime.now(timezone.utc) >= datetime.fromisoformat(row["expires_at"])
-
-
 def refresh_rediscover_shelf(conn: sqlite3.Connection) -> dict:
     """Force regeneration of shelf and return full video data."""
     generate_rediscover_shelf(conn)
@@ -557,11 +547,6 @@ def get_watch_later_video_ids(conn: sqlite3.Connection) -> set:
         JOIN videos v ON v.id = wl.video_id_fk
     """).fetchall()
     return {r["video_id"] for r in rows}
-
-
-def get_watch_later_count(conn: sqlite3.Connection) -> int:
-    """Get the number of videos in the watch later queue."""
-    return conn.execute("SELECT COUNT(*) FROM watch_later").fetchone()[0]
 
 
 def is_in_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
