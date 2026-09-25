@@ -71,10 +71,12 @@ Items identified in the 2026-06-07 architectural review. Completed items are str
 
 ### Medium (next)
 
-- [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js` and `content.js` are still untested; `popup.js` now has Jest coverage for `doAdd`/`initWatchLaterToggle` only (`doAddChannel`, `doHide`, `doRestore`, `doDelete`, `renderState`, `renderChannelState`, `run` remain untested)
+- [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js` and `content.js` are still untested; `popup.js` has Jest coverage for `doAdd`/`initWatchLaterToggle`/`initFavoriteToggle` only (`doAddChannel`, `doHide`, `doRestore`, `doDelete`, `renderState`, `renderChannelState`, `run` remain untested)
+- [ ] Code quality remediation — 14 tasks from the 2026-09-24 audit: add ruff/mypy (the project has no linter at all), delete two fully dead modules, collapse ~130 lines of duplicated CORS/URL-parsing boilerplate in `routes.py`, and fix two latent bugs found on the way. Spec: `docs/superpowers/specs/2026-09-24-code-quality-audit.md`. Plan: `docs/superpowers/plans/2026-09-24-code-quality-remediation.md`
 
 ### Larger lifts
 
-- [ ] Proper migrations table — replace the ALTER TABLE wrapped in try/except with a tracked migration history
+- [ ] Proper migrations table — replace the ALTER TABLE wrapped in try/except with a tracked migration history. Pairs with unifying the two persistence layers (`crawler.Datastore` vs `webapp/db/*`), deliberately deferred out of the 2026-09-24 code-quality plan — see that spec's "Out of scope" section for the full knot
+- [ ] Background processing for blocking operations — `fetch_metadata` (yt-dlp, ~2–5s) and LLM calls (~3–10s) both block a Flask worker thread synchronously
 - [ ] Background processing for blocking operations — `fetch_metadata` (yt-dlp, ~2–5s) and LLM calls (~3–10s) both block a Flask worker thread synchronously
 
