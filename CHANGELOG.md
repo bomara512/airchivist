@@ -6,6 +6,29 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-25
 
+### refactor: extract VideoListFilters and group_videos out of index() (Task 9/14)
+
+`index()` was ~115 lines doing six jobs: parse 10 query params, derive two
+booleans from one of them, count, query, partition the page two different ways,
+sum a badge count, and pick one of three templates. Filter parsing and the
+grouping transform moved to `webapp/video_filters.py` as a frozen
+`VideoListFilters` dataclass plus a pure `group_videos()`; the route is now ~45
+lines and reads as a sequence of calls.
+
+- **Pro:** `unwatched_only` and `unwatched_first` are now properties derived from
+  `watch_status`, so they cannot drift out of sync with it, and `db_kwargs()` is
+  one definition of "what the DB layer takes" instead of two hand-kept argument
+  lists that had to agree. Both are directly unit-testable: the junk
+  `added_within`, the empty-string normalization, and the exact `active_count`
+  arithmetic had no tests before — they could only be reached through a full HTTP
+  request, so nobody wrote them. 14 new tests.
+- **Con:** reading `index()` end to end now means opening a second file, and the
+  dataclass is a layer the two-line cases (`append`, `page`) deliberately skip,
+  which is a small inconsistency in where request state comes from.
+- Template variable names are unchanged (`current_channel`, not `channel`) —
+  renaming them would have meant touching every template, which a behavior-free
+  refactor shouldn't do.
+
 ### fix: stop leaking `append=1` into Archived pagination links (Task 8/14)
 
 Extracted `webapp/pagination.py` (`requested_page`, `pagination_context`) and

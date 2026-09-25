@@ -8,6 +8,7 @@ from webapp import llm_tagger as _llm
 from webapp.api import ApiStatus, cors_json, video_api_route
 from webapp.db import MatchType
 from webapp.pagination import pagination_context, requested_page
+from webapp.video_filters import VideoListFilters, group_videos
 
 bp = Blueprint("main", __name__)
 
@@ -34,93 +35,38 @@ def _shelf_expires_label(expires_at_str: str | None) -> str:
 
 @bp.route("/")
 def index():
-    sort_by = request.args.get("sort_by", "date_added")
-    sort_dir = request.args.get("sort_dir", "desc")
-    channel = request.args.get("channel") or None
-    tag = request.args.get("tag") or None
-    search = request.args.get("search") or None
-    group = request.args.get("group") or None
-    favorites_only = request.args.get("favorites") == "1"
-    watch_status = request.args.get("watch_status", "")
-    unwatched_only = watch_status == "unwatched"
-    unwatched_first = watch_status == "unwatched_first"
-    duration = request.args.get("duration") or None
-    try:
-        added_within = int(request.args["added_within"]) if request.args.get("added_within") else None
-    except ValueError:
-        added_within = None
+    filters = VideoListFilters.from_args(request.args)
     append = request.args.get("append") == "1"
     page = requested_page(request.args)
 
     try:
-        total = _db.count_videos(
-            g.db, channel=channel, tag=tag, search=search,
-            favorites_only=favorites_only, unwatched_only=unwatched_only,
-            duration=duration, added_within=added_within,
-        )
+        total = _db.count_videos(g.db, **filters.db_kwargs())
         videos = _db.get_all_videos(
-            g.db, sort_by=sort_by, sort_dir=sort_dir,
-            channel=channel, tag=tag, search=search,
-            page=page, page_size=PAGE_SIZE, group=group,
-            favorites_only=favorites_only, unwatched_only=unwatched_only,
-            unwatched_first=unwatched_first,
-            duration=duration, added_within=added_within,
+            g.db,
+            sort_by=filters.sort_by, sort_dir=filters.sort_dir,
+            group=filters.group, unwatched_first=filters.unwatched_first,
+            page=page, page_size=PAGE_SIZE,
+            **filters.db_kwargs(),
         )
     except ValueError:
         abort(400)
 
-    channels = _db.get_video_channel_names(g.db)
-    canonical_tags = _db.get_canonical_tags_for_filter_grouped(g.db)
-
-    groups = None
-    if group == "channel":
-        grouped = {}
-        for video in videos:
-            ch = video.get("channel_name") or "Unknown"
-            grouped.setdefault(ch, []).append(video)
-        groups = [{"tag": {"name": ch}, "videos": vids} for ch, vids in grouped.items()]
-    elif group == "tag":
-        grouped = {}
-        untagged = []
-        for video in videos:
-            tag_names = [t.strip() for t in (video.get("tags") or "").split(",") if t.strip()]
-            if tag_names:
-                for name in tag_names:
-                    grouped.setdefault(name, []).append(video)
-            else:
-                untagged.append(video)
-        groups = [{"tag": {"name": name}, "videos": vids} for name, vids in sorted(grouped.items())]
-        if untagged:
-            groups.append({"tag": {"name": "Untagged"}, "videos": untagged})
-
-    active_filter_count = (
-        (channel is not None)
-        + (tag is not None)
-        + (sort_by != "date_added")
-        + (sort_dir != "desc")
-        + (group is not None and group != "")
-        + favorites_only
-        + (watch_status != "")
-        + (duration is not None and duration != "")
-        + (added_within is not None)
-    )
-
     template_vars = dict(
         videos=videos,
-        channels=channels,
-        canonical_tags=canonical_tags,
-        groups=groups,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        current_channel=channel,
-        current_tag=tag,
-        current_search=search,
-        group=group,
-        favorites_only=favorites_only,
-        watch_status=watch_status,
-        current_duration=duration,
-        current_added_within=added_within,
-        active_filter_count=active_filter_count,
+        channels=_db.get_video_channel_names(g.db),
+        canonical_tags=_db.get_canonical_tags_for_filter_grouped(g.db),
+        groups=group_videos(videos, filters.group),
+        sort_by=filters.sort_by,
+        sort_dir=filters.sort_dir,
+        current_channel=filters.channel,
+        current_tag=filters.tag,
+        current_search=filters.search,
+        group=filters.group,
+        favorites_only=filters.favorites_only,
+        watch_status=filters.watch_status,
+        current_duration=filters.duration,
+        current_added_within=filters.added_within,
+        active_filter_count=filters.active_count,
         **pagination_context("main.index", requested_page=page, total=total, page_size=PAGE_SIZE),
     )
 

@@ -489,7 +489,7 @@ The sort select uses human-readable labels (no underscores): Date Added, Title, 
 
 A canonical tag `<select name="tag">` is rendered between the channel dropdown and the sort-by dropdown, but only when at least one canonical tag has at least one associated video. Options are populated from `get_canonical_tags_for_filter`. Selecting a tag filters via the existing `?tag=` query param and `_build_where` logic.
 
-Three quick-filter controls sit alongside the favorites checkbox, all wired into the same auto-submitting HTMX form and the `Filters` badge count (`active_filter_count`, computed once in `routes.py:index()` and passed to both `index.html` and `_video_container.html` so the two templates share one definition of "a filter is active" — channel, tag, non-default sort/direction, group, favorites, watch status, duration, or added-within; search does not count).
+Three quick-filter controls sit alongside the favorites checkbox, all wired into the same auto-submitting HTMX form and the `Filters` badge count (`active_filter_count`, the `VideoListFilters.active_count` property, passed to both `index.html` and `_video_container.html` so the two templates share one definition of "a filter is active" — channel, tag, non-default sort/direction, group, favorites, watch status, duration, or added-within; search does not count).
 
 - **Watch status** — a single `<select name="watch_status">` with three options: `""` (default, "Include watched"), `"unwatched"` ("Unwatched only" — a true filter, maps to `unwatched_only` in the route, excludes watched videos via `_build_where`), and `"unwatched_first"` ("Unwatched first" — not a filter, reorders instead of excluding; maps to `unwatched_first`, see `unwatched_first` under `get_all_videos` above). An unrecognized value falls back to `""` (all videos) rather than a 400, matching how an unrecognized `group` value is already handled — `watch_status` never touches `_build_where`'s raw-value validation since it's decomposed into the two booleans at the route level before either DB call. Contributes at most 1 to `active_filter_count` regardless of which non-default option is chosen (`watch_status != ""`).
   - Originally shipped (2026-09-18) as two independent checkboxes ("Unwatched only" + "Unwatched first"), which allowed a confusing 4th state — both checked was a silent no-op, since filtering to unwatched-only videos leaves nothing for the "first" reordering to distinguish. Collapsed into one three-way select on 2026-09-19 to make invalid states unrepresentable.
@@ -504,7 +504,7 @@ All three persist across pagination the same way the existing filters do, since 
 - **By channel**: `get_all_videos` prepends `channel_name ASC` to the ORDER BY so all same-channel videos are adjacent. The route partitions the page of videos by `channel_name` in Python. Each video belongs to exactly one channel, so groups are clean.
 - **By tag**: groups are built in Python from the `tags` field on each video (already limited to canonical tags). A video with multiple canonical tags appears in each relevant section. Groups are sorted alphabetically; videos with no canonical tags appear last in an "Untagged" section. SQL ORDER BY is not modified for tag grouping since one video can belong to many groups.
 
-Both modes produce a list of `{"tag": {"name": label}, "videos": [...]}` dicts consumed by the same `_video_container.html` partial. Pagination is applied at the video level before grouping, so a group may span pages if the library is large.
+Both modes produce a list of `{"tag": {"name": label}, "videos": [...]}` dicts consumed by the same `_video_container.html` partial. Pagination is applied at the video level before grouping, so a group may span pages if the library is large. Both live in `group_videos(videos, group)` in `webapp/video_filters.py`, not in the route.
 
 **Rediscover shelf collapse/expand**: The shelf (`#rediscover-shelf`) auto-collapses whenever `active_filter_count or current_search` is truthy and auto-expands when both are falsy — clearing filters and search (including via the plain `Reset` link) re-expands it. Note this is a *different* condition than the `Filters N` badge and secondary-panel auto-open, which use `active_filter_count` alone (search excluded — see above); the shelf's own `data-active` expression in `_video_container.html` deliberately widens that to include search, since search narrows the video list just as much as any other filter even though it isn't part of the collapsible panel and shouldn't force that panel open or bump its badge. Since the shelf sits outside `#video-container` and an HTMX filter change only swaps that div, `_video_container.html` carries a hidden OOB sibling, `<div id="rediscover-filter-state" hx-swap-oob="true" data-active="…">`, that rides along on every filter-triggered swap; an inline script in `index.html` reads its `data-active` attribute and toggles `.collapsed` on `#rediscover-shelf`, re-querying the marker by ID on each call rather than caching the element reference (HTMX's OOB swap replaces it outright via `outerHTML`, so a cached reference goes stale after the first swap). The sync runs on page load and on every `htmx:afterSettle`. Clicking the "Rediscover" label still toggles `.collapsed` directly for a temporary peek, but the next filter/sort/search change overrides it back to the filter-driven state — there is no persisted "always collapsed" preference; `localStorage` is not used for this control.
 
@@ -518,6 +518,19 @@ Mirror-image behavior for the `exists` state: the popup's `exists` state renders
 
 - **Flat view**: `_video_container.html` renders an `id="video-grid"` div and an `id="load-more"` div containing the button. The button uses `hx-target="#video-grid"` with `hx-swap="beforeend"` and `?append=1` in its URL. The server returns `_load_more.html`, which is the new cards followed by an OOB `<div id="load-more" hx-swap-oob="true">` that replaces the button (empty when no more pages, new button otherwise).
 - **Grouped view**: standard Prev/Next links that swap the entire `#video-container`.
+**Filter state**: `webapp/video_filters.py` owns the main list's query-string state.
+`VideoListFilters.from_args(request.args)` is a frozen dataclass parsed once per
+request; `unwatched_only`/`unwatched_first` are properties derived from
+`watch_status` (so the two can never disagree), `active_count` is the `Filters N`
+badge, and `db_kwargs()` is the exact argument set both `count_videos` and
+`get_all_videos` accept. `WatchStatus` and `GroupBy` are StrEnums holding the
+query-string values, so no route or module spells one as a literal. `index()`
+reads `append` and `page` from `request.args` directly and everything else off the
+dataclass; the grouping transform is `group_videos`. This dropped `index()` from
+~115 lines to ~45 and made the filter parsing unit-testable without an HTTP
+request — the junk-`added_within` and `active_count` cases had no direct tests
+before 2026-09-25.
+
 - All three paginated routes (`/`, `/channels`, `/hidden`) share `webapp/pagination.py`:
   `requested_page(args)` coerces a junk `?page=` to 1, and
   `pagination_context(endpoint, requested_page=, total=, page_size=)` returns the
