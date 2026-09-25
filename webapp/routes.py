@@ -355,12 +355,11 @@ def tag_groups_auto_assign():
     groups = _db.get_tag_groups(g.db)
     try:
         assignments = _llm.suggest_group_assignments(ungrouped, groups)
-    except EnvironmentError as e:
-        return redirect(url_for("main.tags", llm_error=str(e)))
-    except ImportError:
-        return redirect(url_for("main.tags", llm_error="anthropic package not installed"))
-    except Exception as e:
-        return redirect(url_for("main.tags", llm_error=f"Auto-assign failed: {e}"))
+    except _llm.LLMError:
+        # A stable code, not str(e): this lands in the address bar and browser
+        # history, and `tags.html` renders it. Anything unexpected is left to
+        # propagate as a 500 so it shows up in the log instead of the URL.
+        return redirect(url_for("main.tags", llm_error="unavailable"))
     for item in assignments:
         _db.add_canonical_to_group(g.db, item["group_id"], item["canonical_id"])
     return redirect(url_for("main.tags", assigned_groups=len(assignments)))
@@ -398,12 +397,9 @@ def tags_llm_suggest():
     pool_hash = _llm.compute_pool_hash(unclassified)
     try:
         suggestions = _llm.get_suggestions(canonical, unclassified)
-    except EnvironmentError as e:
-        return redirect(url_for("main.tags", llm_error=str(e)))
-    except ImportError:
-        return redirect(url_for("main.tags", llm_error="anthropic package not installed"))
-    except Exception as e:
-        return redirect(url_for("main.tags", llm_error=f"LLM error: {e}"))
+    except _llm.LLMError:
+        # See tag_groups_auto_assign: a code, not exception text.
+        return redirect(url_for("main.tags", llm_error="unavailable"))
     _db.save_llm_suggestions(g.db, suggestions, pool_hash)
     return redirect(url_for("main.tags"))
 

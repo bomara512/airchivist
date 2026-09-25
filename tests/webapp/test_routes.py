@@ -1050,3 +1050,61 @@ class TestHiddenPaginationUrls:
         body = client.get("/hidden?append=1").get_data(as_text=True)
         assert "page=2" in body       # pagination is reachable at this page size
         assert "append" not in body   # ...and the transient param was dropped
+
+
+class TestLlmErrorSurfacing:
+    """The old code interpolated `str(e)` into a redirect URL, which lands in the
+    address bar, browser history, and any access log — and `tags.html` rendered it
+    verbatim. Both routes now emit a stable code, and anything that isn't an
+    LLMError is left to 500 so it surfaces in the server log instead of the URL."""
+
+    def _boom(self, exc):
+        def raiser(*a, **kw):
+            raise exc
+        return raiser
+
+    def test_llm_error_redirects_with_a_code_not_exception_text(self, client, monkeypatch):
+        import webapp.llm_tagger as llm
+
+        monkeypatch.setattr(
+            "webapp.llm_tagger.get_suggestions",
+            self._boom(llm.LLMUnavailableError("key sk-ant-secret-value is invalid")),
+        )
+        resp = client.post("/tags/llm-suggest")
+        assert resp.status_code == 302
+        assert "llm_error=unavailable" in resp.headers["Location"]
+        assert "secret" not in resp.headers["Location"]
+
+    def test_an_unexpected_error_is_not_swallowed_into_the_url(self, client, monkeypatch):
+        # Not an LLMError, so the route does not catch it: it propagates and the
+        # server logs a 500, rather than becoming a query param nobody reads.
+        monkeypatch.setattr(
+            "webapp.llm_tagger.get_suggestions",
+            self._boom(RuntimeError("connection string with a secret in it")),
+        )
+        with pytest.raises(RuntimeError, match="secret"):
+            client.post("/tags/llm-suggest")
+
+    def test_auto_assign_uses_the_same_code(self, client, monkeypatch):
+        import webapp.llm_tagger as llm
+
+        # The route returns early when there are no ungrouped canonicals, so give
+        # it one: 'guitar' from the seed is unclassified, not canonical — promote it.
+        with closing(sqlite3.connect(client.application.config["DATABASE"])) as conn:
+            conn.execute("UPDATE tags SET is_canonical = 1 WHERE name = 'guitar'")
+            conn.commit()
+        monkeypatch.setattr(
+            "webapp.llm_tagger.suggest_group_assignments",
+            self._boom(llm.LLMUnavailableError("boom")),
+        )
+        resp = client.post("/tags/groups/auto-assign")
+        assert resp.status_code == 302
+        assert "llm_error=unavailable" in resp.headers["Location"]
+
+    def test_the_page_renders_copy_not_the_raw_code(self, client):
+        body = client.get("/tags?llm_error=unavailable").get_data(as_text=True)
+        assert "ANTHROPIC_API_KEY is set" in body
+
+    def test_an_unknown_code_gets_generic_copy(self, client):
+        body = client.get("/tags?llm_error=something-else").get_data(as_text=True)
+        assert "Check the server log for details" in body

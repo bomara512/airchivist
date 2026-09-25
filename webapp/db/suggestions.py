@@ -5,6 +5,7 @@ from typing import Optional
 
 from webapp.db.aliases import add_alias, retroactive_apply
 from webapp.db.tags import create_canonical_tag
+from webapp.llm_tagger import NOISE_CANONICAL
 
 
 def confirm_suggestion(conn: sqlite3.Connection, canonical_name: str, member_names: list[str]) -> int:
@@ -193,7 +194,7 @@ def accept_noise_and_dismiss_suggestion(
     for tag in rejected_members:
         conn.execute(
             "INSERT OR IGNORE INTO llm_suggestion_rejections (member_tag, canonical) VALUES (?, ?)",
-            (tag, "_noise"),
+            (tag, NOISE_CANONICAL),
         )
 
     conn.execute("DELETE FROM llm_suggestions WHERE id = ?", (suggestion_id,))

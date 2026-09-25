@@ -6,6 +6,35 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-25
 
+### refactor: LLMError hierarchy, shared tool-call helper, error codes in URLs (Task 12/14)
+
+`webapp/llm_tagger.py` raised `ImportError`, `EnvironmentError`, and `ValueError`
+— none of which mean "an LLM feature failed" — and both public functions carried
+their own copy of: import anthropic, read the key, build the client, force a
+`tool_choice`, find the `tool_use` block, complain if it's missing. Now
+`LLMError` / `LLMUnavailableError` / `LLMResponseError` over one `_client()` +
+`_call_tool(...)`.
+
+- **Pro:** the two routes' identical three-branch `except` ladders collapse to one
+  `except _llm.LLMError`. `EnvironmentError` is an alias of `OSError`, so any
+  upstream `except OSError` would have silently caught a missing API key as a
+  file/socket error — now impossible, and pinned by a test asserting `LLMError` is
+  not an `OSError`. The two `max_tokens` values and the `"_noise"` sentinel are
+  named constants; `webapp/db/suggestions.py` had its own copy of the literal and
+  now imports `NOISE_CANONICAL`.
+- **Con:** `webapp/db/suggestions.py` now imports from `webapp/llm_tagger.py`,
+  which is the DB layer depending on a feature module. Chosen over keeping two
+  copies of a magic string that must agree; the alternative (moving the constant
+  into the DB package) would have made `llm_tagger` import sqlite3 and the crawler
+  for one string.
+- **Security-adjacent fix:** both routes interpolated `str(e)` into a redirect URL,
+  so exception text reached the address bar, browser history, and any access log,
+  and `tags.html` rendered it verbatim. They now emit `?llm_error=unavailable` and
+  the template maps codes to copy. Anything that is not an `LLMError` is no longer
+  caught at all: it propagates as a 500 and lands in the server log, which is where
+  an unexpected failure belongs. Pinned by a test that raises a `RuntimeError`
+  carrying a fake secret and asserts it propagates rather than reaching the URL.
+
 ### refactor: move shelf label and last-viewed copy into webapp/filters (Task 11/14)
 
 Two user-facing strings were being built outside the presentation layer:

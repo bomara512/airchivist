@@ -8,6 +8,60 @@ import re
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 MAX_ANCHOR_TAGS = 300   # top tags by video count, always sent
 MAX_TAGS = 500          # total cap including keyword-expanded satellites
+_SUGGEST_MAX_TOKENS = 4096
+_GROUP_ASSIGN_MAX_TOKENS = 1024
+
+# Sentinel `canonical` value marking a suggestion group as noise rather than a
+# real category. Stored in the suggestions table and recognized on apply.
+NOISE_CANONICAL = "_noise"
+
+
+class LLMError(RuntimeError):
+    """Base for every failure of an LLM-backed feature.
+
+    Deliberately not an OSError: the previous code raised EnvironmentError, which
+    is an alias of OSError, so any upstream `except OSError` would have caught a
+    missing API key as if it were a file or socket failure.
+    """
+
+
+class LLMUnavailableError(LLMError):
+    """The anthropic package is missing, or no API key is configured."""
+
+
+class LLMResponseError(LLMError):
+    """The model replied, but not in the shape we require."""
+
+
+def _client():
+    """The Anthropic client, or LLMUnavailableError explaining what's missing."""
+    try:
+        import anthropic
+    except ImportError as exc:
+        raise LLMUnavailableError(
+            "The 'anthropic' package is required for LLM tag suggestions. "
+            "Install it with: pip install anthropic"
+        ) from exc
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise LLMUnavailableError("ANTHROPIC_API_KEY environment variable is not set")
+    return anthropic.Anthropic(api_key=api_key)
+
+
+def _call_tool(*, system: str, tool: dict, user_message: str, model: str, max_tokens: int) -> dict:
+    """Force one tool call and return its input, or raise LLMResponseError."""
+    response = _client().messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        system=system,
+        tools=[tool],
+        tool_choice={"type": "tool", "name": tool["name"]},
+        messages=[{"role": "user", "content": user_message}],
+    )
+    tool_use = next((b for b in response.content if b.type == "tool_use"), None)
+    if tool_use is None:
+        raise LLMResponseError(f"LLM did not call the {tool['name']} tool")
+    return tool_use.input
 
 # Words too generic to use as expansion signals — domain terms are kept.
 _EXPANSION_STOP_WORDS = frozenset({
@@ -164,42 +218,17 @@ def get_suggestions(
     Returns a list of suggestion dicts:
       {"canonical": str, "members": [str, ...], "confidence": str, "is_noise": bool}
 
-    Raises ImportError if the anthropic package is not installed.
-    Raises EnvironmentError if ANTHROPIC_API_KEY is not set.
-    Raises ValueError if the model does not call the expected tool.
+    Raises LLMUnavailableError if the anthropic package or API key is missing,
+    LLMResponseError if the model does not call the expected tool. Both subclass
+    LLMError, which is what callers should catch.
     """
-    try:
-        import anthropic
-    except ImportError:
-        raise ImportError(
-            "The 'anthropic' package is required for LLM tag suggestions. "
-            "Install it with: pip install anthropic"
-        )
-
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise EnvironmentError("ANTHROPIC_API_KEY environment variable is not set")
-
-    client = anthropic.Anthropic(api_key=api_key)
-    response = client.messages.create(
-        model=model,
-        max_tokens=4096,
+    result = _call_tool(
         system=_SYSTEM_PROMPT,
-        tools=[_TOOL],
-        tool_choice={"type": "tool", "name": "categorize_tags"},
-        messages=[
-            {"role": "user", "content": _build_user_message(canonical_tags, unclassified_tags)},
-        ],
+        tool=_TOOL,
+        user_message=_build_user_message(canonical_tags, unclassified_tags),
+        model=model,
+        max_tokens=_SUGGEST_MAX_TOKENS,
     )
-
-    tool_use = next(
-        (block for block in response.content if block.type == "tool_use"),
-        None,
-    )
-    if tool_use is None:
-        raise ValueError("LLM did not call the categorize_tags tool")
-
-    result = tool_use.input
     suggestions: list[dict] = []
 
     for item in result.get("assignments", []):
@@ -219,7 +248,7 @@ def get_suggestions(
     noise = [t.strip() for t in result.get("noise", []) if t and t.strip()]
     if noise:
         suggestions.append({
-            "canonical": "_noise",
+            "canonical": NOISE_CANONICAL,
             "members": noise,
             "confidence": "high",
             "is_noise": True,
@@ -302,39 +331,21 @@ def suggest_group_assignments(
 
     Returns a list of {"canonical_id": int, "canonical_name": str,
                         "group_id": int, "group_name": str}.
-    Raises ImportError / EnvironmentError / ValueError as in get_suggestions.
+    Raises LLMUnavailableError / LLMResponseError as in get_suggestions.
     """
-    try:
-        import anthropic
-    except ImportError:
-        raise ImportError("The 'anthropic' package is required.")
-
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise EnvironmentError("ANTHROPIC_API_KEY environment variable is not set")
-
-    client = anthropic.Anthropic(api_key=api_key)
-    response = client.messages.create(
-        model=model,
-        max_tokens=1024,
+    tool_input = _call_tool(
         system=_GROUP_ASSIGN_SYSTEM,
-        tools=[_GROUP_ASSIGN_TOOL],
-        tool_choice={"type": "tool", "name": "assign_to_groups"},
-        messages=[{
-            "role": "user",
-            "content": _build_group_assign_message(ungrouped_canonicals, groups),
-        }],
+        tool=_GROUP_ASSIGN_TOOL,
+        user_message=_build_group_assign_message(ungrouped_canonicals, groups),
+        model=model,
+        max_tokens=_GROUP_ASSIGN_MAX_TOKENS,
     )
-
-    tool_use = next((b for b in response.content if b.type == "tool_use"), None)
-    if tool_use is None:
-        raise ValueError("LLM did not call the assign_to_groups tool")
 
     canonical_by_name = {t["name"]: t for t in ungrouped_canonicals}
     group_by_name = {g["name"]: g for g in groups}
 
     result = []
-    for item in tool_use.input.get("assignments", []):
+    for item in tool_input.get("assignments", []):
         canonical_name = item.get("canonical", "").strip()
         group_name = item.get("group", "").strip()
         canonical = canonical_by_name.get(canonical_name)

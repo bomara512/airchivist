@@ -4,6 +4,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from webapp.llm_tagger import (
+    LLMError,
+    LLMResponseError,
+    LLMUnavailableError,
     _build_user_message,
     compute_pool_hash,
     get_suggestions,
@@ -156,12 +159,12 @@ class TestGetSuggestions:
         env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
         with patch.dict("sys.modules", {"anthropic": MagicMock()}), \
              patch.dict("os.environ", env, clear=True):
-            with pytest.raises(EnvironmentError, match="ANTHROPIC_API_KEY"):
+            with pytest.raises(LLMUnavailableError, match="ANTHROPIC_API_KEY"):
                 get_suggestions([], [])
 
     def test_raises_when_anthropic_not_installed(self):
         with patch.dict("sys.modules", {"anthropic": None}):
-            with pytest.raises(ImportError, match="anthropic"):
+            with pytest.raises(LLMUnavailableError, match="anthropic"):
                 get_suggestions([], [])
 
     def test_raises_when_no_tool_use_in_response(self):
@@ -174,7 +177,7 @@ class TestGetSuggestions:
 
         with patch.dict("sys.modules", {"anthropic": _mock_anthropic(mock_client)}), \
              patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-            with pytest.raises(ValueError, match="categorize_tags"):
+            with pytest.raises(LLMResponseError, match="categorize_tags"):
                 get_suggestions([], [])
 
     def test_passes_correct_model_to_api(self):
@@ -200,3 +203,16 @@ class TestGetSuggestions:
 
         call_kwargs = mock_client.messages.create.call_args[1]
         assert call_kwargs["tool_choice"] == {"type": "tool", "name": "categorize_tags"}
+
+
+class TestErrorHierarchy:
+    """Routes catch the single base class, so both leaves must subclass it."""
+
+    def test_both_subclass_llm_error(self):
+        assert issubclass(LLMUnavailableError, LLMError)
+        assert issubclass(LLMResponseError, LLMError)
+
+    def test_llm_error_is_not_an_oserror(self):
+        # The old code raised EnvironmentError, which is an alias of OSError — so
+        # `except OSError` anywhere upstream would have swallowed a missing API key.
+        assert not issubclass(LLMError, OSError)

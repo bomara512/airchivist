@@ -45,7 +45,13 @@
   </div>
 
   {% if llm_error %}
-  <div class="llm-error">{{ llm_error }}</div>
+  <div class="llm-error">
+    {% if llm_error == 'unavailable' %}
+      Smart Suggest is unavailable — check that the anthropic package is installed and ANTHROPIC_API_KEY is set.
+    {% else %}
+      Smart Suggest failed. Check the server log for details.
+    {% endif %}
+  </div>
   {% endif %}
 
   {% if llm_suggestions %}

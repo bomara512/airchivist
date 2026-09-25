@@ -430,6 +430,20 @@ Alias pill visual conventions: solid border = prefix match; dashed border = cont
 
 **LLM suggestions (Smart Suggest)** — grouped suggestion cards above the pool. Each card shows a proposed canonical name (editable) and member tags as checkboxes. Accept posts to `/tags/suggest/confirm`. The unclassified pool's `min_videos` default is 2, hiding the 23K single-video long tail.
 
+`webapp/llm_tagger.py` raises a single error hierarchy: `LLMError` (base),
+`LLMUnavailableError` (no `anthropic` package or no `ANTHROPIC_API_KEY`), and
+`LLMResponseError` (the model replied without calling the tool). Routes catch
+`LLMError` and nothing broader, and redirect with a stable code
+(`?llm_error=unavailable`) that `tags.html` maps to copy — never `str(e)`, which
+used to put internal exception text in the address bar, browser history, and any
+access log. Anything that is not an `LLMError` propagates as a 500 so it lands in
+the server log rather than a query param. `LLMError` subclasses `RuntimeError`,
+deliberately not `OSError` — the previous code raised `EnvironmentError`, an
+`OSError` alias, so an upstream `except OSError` would have caught a missing API
+key as if it were a file or socket failure. Both public functions route their API
+call through `_client()` + `_call_tool(...)`, which own the client construction,
+the forced `tool_choice`, and the "did it actually call the tool" check.
+
 ---
 
 ## UI Design
