@@ -6,17 +6,14 @@ from flask import Blueprint, abort, g, jsonify, make_response, redirect, render_
 from crawler.models import YT_CHANNEL_RE, YT_ID_RE, FetchStatus
 from webapp import db as _db
 from webapp import llm_tagger as _llm
+from webapp.api import CORS_HEADERS as _CORS_HEADERS
+from webapp.api import ApiStatus, cors_json, resolve_video
 from webapp.db import MatchType
 
 bp = Blueprint("main", __name__)
 
 PAGE_SIZE = 100
 
-_CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST",
-    "Access-Control-Allow-Headers": "Content-Type",
-}
 
 
 def _shelf_expires_label(expires_at_str: str | None) -> str:
@@ -690,26 +687,11 @@ def api_status_batch():
 
 
 @bp.route("/api/hide", methods=["POST", "OPTIONS"])
-def api_hide():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-    data = request.get_json(silent=True) or {}
-    url = (data.get("url") or "").strip()
-    m = YT_ID_RE.search(url)
-    if not m:
-        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 400
-    video_id = m.group(1)
-    video = _db.get_video_by_id(g.db, video_id)
-    if not video:
-        resp = jsonify({"status": "error", "error": "Video not found"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 404
-    _db.hide_video(g.db, video_id)
-    resp = jsonify({"status": "hidden", "title": video.get("title")})
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+@cors_json
+@resolve_video
+def api_hide(video):
+    _db.hide_video(g.db, video["video_id"])
+    return {"status": ApiStatus.HIDDEN, "title": video.get("title")}
 
 
 @bp.route("/rediscover-shelf/refresh", methods=["POST"])
@@ -719,167 +701,48 @@ def rediscover_shelf_refresh():
 
 
 @bp.route("/api/watch-later/add", methods=["POST", "OPTIONS"])
-def api_watch_later_add():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-
-    data = request.get_json(silent=True) or {}
-    url = (data.get("url") or "").strip()
-    m = YT_ID_RE.search(url)
-    if not m:
-        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 400
-
-    video_id = m.group(1)
-    video = _db.get_video_by_id(g.db, video_id)
-    if not video:
-        resp = jsonify({"status": "error", "error": "Video not found"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 404
-
-    added = _db.add_to_watch_later(g.db, video_id)
-    if not added:
-        resp = jsonify({"status": "already_in_queue"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 409
-
-    resp = jsonify({"status": "added"})
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+@cors_json
+@resolve_video
+def api_watch_later_add(video):
+    if not _db.add_to_watch_later(g.db, video["video_id"]):
+        return {"status": ApiStatus.ALREADY_IN_QUEUE}, 409
+    return {"status": ApiStatus.ADDED}
 
 
 @bp.route("/api/watch-later/remove", methods=["POST", "OPTIONS"])
-def api_watch_later_remove():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-
-    data = request.get_json(silent=True) or {}
-    url = (data.get("url") or "").strip()
-    m = YT_ID_RE.search(url)
-    if not m:
-        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 400
-
-    video_id = m.group(1)
-    video = _db.get_video_by_id(g.db, video_id)
-    if not video:
-        resp = jsonify({"status": "error", "error": "Video not found"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 404
-
-    removed = _db.remove_from_watch_later(g.db, video_id)
-    if not removed:
-        resp = jsonify({"status": "error", "error": "Not in queue"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 404
-
-    resp = jsonify({"status": "removed"})
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+@cors_json
+@resolve_video
+def api_watch_later_remove(video):
+    if not _db.remove_from_watch_later(g.db, video["video_id"]):
+        return {"status": ApiStatus.ERROR, "error": "Not in queue"}, 404
+    return {"status": ApiStatus.REMOVED}
 
 
 @bp.route("/api/watch-later/status", methods=["POST", "OPTIONS"])
-def api_watch_later_status():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-
-    data = request.get_json(silent=True) or {}
-    url = (data.get("url") or "").strip()
-    m = YT_ID_RE.search(url)
-    if not m:
-        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 400
-
-    video_id = m.group(1)
-    video = _db.get_video_by_id(g.db, video_id)
-    if not video:
-        resp = jsonify({"status": "error", "error": "Video not found"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 404
-
-    in_queue = _db.is_in_watch_later(g.db, video_id)
-    resp = jsonify({"in_queue": in_queue})
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+@cors_json
+@resolve_video
+def api_watch_later_status(video):
+    return {"in_queue": _db.is_in_watch_later(g.db, video["video_id"])}
 
 
 @bp.route("/api/favorite/add", methods=["POST", "OPTIONS"])
-def api_favorite_add():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-
-    data = request.get_json(silent=True) or {}
-    url = (data.get("url") or "").strip()
-    m = YT_ID_RE.search(url)
-    if not m:
-        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 400
-
-    video_id = m.group(1)
-    video = _db.get_video_by_id(g.db, video_id)
-    if not video:
-        resp = jsonify({"status": "error", "error": "Video not found"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 404
-
-    _db.set_favorite(g.db, video_id, True)
-    resp = jsonify({"status": "added"})
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+@cors_json
+@resolve_video
+def api_favorite_add(video):
+    _db.set_favorite(g.db, video["video_id"], True)
+    return {"status": ApiStatus.ADDED}
 
 
 @bp.route("/api/favorite/remove", methods=["POST", "OPTIONS"])
-def api_favorite_remove():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-
-    data = request.get_json(silent=True) or {}
-    url = (data.get("url") or "").strip()
-    m = YT_ID_RE.search(url)
-    if not m:
-        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 400
-
-    video_id = m.group(1)
-    video = _db.get_video_by_id(g.db, video_id)
-    if not video:
-        resp = jsonify({"status": "error", "error": "Video not found"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 404
-
-    _db.set_favorite(g.db, video_id, False)
-    resp = jsonify({"status": "removed"})
-    resp.headers.update(_CORS_HEADERS)
-    return resp
+@cors_json
+@resolve_video
+def api_favorite_remove(video):
+    _db.set_favorite(g.db, video["video_id"], False)
+    return {"status": ApiStatus.REMOVED}
 
 
 @bp.route("/api/favorite/status", methods=["POST", "OPTIONS"])
-def api_favorite_status():
-    if request.method == "OPTIONS":
-        return make_response("", 204, _CORS_HEADERS)
-
-    data = request.get_json(silent=True) or {}
-    url = (data.get("url") or "").strip()
-    m = YT_ID_RE.search(url)
-    if not m:
-        resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 400
-
-    video_id = m.group(1)
-    video = _db.get_video_by_id(g.db, video_id)
-    if not video:
-        resp = jsonify({"status": "error", "error": "Video not found"})
-        resp.headers.update(_CORS_HEADERS)
-        return resp, 404
-
-    resp = jsonify({"is_favorite": bool(video.get("is_favorite"))})
-    resp.headers.update(_CORS_HEADERS)
-    return resp
-
-
+@cors_json
+@resolve_video
+def api_favorite_status(video):
+    return {"is_favorite": bool(video.get("is_favorite"))}

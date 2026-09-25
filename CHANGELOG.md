@@ -6,6 +6,36 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-24
 
+### refactor: extract cors_json/resolve_video decorators, add ApiStatus enum
+
+Task 4 of the code-quality remediation plan. The nine extension-facing API routes
+each repeated the same preamble — answer the OPTIONS preflight, parse the JSON
+body, regex the URL, load the video row, attach CORS headers to every response.
+`api_favorite_add`, `_remove`, and `_status` differed from one another by exactly
+one line of real logic. New `webapp/api.py` holds `CORS_HEADERS`, an `ApiStatus`
+StrEnum, and two decorators; the seven routes that require an existing video are
+now 2–4 lines each.
+
+Measured on `webapp/routes.py`: 885 → 748 lines. `resp.headers.update(...)`
+38 → 15 occurrences, hand-written OPTIONS branches 12 → 5, "Not a YouTube URL"
+blocks 8 → 1, "Video not found" blocks 7 → 0, `YT_ID_RE.search` 9 → 2. Every
+remainder belongs to the five routes Task 5 migrates.
+
+- **+** Zero test changes were needed: the 65 pre-existing assertions across
+  `TestApiHide`, `TestApiWatchLater*`, and `TestApiFavorite*` — covering happy
+  paths, 400s, 404s, 409s, CORS headers, and OPTIONS preflights — all pass
+  untouched, which is what makes this credible as a behavior-free refactor.
+- **−** The decorator order matters and is not enforced: `@resolve_video` must
+  sit *below* `@cors_json`, because it returns plain dicts that `cors_json`
+  encodes. Applied the other way round it would return a bare tuple to Flask.
+  Documented in both docstrings and in `CLAUDE.md`, but a mistake here fails at
+  request time rather than import time.
+- **−** `CORS_HEADERS` is imported into `routes.py` under its old `_CORS_HEADERS`
+  name for now, so the five not-yet-migrated routes keep working. That alias is
+  temporary and Task 5 removes it.
+- Also updated the `CLAUDE.md` CORS rule, which until now told the next author to
+  hand-roll the pattern it just replaced.
+
 ### refactor: make YouTube regexes public, add extract_video_id helper
 
 Task 3 of the code-quality remediation plan. `webapp/routes.py` was importing

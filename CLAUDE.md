@@ -145,12 +145,25 @@ different data structure), delete the old code in the same response.
 ## Use `_CORS_HEADERS` for all API routes
 
 Every route in `webapp/routes.py` that returns a JSON response to the extension
-must use the module-level `_CORS_HEADERS` constant — never a locally-defined
-dict.
+must go through the decorators in `webapp/api.py` — never a locally-defined
+headers dict, and never a hand-rolled OPTIONS branch.
 
-- Apply it to both the success response and the OPTIONS preflight.
-- When adding a new API route, copy the OPTIONS + CORS pattern from an existing
-  route such as `api_status`.
+- `@cors_json` (applied directly under `@bp.route`) answers the OPTIONS
+  preflight, JSON-encodes the return value, and attaches `CORS_HEADERS`. The
+  view returns a plain dict for 200, or a `(dict, status)` tuple otherwise.
+- `@resolve_video` (applied under `@cors_json`) parses the request's `url`,
+  loads the video row, and returns the shared 400/404 bodies itself — so use it
+  for any route that requires the video to already exist, and it hands the row
+  to the view as its first argument.
+- Never write a new API status literal: add a member to `ApiStatus` in
+  `webapp/api.py` instead.
+- These replaced ~110 lines of per-route copy-paste on 2026-09-24 (38 copies of
+  `resp.headers.update(...)`, 12 hand-written OPTIONS branches, 8 identical
+  "Not a YouTube URL" blocks). The routes that *cannot* use `@resolve_video` —
+  `api_add` creates the video, `api_status` returns `not_found` with HTTP 200
+  rather than 404, `api_status_batch` takes IDs not a URL, and the two channel
+  routes parse channel URLs — still use `@cors_json`. If you find a route
+  building its own response dict and headers, it is a leftover: migrate it.
 
 ## Always write tests alongside new server code
 
