@@ -6,6 +6,32 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-25
 
+### fix: stop leaking `append=1` into Archived pagination links (Task 8/14)
+
+Extracted `webapp/pagination.py` (`requested_page`, `pagination_context`) and
+migrated `/`, `/channels`, and `/hidden` onto it. Each route had its own copy of
+the same six-line block — parse the page, compute `total_pages`, clamp, build
+Prev/Next — and `/hidden`'s copy stripped only `page` from the query string where
+its two siblings stripped `page` and `append`. So a Prev/Next link on the
+Archived page carried `append=1` and fetched a bare HTMX fragment.
+
+- **Pro:** the drift is now unrepeatable — the list of transient params lives in
+  one place (`_TRANSIENT_ARGS`), and a fourth paginated route inherits it. The
+  helper is unit-testable without a route, which is how the junk-`?page=` cases
+  (`abc`, `-5`, `0`, empty) got pinned at all; nothing tested them before.
+  `routes.py` drops another 21 lines.
+- **Con:** a route's pagination is no longer readable in one place — you now have
+  to open `pagination.py` to see what `**pagination_context(...)` puts in the
+  template namespace. `channels.html` also now receives a `prev_url` it ignores.
+- **Preserved asymmetry, deliberately:** `/channels` clamps the page before
+  querying (so `?page=99` shows the last page), while `/` and `/hidden` query with
+  the raw page and clamp only for display (so `?page=99` shows an empty list
+  labeled page 1). Unifying them would be a third user-visible behavior change,
+  which this plan doesn't authorize. Added a test pinning the `/channels` side,
+  since the shared helper makes the difference easy to erase by accident.
+- The `client` test fixture now builds on a new `app` fixture rather than
+  constructing the app itself, so both share one setup path.
+
 ### fix: 404 on unknown video id for hide/unhide/delete (Task 7/14)
 
 `video_hide`, `video_unhide`, and `video_delete` silently succeeded when the

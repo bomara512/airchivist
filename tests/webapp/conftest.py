@@ -61,13 +61,19 @@ def db_conn(tmp_path):
 
 
 @pytest.fixture
-def client(tmp_path):
+def app(tmp_path):
+    """The configured app over a seeded temp DB — one setup path for both fixtures."""
     db_path = str(tmp_path / "test.db")
     _setup_db(db_path)
     conn = sqlite3.connect(db_path)
     conn.executescript(SEED_SQL)
     conn.close()
-    app = create_app(db_path)
-    app.config["TESTING"] = True
+    application = create_app(db_path)
+    application.config["TESTING"] = True
+    return application
+
+
+@pytest.fixture
+def client(app):
     with app.test_client() as c:
         yield c

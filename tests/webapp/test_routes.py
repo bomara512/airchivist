@@ -1003,6 +1003,14 @@ class TestChannelsPage:
         assert "AlphaChan" in body
         assert "<!doctype html>" not in body.lower()
 
+    def test_out_of_range_page_shows_the_last_page_not_an_empty_grid(self, client):
+        """This route clamps the page *before* querying, unlike `/` and `/hidden`,
+        which query with the raw page and clamp only for display. Pinning it
+        because the shared pagination helper makes the difference easy to erase."""
+        self._seed(client)
+        body = client.get("/channels?page=99").get_data(as_text=True)
+        assert "AlphaChan" in body
+
 
 class TestVideoMutationRoutes404:
     """F8: `hide`, `unhide`, and `delete` silently succeeded on an unknown ID
@@ -1033,3 +1041,12 @@ class TestVideoMutationRoutes404:
         assert client.post("/videos/zzzzzzzzzz9/delete").status_code == 404
         # the real hidden video is untouched by the failed delete
         assert b"aaaaaaaaaa1" in client.get("/hidden").data
+
+class TestHiddenPaginationUrls:
+    def test_append_param_is_not_carried_into_pagination_links(self, client, monkeypatch):
+        monkeypatch.setattr("webapp.routes.PAGE_SIZE", 1)
+        client.post("/videos/aaaaaaaaaa1/hide")
+        client.post("/videos/aaaaaaaaaa2/hide")
+        body = client.get("/hidden?append=1").get_data(as_text=True)
+        assert "page=2" in body       # pagination is reachable at this page size
+        assert "append" not in body   # ...and the transient param was dropped

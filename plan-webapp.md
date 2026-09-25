@@ -497,7 +497,7 @@ Three quick-filter controls sit alongside the favorites checkbox, all wired into
 - **Duration** — a `<select name="duration">` with "Any duration" plus the three `_DURATION_BUCKETS` options (Short/Medium/Long), mapped straight through to `_build_where`'s `duration` param.
 - **Added within** — a `<select name="added_within">` with "Any time" plus the four `_ADDED_WITHIN_DAYS` presets (7/30/90/365 days, labeled "Last 7 days" … "Last year"). The route casts the query string to `int` (falling back to `None` on a bad value) before passing it to `_build_where`.
 
-All three persist across pagination the same way the existing filters do, since `page_url` only strips `page`/`append` from the current query string.
+All three persist across pagination the same way the existing filters do, since `pagination_context` only strips `page`/`append` from the current query string.
 
 **Grouping**: The group select offers "No grouping" (default), "By channel", and "By tag". Both grouped modes use Prev/Next pagination (not Load more).
 
@@ -518,7 +518,20 @@ Mirror-image behavior for the `exists` state: the popup's `exists` state renders
 
 - **Flat view**: `_video_container.html` renders an `id="video-grid"` div and an `id="load-more"` div containing the button. The button uses `hx-target="#video-grid"` with `hx-swap="beforeend"` and `?append=1` in its URL. The server returns `_load_more.html`, which is the new cards followed by an OOB `<div id="load-more" hx-swap-oob="true">` that replaces the button (empty when no more pages, new button otherwise).
 - **Grouped view**: standard Prev/Next links that swap the entire `#video-container`.
-- `page_url()` strips both `page` and `append` from the current query args before building the new URL, so `append=1` never accumulates.
+- All three paginated routes (`/`, `/channels`, `/hidden`) share `webapp/pagination.py`:
+  `requested_page(args)` coerces a junk `?page=` to 1, and
+  `pagination_context(endpoint, requested_page=, total=, page_size=)` returns the
+  `page`/`total_pages`/`total`/`prev_url`/`next_url` template variables in one dict.
+  It strips `page` and `append` from the current query args before building each URL,
+  so `append=1` never accumulates. Each route had its own copy of this block until
+  2026-09-25, and `/hidden`'s copy stripped only `page` — its Prev/Next links carried
+  `append=1` and fetched a bare fragment.
+- `/channels` clamps the page *before* querying, so `?page=99` shows the last page of
+  channels; `/` and `/hidden` query with the raw page and clamp only for display, so an
+  out-of-range page there renders an empty list labeled page 1. That difference predates
+  the shared helper and is preserved deliberately rather than unified, since changing
+  either one is a user-visible behavior change that this refactor didn't authorize —
+  `TestChannelsPage::test_out_of_range_page_shows_the_last_page_not_an_empty_grid` pins it.
 - Filter changes still reset to page 1 (page is not a form field).
 
 ### Watch Later Drag-to-Reorder

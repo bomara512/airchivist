@@ -1,4 +1,3 @@
-import math
 from datetime import datetime, timezone
 
 from flask import Blueprint, abort, g, jsonify, redirect, render_template, request, url_for
@@ -8,6 +7,7 @@ from webapp import db as _db
 from webapp import llm_tagger as _llm
 from webapp.api import ApiStatus, cors_json, video_api_route
 from webapp.db import MatchType
+from webapp.pagination import pagination_context, requested_page
 
 bp = Blueprint("main", __name__)
 
@@ -50,10 +50,7 @@ def index():
     except ValueError:
         added_within = None
     append = request.args.get("append") == "1"
-    try:
-        page = max(1, int(request.args.get("page", 1)))
-    except ValueError:
-        page = 1
+    page = requested_page(request.args)
 
     try:
         total = _db.count_videos(
@@ -71,14 +68,6 @@ def index():
         )
     except ValueError:
         abort(400)
-
-    total_pages = max(1, math.ceil(total / PAGE_SIZE))
-    page = min(page, total_pages)
-
-    def page_url(p):
-        args = {k: v for k, v in request.args.to_dict().items() if k not in ("page", "append")}
-        args["page"] = p
-        return url_for("main.index", **args)
 
     channels = _db.get_video_channel_names(g.db)
     canonical_tags = _db.get_canonical_tags_for_filter_grouped(g.db)
@@ -132,11 +121,7 @@ def index():
         current_duration=duration,
         current_added_within=added_within,
         active_filter_count=active_filter_count,
-        page=page,
-        total_pages=total_pages,
-        total=total,
-        prev_url=page_url(page - 1) if page > 1 else None,
-        next_url=page_url(page + 1) if page < total_pages else None,
+        **pagination_context("main.index", requested_page=page, total=total, page_size=PAGE_SIZE),
     )
 
     if request.headers.get("HX-Request"):
@@ -167,33 +152,24 @@ def channels():
     search = request.args.get("search") or None
     has_videos = request.args.get("has_videos") == "1"
     append = request.args.get("append") == "1"
-    try:
-        page = max(1, int(request.args.get("page", 1)))
-    except ValueError:
-        page = 1
 
     total = _db.count_channels(g.db, search=search, has_videos=has_videos)
-    total_pages = max(1, math.ceil(total / PAGE_SIZE))
-    page = min(page, total_pages)
+    # Unlike index/hidden, this route clamps before querying: an out-of-range
+    # ?page= shows the last page's channels rather than an empty grid.
+    pagination = pagination_context(
+        "main.channels", requested_page=requested_page(request.args), total=total, page_size=PAGE_SIZE,
+    )
     channel_rows = _db.get_channels_page(
         g.db, sort_by=sort_by, sort_dir=sort_dir,
-        search=search, has_videos=has_videos, page=page, page_size=PAGE_SIZE,
+        search=search, has_videos=has_videos, page=pagination["page"], page_size=PAGE_SIZE,
     )
-
-    def page_url(p):
-        args = {k: v for k, v in request.args.to_dict().items() if k not in ("page", "append")}
-        args["page"] = p
-        return url_for("main.channels", **args)
 
     template_vars = dict(
         channels=channel_rows,
         current_sort=sort,
         current_search=search,
         has_videos=has_videos,
-        page=page,
-        total_pages=total_pages,
-        total=total,
-        next_url=page_url(page + 1) if page < total_pages else None,
+        **pagination,
     )
 
     if request.headers.get("HX-Request"):
@@ -597,33 +573,19 @@ def video_delete(video_id):
 def hidden():
     sort_by = request.args.get("sort_by", "date_added")
     sort_dir = request.args.get("sort_dir", "desc")
-    try:
-        page = max(1, int(request.args.get("page", 1)))
-    except ValueError:
-        page = 1
+    page = requested_page(request.args)
     total = _db.count_hidden_videos(g.db)
     try:
         videos = _db.get_hidden_videos(g.db, sort_by=sort_by, sort_dir=sort_dir, page=page, page_size=PAGE_SIZE)
     except ValueError:
         abort(400)
-    total_pages = max(1, math.ceil(total / PAGE_SIZE))
-    page = min(page, total_pages)
-
-    def page_url(p):
-        args = {k: v for k, v in request.args.to_dict().items() if k != "page"}
-        args["page"] = p
-        return url_for("main.hidden", **args)
 
     return render_template(
         "hidden.html",
         videos=videos,
-        total=total,
-        page=page,
-        total_pages=total_pages,
         sort_by=sort_by,
         sort_dir=sort_dir,
-        prev_url=page_url(page - 1) if page > 1 else None,
-        next_url=page_url(page + 1) if page < total_pages else None,
+        **pagination_context("main.hidden", requested_page=page, total=total, page_size=PAGE_SIZE),
     )
 
 
