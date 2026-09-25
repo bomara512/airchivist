@@ -6,6 +6,33 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-25
 
+### refactor: extract initToggle in the extension popup (Task 14/14) — plan complete
+
+`initWatchLaterToggle` and `initFavoriteToggle` were ~90% identical line for line
+(a knowingly-accepted duplication when the favorite toggle landed), and both
+hand-rolled the `fetch` call the file's own `postJson` helper already covered.
+Now one `initToggle(config)` with two three-line wrappers.
+
+- **Pro:** the 16 pre-existing toggle tests pass **unmodified**, which is what
+  makes the extraction verifiably behavior-free. `postJson` is now the single
+  place a JSON POST is built — `doAdd`, `doAddChannel`, and `doHide` were also
+  hand-rolling it. The five copies of a 5-property inline `style=` attribute
+  collapse to one `.popup-check-label` class. `popup.js` drops 100 lines.
+- **Con:** the config object has 10 keys, so a caller now has to read the wrapper
+  to know what a toggle does, where before the whole flow was inline.
+- Three `fetch` calls deliberately stay raw, each with a comment: `/api/status` is
+  a GET with a query string, and the unhide/delete routes take no body and answer
+  with a redirect. Without the comments the next cleanup pass would convert them
+  and break them.
+- **Requires an extension reload to take effect** — `about:debugging` → This
+  Firefox → Reload next to the temporary add-on. A popup JS/CSS change is not
+  picked up by a page refresh.
+
+**This completes the 14-task code-quality remediation plan.** Backend suite 585 →
+642 tests, extension 24 → 26, with `ruff` and `mypy` as gates. `routes.py` 885 →
+595 lines; five new focused modules (`api.py`, `pagination.py`, `video_filters.py`,
+plus additions to `filters.py`); two dead modules deleted.
+
 ### chore: modernize typing to PEP 604 unions, add a mypy gate (Task 13/14)
 
 Turned on ruff's `UP` rules (115 automatic fixes: 59 `Optional[X]` → `X | None`,

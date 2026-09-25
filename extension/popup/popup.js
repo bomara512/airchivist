@@ -45,6 +45,7 @@ async function getOrCreateFolder() {
 }
 
 async function checkStatus(airchivistUrl, tabUrl) {
+  // Not postJson: /api/status is a GET with the url in the query string.
   const resp = await fetch(`${airchivistUrl}/api/status?url=${encodeURIComponent(tabUrl)}`);
   return resp.json();
 }
@@ -65,11 +66,7 @@ async function doAdd(airchivistUrl, tabUrl, tabTitle, alsoWatchLater = false, al
     getOrCreateFolder().then(id =>
       browser.bookmarks.create({ title: tabTitle, url: tabUrl, parentId: id })
     ),
-    fetch(`${airchivistUrl}/api/add`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: tabUrl }),
-    }).then(r => r.json()),
+    postJson(`${airchivistUrl}/api/add`, { url: tabUrl }),
   ]);
   const bookmarkOk = bookmarkResult.status === 'fulfilled';
   const vtData = vtResult.status === 'fulfilled' ? vtResult.value : null;
@@ -126,11 +123,7 @@ async function doAddChannel(airchivistUrl, channelUrl, tabTitle) {
     getOrCreateFolder().then(id =>
       browser.bookmarks.create({ title: tabTitle, url: channelUrl, parentId: id })
     ),
-    fetch(`${airchivistUrl}/api/channel/add`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: channelUrl }),
-    }).then(r => r.json()),
+    postJson(`${airchivistUrl}/api/channel/add`, { url: channelUrl }),
   ]);
   const bookmarkOk = bookmarkResult.status === 'fulfilled';
   const vtData = vtResult.status === 'fulfilled' ? vtResult.value : null;
@@ -156,12 +149,7 @@ async function doHide(airchivistUrl, tabUrl, alsoUnbookmark) {
   root.innerHTML = working('Hiding…');
   let data;
   try {
-    const resp = await fetch(`${airchivistUrl}/api/hide`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: tabUrl }),
-    });
-    data = await resp.json();
+    data = await postJson(`${airchivistUrl}/api/hide`, { url: tabUrl });
   } catch {
     root.innerHTML = '<div class="status error">&#10007; Airchivist unreachable</div>';
     return;
@@ -180,6 +168,7 @@ async function doHide(airchivistUrl, tabUrl, alsoUnbookmark) {
 async function doRestore(airchivistUrl, videoId) {
   const root = document.getElementById('root');
   root.innerHTML = working('Restoring…');
+  // Not postJson: these two routes take no body and answer with a redirect, not JSON.
   await fetch(`${airchivistUrl}/videos/${videoId}/unhide`, { method: 'POST' });
   root.innerHTML = '<div class="status success">&#10003; Restored</div>';
   setTimeout(() => window.close(), 1500);
@@ -188,120 +177,99 @@ async function doRestore(airchivistUrl, videoId) {
 async function doDelete(airchivistUrl, videoId) {
   const root = document.getElementById('root');
   root.innerHTML = working('Deleting…');
+  // Not postJson: see doRestore.
   await fetch(`${airchivistUrl}/videos/${videoId}/delete`, { method: 'POST' });
   root.innerHTML = '<div class="status success">&#10003; Deleted</div>';
   setTimeout(() => window.close(), 1500);
 }
 
-async function initWatchLaterToggle(airchivistUrl, tabUrl) {
-  const chk = document.getElementById('chk-watch-later');
-  const errBox = document.getElementById('wl-error');
+/**
+ * Drive one checkbox that mirrors a server-side boolean.
+ *
+ * The Watch Later and Favorite toggles were ~90% identical line for line; the
+ * only real differences are the endpoint paths, the key the status response uses,
+ * and which `status` values count as a successful add (watch-later has two,
+ * because re-adding a queued video answers `already_in_queue`).
+ *
+ * The checkbox starts disabled in the markup and is only enabled once the status
+ * fetch resolves: a status we could not read is left disabled, because there is
+ * nothing safe to toggle from an unknown state.
+ */
+async function initToggle({
+  checkboxId, errorBoxId, statusPath, statusKey,
+  addPath, removePath, addSuccessStatuses, removeSuccessStatus = 'removed',
+  errorLabel, airchivistUrl, tabUrl,
+}) {
+  const chk = document.getElementById(checkboxId);
+  const errBox = document.getElementById(errorBoxId);
 
-  let inQueue;
+  let initial;
   try {
-    const resp = await fetch(`${airchivistUrl}/api/watch-later/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: tabUrl }),
-    });
-    const data = await resp.json();
-    inQueue = !!data.in_queue;
+    const data = await postJson(`${airchivistUrl}${statusPath}`, { url: tabUrl });
+    initial = !!data[statusKey];
   } catch {
     return; // Leave disabled — unknown state, nothing safe to toggle.
   }
 
-  chk.checked = inQueue;
+  chk.checked = initial;
   chk.disabled = false;
 
   chk.addEventListener('change', async () => {
-    const wantQueued = chk.checked;
-    const prevChecked = !wantQueued;
+    const wantOn = chk.checked;
     chk.disabled = true;
     errBox.style.display = 'none';
 
-    const endpoint = wantQueued ? 'add' : 'remove';
     let ok;
     try {
-      const resp = await fetch(`${airchivistUrl}/api/watch-later/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: tabUrl }),
-      });
-      const data = await resp.json();
-      ok = wantQueued
-        ? ['added', 'already_in_queue'].includes(data.status)
-        : data.status === 'removed';
+      const data = await postJson(`${airchivistUrl}${wantOn ? addPath : removePath}`, { url: tabUrl });
+      ok = wantOn
+        ? addSuccessStatuses.includes(data.status)
+        : data.status === removeSuccessStatus;
     } catch {
       ok = false;
     }
 
     if (!ok) {
-      chk.checked = prevChecked;
-      errBox.textContent = '✗ Watch Later update failed';
+      chk.checked = !wantOn;
+      errBox.textContent = errorLabel;
       errBox.style.display = 'block';
     }
     chk.disabled = false;
+  });
+}
+
+async function initWatchLaterToggle(airchivistUrl, tabUrl) {
+  return initToggle({
+    checkboxId: 'chk-watch-later', errorBoxId: 'wl-error',
+    statusPath: '/api/watch-later/status', statusKey: 'in_queue',
+    addPath: '/api/watch-later/add', removePath: '/api/watch-later/remove',
+    addSuccessStatuses: ['added', 'already_in_queue'],
+    errorLabel: '✗ Watch Later update failed',
+    airchivistUrl, tabUrl,
   });
 }
 
 async function initFavoriteToggle(airchivistUrl, tabUrl) {
-  const chk = document.getElementById('chk-favorite');
-  const errBox = document.getElementById('fav-error');
-
-  let isFavorite;
-  try {
-    const resp = await fetch(`${airchivistUrl}/api/favorite/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: tabUrl }),
-    });
-    const data = await resp.json();
-    isFavorite = !!data.is_favorite;
-  } catch {
-    return; // Leave disabled — unknown state, nothing safe to toggle.
-  }
-
-  chk.checked = isFavorite;
-  chk.disabled = false;
-
-  chk.addEventListener('change', async () => {
-    const wantFavorite = chk.checked;
-    const prevChecked = !wantFavorite;
-    chk.disabled = true;
-    errBox.style.display = 'none';
-
-    const endpoint = wantFavorite ? 'add' : 'remove';
-    let ok;
-    try {
-      const resp = await fetch(`${airchivistUrl}/api/favorite/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: tabUrl }),
-      });
-      const data = await resp.json();
-      ok = wantFavorite ? data.status === 'added' : data.status === 'removed';
-    } catch {
-      ok = false;
-    }
-
-    if (!ok) {
-      chk.checked = prevChecked;
-      errBox.textContent = '✗ Favorite update failed';
-      errBox.style.display = 'block';
-    }
-    chk.disabled = false;
+  return initToggle({
+    checkboxId: 'chk-favorite', errorBoxId: 'fav-error',
+    statusPath: '/api/favorite/status', statusKey: 'is_favorite',
+    addPath: '/api/favorite/add', removePath: '/api/favorite/remove',
+    addSuccessStatuses: ['added'],
+    errorLabel: '✗ Favorite update failed',
+    airchivistUrl, tabUrl,
   });
 }
+
 
 function renderState(root, airchivistUrl, tabUrl, tabTitle, data) {
   if (data.status === 'not_found') {
     root.innerHTML = `
       <button id="btn-add" class="action-btn">Add to Airchivist</button>
-      <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
+      <label class="popup-check-label">
         <input type="checkbox" id="chk-watch-later" style="margin-right:0.3rem">
         Also add to Watch Later
       </label>
-      <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
+      <label class="popup-check-label">
         <input type="checkbox" id="chk-favorite" style="margin-right:0.3rem">
         Also mark as favorite (&#9733;)
       </label>
@@ -318,16 +286,16 @@ function renderState(root, airchivistUrl, tabUrl, tabTitle, data) {
     root.innerHTML = `
       <div class="status success" style="margin-bottom:0.5rem">&#10003; ${esc(data.title)}</div>
       <button id="btn-hide" class="action-btn action-btn--danger">Archive</button>
-      <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
+      <label class="popup-check-label">
         <input type="checkbox" id="chk-unbookmark" style="margin-right:0.3rem">
         Also remove browser bookmark
       </label>
-      <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
+      <label class="popup-check-label">
         <input type="checkbox" id="chk-watch-later" disabled style="margin-right:0.3rem">
         Add to Watch Later
       </label>
       <div id="wl-error" class="status error" style="margin-top:0.3rem;display:none"></div>
-      <label style="display:block;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:#aaa">
+      <label class="popup-check-label">
         <input type="checkbox" id="chk-favorite" disabled style="margin-right:0.3rem">
         Mark as favorite (&#9733;)
       </label>
@@ -421,7 +389,7 @@ if (typeof module === 'undefined') {
 } else {
   module.exports = {
     doAdd, doAddChannel, doHide, doRestore, doDelete,
-    initWatchLaterToggle, initFavoriteToggle, renderState, renderChannelState,
+    initToggle, initWatchLaterToggle, initFavoriteToggle, renderState, renderChannelState,
     checkStatus, channelUrlFrom, esc, getOrCreateFolder, postJson,
   };
 }

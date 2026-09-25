@@ -133,6 +133,29 @@ The toolbar icon should only be fully active on YouTube video pages. Two options
 
 ---
 
+## Popup internals
+
+- `postJson(url, body)` is the single place a JSON POST is built. Every route the
+  popup POSTs a JSON body to goes through it. Three `fetch` calls deliberately do
+  not: `/api/status` is a GET with the URL in the query string, and
+  `/videos/<id>/unhide` and `/videos/<id>/delete` take no body and answer with a
+  redirect rather than JSON. Each carries a one-line comment saying so, so the
+  next pass doesn't "finish the job" and break them.
+- `initToggle(config)` drives any checkbox that mirrors a server-side boolean:
+  it reads the current value, enables the checkbox, and on `change` calls the add
+  or remove endpoint, reverting the checkbox and showing an inline error if the
+  call fails. `initWatchLaterToggle` and `initFavoriteToggle` are three-line
+  wrappers supplying the paths, the status key (`in_queue` / `is_favorite`), and
+  which `status` values count as success — watch-later accepts two (`added` and
+  `already_in_queue`, since re-adding a queued video is not an error), favorites
+  one. The two were ~90% identical line for line until 2026-09-25.
+- A checkbox whose status fetch fails stays **disabled**: an unknown state has no
+  safe toggle direction.
+- `.popup-check-label` in `popup.css` styles the five opt-in checkbox labels. Its
+  values are literals rather than design tokens on purpose — the popup is a
+  separate document and does not load the webapp's `style.css`, so none of its
+  custom properties are in scope.
+
 ## Error Handling
 
 | Scenario | Behavior |

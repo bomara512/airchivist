@@ -39,3 +39,15 @@ body {
 .action-btn { display: block; width: 100%; background: #333; color: #e8e8e8; border: 1px solid #555; padding: 0.45rem 0.75rem; border-radius: 4px; font-size: 0.85rem; cursor: pointer; text-align: left; }
 .action-btn:hover { background: #444; border-color: #888; }
 .action-btn--danger:hover { background: #3a1010; border-color: #cc0000; color: #ff6b6b; }
+
+/* The five opt-in checkbox labels in the popup's `not_found` and `exists` states.
+   Literal values, not tokens: the popup is a separate document from the webapp
+   and does not load `webapp/static/style.css`, so it has no access to its custom
+   properties. #aaa matches `.status` above. */
+.popup-check-label {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #aaa;
+}

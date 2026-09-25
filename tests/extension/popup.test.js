@@ -18,8 +18,9 @@ afterEach(() => {
 });
 
 describe('module exports', () => {
-  test('exports doAdd, initWatchLaterToggle, and initFavoriteToggle as functions', () => {
+  test('exports doAdd, initToggle, initWatchLaterToggle, and initFavoriteToggle as functions', () => {
     expect(typeof popup.doAdd).toBe('function');
+    expect(typeof popup.initToggle).toBe('function');
     expect(typeof popup.initWatchLaterToggle).toBe('function');
     expect(typeof popup.initFavoriteToggle).toBe('function');
   });
@@ -425,5 +426,70 @@ describe('initFavoriteToggle', () => {
 
     expect(chk.checked).toBe(true);
     expect(errBox.style.display).toBe('block');
+  });
+});
+
+describe('initToggle', () => {
+  const airchivistUrl = 'http://localhost:8080';
+  const tabUrl = 'https://www.youtube.com/watch?v=abc123';
+
+  test('is exported and drives an arbitrary checkbox/endpoint pair', async () => {
+    document.getElementById('root').innerHTML = `
+      <input type="checkbox" id="chk-generic" disabled>
+      <div id="generic-error" style="display:none"></div>
+    `;
+    global.fetch = mockFetchRouter([
+      ['/api/thing/status', () => jsonResponse({ on: true })],
+    ]);
+
+    await popup.initToggle({
+      checkboxId: 'chk-generic',
+      errorBoxId: 'generic-error',
+      statusPath: '/api/thing/status',
+      statusKey: 'on',
+      addPath: '/api/thing/add',
+      removePath: '/api/thing/remove',
+      addSuccessStatuses: ['added'],
+      errorLabel: '✗ Thing update failed',
+      airchivistUrl,
+      tabUrl,
+    });
+
+    const chk = document.getElementById('chk-generic');
+    expect(chk.checked).toBe(true);
+    expect(chk.disabled).toBe(false);
+  });
+
+  test('a failed toggle reverts the checkbox and shows the configured label', async () => {
+    document.getElementById('root').innerHTML = `
+      <input type="checkbox" id="chk-generic" disabled>
+      <div id="generic-error" style="display:none"></div>
+    `;
+    global.fetch = mockFetchRouter([
+      ['/api/thing/status', () => jsonResponse({ on: false })],
+      ['/api/thing/add', () => jsonResponse({ status: 'error' })],
+    ]);
+
+    await popup.initToggle({
+      checkboxId: 'chk-generic',
+      errorBoxId: 'generic-error',
+      statusPath: '/api/thing/status',
+      statusKey: 'on',
+      addPath: '/api/thing/add',
+      removePath: '/api/thing/remove',
+      addSuccessStatuses: ['added'],
+      errorLabel: '✗ Thing update failed',
+      airchivistUrl,
+      tabUrl,
+    });
+
+    const chk = document.getElementById('chk-generic');
+    chk.checked = true;
+    chk.dispatchEvent(new Event('change'));
+    await flushPromises();
+
+    expect(chk.checked).toBe(false);
+    expect(chk.disabled).toBe(false);
+    expect(document.getElementById('generic-error').textContent).toContain('Thing update failed');
   });
 });
