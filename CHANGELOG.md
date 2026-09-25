@@ -6,6 +6,40 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-25
 
+### chore: modernize typing to PEP 604 unions, add a mypy gate (Task 13/14)
+
+Turned on ruff's `UP` rules (115 automatic fixes: 59 `Optional[X]` → `X | None`,
+plus `timezone.utc` → `datetime.UTC`), tightened the bare generics ruff can't
+infer (`-> list` → `-> list[dict]`, `-> dict` → `-> dict[str, Any]`, `-> set` →
+`-> set[str]`), typed the two `fetch_status` dataclass fields as `FetchStatus`
+rather than `str`, and added `mypy` as a second gate alongside ruff — in
+`pyproject.toml`, in the dev extras, and as a pre-commit hook.
+
+- **Pro:** mypy found four real pieces of type confusion, all now fixed rather
+  than silenced: `create_tag`/`create_canonical_tag` returned `cursor.lastrowid`
+  (`int | None`) from a function declared `-> int`; `crawler/cli.py` passed a
+  `str | None` video ID into a `str` parameter (safe today only because a list
+  comprehension filtered on a *recomputed* property); `pagination_context` assigned
+  an `int` page number into a `dict[str, str]`; and the bookmark parser's
+  `_current_attrs` was typed `dict[str, str]` when a valueless HTML attribute
+  (`<a download>`) parses as `(name, None)`.
+- **Con:** two more things to install and two more gates to keep green, and the
+  `UP` diff touches 14 files at once — mechanical, but it makes `git blame` on
+  those lines point here rather than at the change that wrote the code.
+- Configured with three warnings rather than `--strict`: the codebase is partly
+  annotated and `--strict` would report hundreds of findings with no path to green.
+  It must print `Success` with **no notes** — an `annotation-unchecked` note means
+  mypy skipped a function body, so three `_NetscapeParser` methods got annotations
+  rather than leaving the note in place.
+- `anthropic` and `yt_dlp` are declared in `[[tool.mypy.overrides]]` rather than as
+  inline `type: ignore`s, so the pre-commit hook (whose venv has neither) agrees
+  with a local run that does. The hook also uses `pass_filenames: false`, so its
+  scope is `pyproject.toml`'s, not whichever files are staged — otherwise the hook
+  checks `scripts/` and the local command doesn't.
+- `TestToolingPinsAgree` now covers the mypy rev/version pair as well as ruff's.
+  Verified from a fresh venv that `pip install -e ".[dev]"` alone gets both gates
+  to green.
+
 ### refactor: LLMError hierarchy, shared tool-call helper, error codes in URLs (Task 12/14)
 
 `webapp/llm_tagger.py` raised `ImportError`, `EnvironmentError`, and `ValueError`

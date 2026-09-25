@@ -1,5 +1,5 @@
+from datetime import UTC, datetime
 from datetime import date as _date
-from datetime import datetime, timezone
 
 
 def format_view_count(value):
@@ -52,7 +52,7 @@ def _as_utc(value: str) -> datetime:
     card. Assuming UTC is right for this app's data and cannot raise.
     """
     parsed = datetime.fromisoformat(value)
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 def shelf_expires_label(expires_at: str | None) -> str:
@@ -63,7 +63,7 @@ def shelf_expires_label(expires_at: str | None) -> str:
         expires = _as_utc(expires_at)
     except (TypeError, ValueError):
         return "—"
-    diff = expires - datetime.now(timezone.utc)
+    diff = expires - datetime.now(UTC)
     if diff.total_seconds() <= 0:
         return "expired"
     if diff.days > 0:
@@ -83,7 +83,7 @@ def last_viewed_reason(
         return "Never opened"
     if not date_last_viewed:
         return "Not recently viewed"
-    reference = now or datetime.now(timezone.utc)
+    reference = now or datetime.now(UTC)
     try:
         last_viewed = _as_utc(date_last_viewed)
     except (TypeError, ValueError):

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -29,8 +29,8 @@ class TestJsonParser:
         # bookmark with dateAdded=1620000000000000 microseconds
         rick = next(b for b in bookmarks if "dQw4w9WgXcQ" in b.url)
         assert rick.date_added is not None
-        expected = datetime.fromtimestamp(1620000000, tz=timezone.utc)
-        assert rick.date_added.replace(tzinfo=timezone.utc) == expected
+        expected = datetime.fromtimestamp(1620000000, tz=UTC)
+        assert rick.date_added.replace(tzinfo=UTC) == expected
 
     def test_parse_json_handles_missing_dates_gracefully(self):
         bookmarks = parse(FIXTURES / "sample_bookmarks.json")
@@ -68,8 +68,8 @@ class TestHtmlParser:
         bookmarks = parse(FIXTURES / "sample_bookmarks.html")
         rick = next(b for b in bookmarks if "dQw4w9WgXcQ" in b.url)
         assert rick.date_added is not None
-        expected = datetime.fromtimestamp(1620000000, tz=timezone.utc)
-        assert rick.date_added.replace(tzinfo=timezone.utc) == expected
+        expected = datetime.fromtimestamp(1620000000, tz=UTC)
+        assert rick.date_added.replace(tzinfo=UTC) == expected
 
     def test_parse_html_handles_missing_last_visit(self):
         bookmarks = parse(FIXTURES / "sample_bookmarks.html")

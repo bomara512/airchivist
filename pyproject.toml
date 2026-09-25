@@ -20,6 +20,7 @@ dev = [
     "pytest-cov",
     "pytest-mock",
     "ruff==0.16.9",   # keep in step with .pre-commit-config.yaml's rev
+    "mypy==2.3.1",    # keep in step with .pre-commit-config.yaml's mypy rev
     "pre-commit",
 ]
 
@@ -44,7 +45,25 @@ line-length = 120
 [tool.ruff.lint]
 # F = pyflakes (dead imports, f-strings without placeholders)
 # I = import sorting
+# UP = pyupgrade (PEP 604 unions, datetime.UTC, modern generics)
 # Deliberately deferred: "E"/"W" (line-length noise on existing prose-heavy
-# comments), "UP" (owned by Task 13 so the typing diff is reviewable alone),
-# "B"/"SIM" (findings need judgment; revisit once this baseline is green).
-select = ["F", "I"]
+# comments), "B"/"SIM" (findings need judgment; revisit once this baseline is green).
+select = ["F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["webapp", "crawler"]
+# Deliberately not strict: this codebase is partially annotated, and --strict
+# would produce hundreds of findings with no path to green. These three catch
+# real bugs without demanding full annotation.
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+
+# yt-dlp publishes no stubs, and `anthropic` is an optional dependency the app
+# runs fine without (`llm_tagger.is_available()` returns False). Declared here
+# rather than as inline `type: ignore`s so the pre-commit hook — whose venv has
+# neither installed — agrees with a local run that happens to have them.
+[[tool.mypy.overrides]]
+module = ["anthropic.*", "yt_dlp.*"]
+ignore_missing_imports = true

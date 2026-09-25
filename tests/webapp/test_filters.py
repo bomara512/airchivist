@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from webapp.filters import (
     format_date,
@@ -114,34 +114,34 @@ class TestShelfExpiresLabel:
         assert shelf_expires_label("not-a-date") == "—"
 
     def test_a_naive_timestamp_is_read_as_utc_not_a_crash(self):
-        naive = (datetime.now(timezone.utc) + timedelta(days=3, seconds=1)).replace(tzinfo=None).isoformat()
+        naive = (datetime.now(UTC) + timedelta(days=3, seconds=1)).replace(tzinfo=None).isoformat()
         assert shelf_expires_label(naive) == "3 days"
 
     def test_past_is_expired(self):
-        past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
         assert shelf_expires_label(past) == "expired"
 
     def test_days_are_pluralized(self):
         # The `+ 1s` is load-bearing: the label truncates (see the next test), so
         # an expiry exactly 3 days out already reads "2 days" by the time the
         # subtraction runs a few microseconds later.
-        soon = datetime.now(timezone.utc)
+        soon = datetime.now(UTC)
         assert shelf_expires_label((soon + timedelta(days=3, seconds=1)).isoformat()) == "3 days"
         assert shelf_expires_label((soon + timedelta(days=1, hours=1)).isoformat()) == "1 day"
 
     def test_truncates_rather_than_rounding(self):
         """Pre-existing behavior, preserved: a freshly generated 7-day shelf reads
         "6 days" for its whole first day. Cosmetic; filed in TODO.md."""
-        exactly_three = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
+        exactly_three = (datetime.now(UTC) + timedelta(days=3)).isoformat()
         assert shelf_expires_label(exactly_three) == "2 days"
 
     def test_under_a_day_falls_back_to_hours(self):
-        soon = (datetime.now(timezone.utc) + timedelta(hours=5, seconds=1)).isoformat()
+        soon = (datetime.now(UTC) + timedelta(hours=5, seconds=1)).isoformat()
         assert shelf_expires_label(soon) == "5 hours"
 
 
 class TestLastViewedReason:
-    NOW = datetime(2026, 9, 24, 12, 0, tzinfo=timezone.utc)
+    NOW = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 
     def test_never_opened(self):
         assert last_viewed_reason(0, None, now=self.NOW) == "Never opened"
@@ -150,15 +150,15 @@ class TestLastViewedReason:
         assert last_viewed_reason(3, None, now=self.NOW) == "Not recently viewed"
 
     def test_today(self):
-        same_day = datetime(2026, 9, 24, 1, 0, tzinfo=timezone.utc).isoformat()
+        same_day = datetime(2026, 9, 24, 1, 0, tzinfo=UTC).isoformat()
         assert last_viewed_reason(1, same_day, now=self.NOW) == "Last viewed today"
 
     def test_one_day_is_singular(self):
-        yesterday = datetime(2026, 9, 23, 1, 0, tzinfo=timezone.utc).isoformat()
+        yesterday = datetime(2026, 9, 23, 1, 0, tzinfo=UTC).isoformat()
         assert last_viewed_reason(1, yesterday, now=self.NOW) == "Last viewed 1 day ago"
 
     def test_many_days(self):
-        older = datetime(2026, 9, 14, 1, 0, tzinfo=timezone.utc).isoformat()
+        older = datetime(2026, 9, 14, 1, 0, tzinfo=UTC).isoformat()
         assert last_viewed_reason(1, older, now=self.NOW) == "Last viewed 10 days ago"
 
     def test_a_naive_timestamp_is_read_as_utc_not_a_crash(self):

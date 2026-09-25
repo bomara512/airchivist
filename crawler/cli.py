@@ -56,6 +56,10 @@ def main() -> None:
             total = len(video_bookmarks)
             for i, bookmark in enumerate(video_bookmarks, 1):
                 vid_id = bookmark.youtube_video_id
+                if vid_id is None:
+                    # video_bookmarks was filtered on this property, but it is
+                    # recomputed from the URL on each access — narrow explicitly.
+                    continue
                 print(f"[{i}/{total}] {vid_id}", flush=True)
 
                 if not args.force_refresh and ds.get_video_by_id(vid_id):

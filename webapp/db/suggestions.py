@@ -1,7 +1,6 @@
 import json
 import sqlite3
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from webapp.db.aliases import add_alias, retroactive_apply
 from webapp.db.tags import create_canonical_tag
@@ -29,7 +28,7 @@ def save_llm_suggestions(conn: sqlite3.Connection, suggestions: list[dict], pool
     from "never run".
     """
     conn.execute("DELETE FROM llm_suggestions")
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     for s in suggestions:
         conn.execute(
             "INSERT INTO llm_suggestions (canonical, members, confidence, is_noise, created_at, pool_hash) "
@@ -52,7 +51,7 @@ def save_llm_suggestions(conn: sqlite3.Connection, suggestions: list[dict], pool
     conn.commit()
 
 
-def get_llm_suggestion_by_id(conn: sqlite3.Connection, suggestion_id: int) -> Optional[dict]:
+def get_llm_suggestion_by_id(conn: sqlite3.Connection, suggestion_id: int) -> dict | None:
     row = conn.execute(
         "SELECT id, canonical, members, confidence, is_noise "
         "FROM llm_suggestions WHERE id = ?",
@@ -122,7 +121,7 @@ def confirm_and_dismiss_suggestion(
     conn: sqlite3.Connection,
     canonical_name: str,
     accepted_members: list[str],
-    suggestion_id: Optional[int],
+    suggestion_id: int | None,
     all_suggestion_members: list[str],
 ) -> int:
     """Create canonical tag, add exact aliases for accepted members, record rejections, optionally dismiss suggestion.

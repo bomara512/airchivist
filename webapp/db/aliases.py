@@ -1,10 +1,10 @@
 import sqlite3
-from typing import Optional
+from typing import Any
 
 from crawler.models import MatchType
 
 
-def add_alias(conn: sqlite3.Connection, tag_id: int, pattern: str, match_type: str = MatchType.EXACT) -> Optional[int]:
+def add_alias(conn: sqlite3.Connection, tag_id: int, pattern: str, match_type: str = MatchType.EXACT) -> int | None:
     pattern = pattern.strip().lower()
     conn.execute(
         "INSERT OR IGNORE INTO tag_aliases (pattern, match_type, canonical_tag_id) VALUES (?, ?, ?)",
@@ -44,7 +44,7 @@ def delete_alias_with_cleanup(conn: sqlite3.Connection, alias_id: int) -> int:
         sql = ("SELECT DISTINCT vt.video_id_fk FROM video_tags vt "
                "JOIN tags t ON t.id = vt.tag_id_fk "
                "WHERE t.id != ? ")  # exclude the canonical tag itself
-        params: list = [canonical_tag_id]
+        params: list[Any] = [canonical_tag_id]
         if mt == "exact":
             sql += "AND t.name = ? "
             params.append(pat)
@@ -98,8 +98,8 @@ def edit_alias(conn: sqlite3.Connection, alias_id: int, pattern: str, match_type
 
 def retroactive_apply(
     conn: sqlite3.Connection,
-    alias_rule_id: Optional[int] = None,
-    video_id: Optional[int] = None,
+    alias_rule_id: int | None = None,
+    video_id: int | None = None,
 ) -> int:
     """Apply alias rules to existing videos. Returns number of new associations created.
 

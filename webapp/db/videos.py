@@ -2,8 +2,8 @@ import json
 import random
 import re
 import sqlite3
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from crawler.datastore import apply_aliases
 from crawler.models import FetchStatus
@@ -109,18 +109,18 @@ def get_all_videos(
     conn: sqlite3.Connection,
     sort_by: str = 'date_added',
     sort_dir: str = 'desc',
-    channel: Optional[str] = None,
-    tag: Optional[str] = None,
-    search: Optional[str] = None,
+    channel: str | None = None,
+    tag: str | None = None,
+    search: str | None = None,
     page: int = 1,
-    page_size: Optional[int] = None,
-    group: Optional[str] = None,
+    page_size: int | None = None,
+    group: str | None = None,
     favorites_only: bool = False,
     unwatched_only: bool = False,
     unwatched_first: bool = False,
-    duration: Optional[str] = None,
-    added_within: Optional[int] = None,
-) -> list:
+    duration: str | None = None,
+    added_within: int | None = None,
+) -> list[dict]:
     if sort_by not in ALLOWED_SORT_COLUMNS:
         raise ValueError(f"Invalid sort_by: {sort_by!r}")
     if sort_dir not in ALLOWED_SORT_DIRS:
@@ -156,13 +156,13 @@ def get_all_videos(
 
 def count_videos(
     conn: sqlite3.Connection,
-    channel: Optional[str] = None,
-    tag: Optional[str] = None,
-    search: Optional[str] = None,
+    channel: str | None = None,
+    tag: str | None = None,
+    search: str | None = None,
     favorites_only: bool = False,
     unwatched_only: bool = False,
-    duration: Optional[str] = None,
-    added_within: Optional[int] = None,
+    duration: str | None = None,
+    added_within: int | None = None,
 ) -> int:
     where_sql, params = _build_where(
         channel=channel, tag=tag, search=search, favorites_only=favorites_only,
@@ -188,7 +188,7 @@ def get_videos_status_batch(conn: sqlite3.Connection, video_ids: list[str]) -> d
     return {r["video_id"]: ("hidden" if r["is_hidden"] else "exists") for r in rows}
 
 
-def get_video_by_id(conn: sqlite3.Connection, video_id: str) -> Optional[dict]:
+def get_video_by_id(conn: sqlite3.Connection, video_id: str) -> dict | None:
     row = conn.execute(
         "SELECT * FROM videos WHERE video_id = ?", (video_id,)
     ).fetchone()
@@ -202,7 +202,7 @@ def get_video_channel_names(conn: sqlite3.Connection) -> list[str]:
     return [r[0] for r in rows]
 
 
-def get_stats(conn: sqlite3.Connection) -> dict:
+def get_stats(conn: sqlite3.Connection) -> dict[str, Any]:
     total_videos = conn.execute(
         "SELECT COUNT(*) FROM videos WHERE fetch_status = 'ok' AND is_hidden = 0"
     ).fetchone()[0]
@@ -247,7 +247,7 @@ def remove_from_rediscover_shelf(conn: sqlite3.Connection, video_id: str) -> Non
 
 
 def record_visit(conn: sqlite3.Connection, video_id: str) -> None:
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     conn.execute(
         "UPDATE videos SET personal_view_count = personal_view_count + 1, "
         "date_last_viewed = ?, is_watched = 1 WHERE video_id = ?",
@@ -261,19 +261,19 @@ def add_video(
     conn: sqlite3.Connection,
     video_id: str,
     url: str,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    channel_name: Optional[str] = None,
-    channel_id: Optional[str] = None,
-    yt_view_count: Optional[int] = None,
-    duration_seconds: Optional[int] = None,
-    thumbnail_url: Optional[str] = None,
-    date_published: Optional[str] = None,
+    title: str | None = None,
+    description: str | None = None,
+    channel_name: str | None = None,
+    channel_id: str | None = None,
+    yt_view_count: int | None = None,
+    duration_seconds: int | None = None,
+    thumbnail_url: str | None = None,
+    date_published: str | None = None,
     fetch_status: str = FetchStatus.OK,
-    fetch_error: Optional[str] = None,
-    yt_tags: Optional[list] = None,
+    fetch_error: str | None = None,
+    yt_tags: list[str] | None = None,
 ) -> None:
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     conn.execute("""
         INSERT INTO videos (
             video_id, url, title, description, channel_name, channel_id,
@@ -317,7 +317,7 @@ def add_video(
 
 
 def hide_video(conn: sqlite3.Connection, video_id: str) -> None:
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     conn.execute(
         "UPDATE videos SET is_hidden = 1, date_hidden = ? WHERE video_id = ?",
         (now, video_id),
@@ -346,14 +346,14 @@ def get_hidden_videos(
     sort_by: str = 'date_added',
     sort_dir: str = 'desc',
     page: int = 1,
-    page_size: Optional[int] = None,
-) -> list:
+    page_size: int | None = None,
+) -> list[dict]:
     if sort_by not in ALLOWED_SORT_COLUMNS:
         raise ValueError(f"Invalid sort_by: {sort_by!r}")
     if sort_dir not in ALLOWED_SORT_DIRS:
         raise ValueError(f"Invalid sort_dir: {sort_dir!r}")
     limit_sql = ""
-    params: list = []
+    params: list[Any] = []
     if page_size is not None:
         limit_sql = "LIMIT ? OFFSET ?"
         params = [page_size, (page - 1) * page_size]
@@ -380,7 +380,7 @@ def generate_rediscover_shelf(conn: sqlite3.Connection) -> None:
 
     Prioritizes unwatched (is_watched = 0), then falls back to oldest-viewed.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires_at = now + timedelta(days=7)
 
     unwatched = conn.execute("""
@@ -407,13 +407,13 @@ def generate_rediscover_shelf(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def get_current_rediscover_shelf(conn: sqlite3.Connection) -> dict:
+def get_current_rediscover_shelf(conn: sqlite3.Connection) -> dict[str, Any]:
     """Fetch active rediscover shelf; regenerate if expired or missing. Returns full video data."""
     row = conn.execute(
         "SELECT video_ids, generated_at, expires_at FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"
     ).fetchone()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if not row or datetime.fromisoformat(row["expires_at"]) <= now:
         generate_rediscover_shelf(conn)
@@ -448,7 +448,7 @@ def get_current_rediscover_shelf(conn: sqlite3.Connection) -> dict:
     return {"videos": ordered_videos, "generated_at": generated_at, "expires_at": expires_at}
 
 
-def refresh_rediscover_shelf(conn: sqlite3.Connection) -> dict:
+def refresh_rediscover_shelf(conn: sqlite3.Connection) -> dict[str, Any]:
     """Force regeneration of shelf and return full video data."""
     generate_rediscover_shelf(conn)
     return get_current_rediscover_shelf(conn)
@@ -472,7 +472,7 @@ def add_to_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
         "SELECT MAX(position) FROM watch_later"
     ).fetchone()[0] or 0
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     conn.execute(
         "INSERT INTO watch_later (video_id_fk, position, added_at) VALUES (?, ?, ?)",
         (pk, max_pos + 1, now),
@@ -510,7 +510,7 @@ def remove_from_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
     return True
 
 
-def get_watch_later_queue(conn: sqlite3.Connection) -> list:
+def get_watch_later_queue(conn: sqlite3.Connection) -> list[dict]:
     """Get all videos in the watch later queue, ordered by position."""
     rows = conn.execute(f"""
         SELECT v.video_id, v.title, v.channel_name, v.channel_id, v.thumbnail_url,
@@ -527,7 +527,7 @@ def get_watch_later_queue(conn: sqlite3.Connection) -> list:
     return _to_video_dicts(rows)
 
 
-def get_watch_later_video_ids(conn: sqlite3.Connection) -> set:
+def get_watch_later_video_ids(conn: sqlite3.Connection) -> set[str]:
     """Return the set of video_ids currently in the watch later queue."""
     rows = conn.execute("""
         SELECT v.video_id FROM watch_later wl

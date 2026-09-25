@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+from typing import Any
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 MAX_ANCHOR_TAGS = 300   # top tags by video count, always sent
@@ -48,7 +49,7 @@ def _client():
     return anthropic.Anthropic(api_key=api_key)
 
 
-def _call_tool(*, system: str, tool: dict, user_message: str, model: str, max_tokens: int) -> dict:
+def _call_tool(*, system: str, tool: dict, user_message: str, model: str, max_tokens: int) -> dict[str, Any]:
     """Force one tool call and return its input, or raise LLMResponseError."""
     response = _client().messages.create(
         model=model,

@@ -169,8 +169,8 @@ def collapse_case_variants(conn) -> int        # one-time admin: merges case-dup
 `_build_where` also accepts three quick-filter params, alongside the existing `favorites_only`:
 
 - `unwatched_only: bool` — adds `v.is_watched = 0`.
-- `duration: Optional[str]` — one of `"short"`, `"medium"`, `"long"`, looked up in the `_DURATION_BUCKETS` allow-list (`short` < 5 min, `medium` 5–20 min, `long` >= 20 min, all on `v.duration_seconds`). A video with a NULL `duration_seconds` matches none of the three buckets — accepted, since guessing a bucket for missing data would be more misleading than omitting it.
-- `added_within: Optional[int]` — one of `7`, `30`, `90`, `365` (days), validated against the `_ADDED_WITHIN_DAYS` frozenset, then applied as `v.date_added >= date('now', '-N days')`.
+- `duration: str | None` — one of `"short"`, `"medium"`, `"long"`, looked up in the `_DURATION_BUCKETS` allow-list (`short` < 5 min, `medium` 5–20 min, `long` >= 20 min, all on `v.duration_seconds`). A video with a NULL `duration_seconds` matches none of the three buckets — accepted, since guessing a bucket for missing data would be more misleading than omitting it.
+- `added_within: int | None` — one of `7`, `30`, `90`, `365` (days), validated against the `_ADDED_WITHIN_DAYS` frozenset, then applied as `v.date_added >= date('now', '-N days')`.
 
 Both allow-lists live next to `_build_where` in `webapp/db/videos.py`. As with `sort_by`, an unrecognized `duration` or `added_within` raises `ValueError` rather than being interpolated — the `index` route's `try/except ValueError: abort(400)` (see below) turns that into an HTTP 400, e.g. `/?duration=epic`.
 

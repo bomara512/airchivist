@@ -1,9 +1,24 @@
-# Keep `rev` in step with the ruff version pinned in pyproject.toml's dev
-# extras — a hook running a different ruff than `ruff check .` locally will
-# disagree with it, which is worse than having no hook.
+# Keep each `rev` in step with the version pinned in pyproject.toml's dev
+# extras — a hook running a different ruff or mypy than the local gate will
+# disagree with it, which is worse than having no hook. Both pairs are enforced
+# by tests/webapp/test_api.py::TestToolingPinsAgree.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.9
     hooks:
       - id: ruff-check
         args: [--fix]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.3.1
+    hooks:
+      - id: mypy
+        # Run exactly what `mypy` runs locally: no filenames, so pyproject's
+        # `files = ["webapp", "crawler"]` decides the scope. Letting the hook pass
+        # changed filenames instead makes it check scripts/ and tests/, which the
+        # local gate does not — a hook that disagrees with the gate is the thing
+        # this file's header warns about.
+        pass_filenames: false
+        args: []
+        # The hook runs in its own venv, so anything whose types mypy needs to
+        # resolve must be listed here — not just installed locally.
+        additional_dependencies: [flask]

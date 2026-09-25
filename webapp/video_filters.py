@@ -80,7 +80,7 @@ class VideoListFilters:
             self.added_within is not None,
         ))
 
-    def db_kwargs(self) -> dict:
+    def db_kwargs(self) -> dict[str, Any]:
         """The subset of this state that both count_videos and get_all_videos take."""
         return {
             "channel": self.channel,

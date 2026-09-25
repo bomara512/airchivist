@@ -3,7 +3,19 @@ import sqlite3
 from webapp.db.groups import get_tag_groups
 
 
-def get_all_tags(conn: sqlite3.Connection) -> list:
+def _inserted_id(cursor: sqlite3.Cursor) -> int:
+    """The rowid an INSERT just created.
+
+    sqlite3 types `lastrowid` as `int | None` because it is None on a cursor that
+    has not run an INSERT. Unwrapping it here rather than at each call site keeps
+    `create_tag`/`create_canonical_tag` honestly typed as returning `int`.
+    """
+    if cursor.lastrowid is None:
+        raise RuntimeError("INSERT produced no rowid")
+    return cursor.lastrowid
+
+
+def get_all_tags(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute("""
         SELECT t.id, t.name, COUNT(vt.video_id_fk) as video_count
         FROM tags t
@@ -13,7 +25,7 @@ def get_all_tags(conn: sqlite3.Connection) -> list:
     return [dict(r) for r in rows]
 
 
-def get_tags_with_keywords(conn: sqlite3.Connection) -> list:
+def get_tags_with_keywords(conn: sqlite3.Connection) -> list[dict]:
     tags = conn.execute("SELECT id, name FROM tags").fetchall()
     result = []
     for tag in tags:
@@ -66,7 +78,7 @@ def create_tag(conn: sqlite3.Connection, name: str) -> int:
         return existing[0]
     cursor = conn.execute("INSERT INTO tags (name) VALUES (?)", (name,))
     conn.commit()
-    return cursor.lastrowid
+    return _inserted_id(cursor)
 
 
 def set_tag_keywords(conn: sqlite3.Connection, tag_id: int, keywords: list[str]) -> None:
@@ -234,7 +246,7 @@ def get_canonical_tags_for_filter_grouped(conn: sqlite3.Connection) -> list[dict
     return result
 
 
-def get_canonical_tags(conn: sqlite3.Connection) -> list:
+def get_canonical_tags(conn: sqlite3.Connection) -> list[dict]:
     tags = conn.execute("""
         SELECT t.id, t.name, COUNT(DISTINCT vt.video_id_fk) as video_count
         FROM tags t
@@ -267,7 +279,7 @@ def create_canonical_tag(conn: sqlite3.Connection, name: str) -> int:
         return existing[0]
     cursor = conn.execute("INSERT INTO tags (name, is_canonical) VALUES (?, 1)", (name,))
     conn.commit()
-    return cursor.lastrowid
+    return _inserted_id(cursor)
 
 
 def collapse_case_variants(conn: sqlite3.Connection) -> int:

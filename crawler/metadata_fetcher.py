@@ -1,6 +1,5 @@
 import time
 from datetime import datetime
-from typing import Optional
 
 import yt_dlp
 
@@ -13,7 +12,7 @@ _YDL_OPTS = {
 }
 
 
-def _parse_upload_date(value: Optional[str]) -> Optional[datetime]:
+def _parse_upload_date(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
@@ -74,7 +73,7 @@ _CHANNEL_YDL_OPTS = {
 }
 
 
-def _pick_channel_thumbnail(info: dict) -> Optional[str]:
+def _pick_channel_thumbnail(info: dict) -> str | None:
     """Return a channel avatar URL.
 
     yt-dlp does not populate the singular ``thumbnail`` field for channels; the

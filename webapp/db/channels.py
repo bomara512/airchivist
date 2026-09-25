@@ -1,5 +1,4 @@
 import sqlite3
-from typing import Optional
 
 from crawler.models import ChannelMetadata
 
@@ -13,7 +12,7 @@ def get_all_channels(conn: sqlite3.Connection) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def get_channel(conn: sqlite3.Connection, channel_id: str) -> Optional[dict]:
+def get_channel(conn: sqlite3.Connection, channel_id: str) -> dict | None:
     row = conn.execute(
         "SELECT channel_id, channel_name, channel_url, description, "
         "subscriber_count, thumbnail_url, fetch_error, fetch_status, date_added "
@@ -26,7 +25,7 @@ def get_channel(conn: sqlite3.Connection, channel_id: str) -> Optional[dict]:
 def upsert_channel(
     conn: sqlite3.Connection,
     meta: ChannelMetadata,
-    source_url: Optional[str] = None,
+    source_url: str | None = None,
 ) -> None:
     conn.execute(
         """
@@ -53,7 +52,7 @@ def upsert_channel(
     conn.commit()
 
 
-def get_channel_by_source_url(conn: sqlite3.Connection, url: str) -> Optional[dict]:
+def get_channel_by_source_url(conn: sqlite3.Connection, url: str) -> dict | None:
     row = conn.execute(
         "SELECT channel_id, channel_name, channel_url, description, "
         "subscriber_count, thumbnail_url, source_url, fetch_error, fetch_status, "
@@ -71,7 +70,7 @@ _CHANNEL_SORT_COLUMNS = {
 }
 
 
-def _channel_where(search: Optional[str]) -> tuple[str, list]:
+def _channel_where(search: str | None) -> tuple[str, list]:
     """Build the shared WHERE fragment + params for channel name search."""
     if search:
         return " WHERE c.channel_name LIKE '%' || ? || '%'", [search]
@@ -79,7 +78,7 @@ def _channel_where(search: Optional[str]) -> tuple[str, list]:
 
 
 def get_channels_page(conn: sqlite3.Connection, *, sort_by: str = "video_count", sort_dir: str = "desc",
-                      search: Optional[str] = None, has_videos: bool = False, page: int = 1, page_size: int = 100) -> list[dict]:
+                      search: str | None = None, has_videos: bool = False, page: int = 1, page_size: int = 100) -> list[dict]:
     """Return one page of channels with a computed video_count, filtered/sorted."""
     if sort_by not in _CHANNEL_SORT_COLUMNS:
         raise ValueError(f"invalid sort_by: {sort_by}")
@@ -107,7 +106,7 @@ def get_channels_page(conn: sqlite3.Connection, *, sort_by: str = "video_count",
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 
-def count_channels(conn: sqlite3.Connection, *, search: Optional[str] = None, has_videos: bool = False) -> int:
+def count_channels(conn: sqlite3.Connection, *, search: str | None = None, has_videos: bool = False) -> int:
     """Return the total channel count matching the search/has_videos filters."""
     where_sql, params = _channel_where(search)
     having_sql = " HAVING COUNT(v.video_id) > 0" if has_videos else ""

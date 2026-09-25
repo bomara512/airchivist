@@ -2,7 +2,6 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Optional
 
 
 class FetchStatus(StrEnum):
@@ -46,15 +45,15 @@ def extract_video_id(url: str | None) -> str | None:
 class Bookmark:
     url: str
     title: str
-    date_added: Optional[datetime] = None
+    date_added: datetime | None = None
 
     @property
-    def youtube_video_id(self) -> Optional[str]:
+    def youtube_video_id(self) -> str | None:
         m = YT_ID_RE.search(self.url)
         return m.group(1) if m else None
 
     @property
-    def youtube_channel_url(self) -> Optional[str]:
+    def youtube_channel_url(self) -> str | None:
         return self.url if YT_CHANNEL_RE.search(self.url) else None
 
 
@@ -62,20 +61,20 @@ class Bookmark:
 class VideoMetadata:
     video_id: str
     url: str
-    title: Optional[str] = None
-    description: Optional[str] = None
-    channel_name: Optional[str] = None
-    channel_id: Optional[str] = None
-    yt_view_count: Optional[int] = None
-    duration_seconds: Optional[int] = None
-    thumbnail_url: Optional[str] = None
-    date_published: Optional[datetime] = None
+    title: str | None = None
+    description: str | None = None
+    channel_name: str | None = None
+    channel_id: str | None = None
+    yt_view_count: int | None = None
+    duration_seconds: int | None = None
+    thumbnail_url: str | None = None
+    date_published: datetime | None = None
     yt_categories: list[str] = field(default_factory=list)
     yt_tags: list[str] = field(default_factory=list)
-    fetch_status: str = FetchStatus.PENDING
-    fetch_error: Optional[str] = None
+    fetch_status: FetchStatus = FetchStatus.PENDING
+    fetch_error: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.yt_view_count is not None and self.yt_view_count < 0:
             raise ValueError("yt_view_count must be non-negative")
 
@@ -85,8 +84,8 @@ class ChannelMetadata:
     channel_id: str
     channel_name: str
     channel_url: str
-    description: Optional[str] = None
-    subscriber_count: Optional[int] = None
-    thumbnail_url: Optional[str] = None
-    fetch_status: str = FetchStatus.OK
-    fetch_error: Optional[str] = None
+    description: str | None = None
+    subscriber_count: int | None = None
+    thumbnail_url: str | None = None
+    fetch_status: FetchStatus = FetchStatus.OK
+    fetch_error: str | None = None

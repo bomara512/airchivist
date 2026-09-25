@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -46,7 +46,7 @@ class TestSeedContent:
         # last 7 days" filter, so a freshly seeded demo isn't empty for that filter.
         parsed_dates = [datetime.fromisoformat(d) for d in dates]
         newest = max(parsed_dates)
-        assert (datetime.now(timezone.utc) - newest).days <= 7
+        assert (datetime.now(UTC) - newest).days <= 7
 
 
 class TestSeedTags:

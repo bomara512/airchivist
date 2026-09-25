@@ -45,11 +45,34 @@ airchivist/
 │       ├── test_datastore.py
 │       ├── test_cli.py
 │       └── test_integration.py
-├── pyproject.toml          # deps, dev extras (`.[dev]`), pytest + ruff config
+├── pyproject.toml          # deps, dev extras (`.[dev]`), pytest + ruff + mypy config
 └── requirements.txt        # runtime deps plus the optional `anthropic` extra
 ```
 
 ---
+
+## Tooling gates
+
+Three gates, all runnable from a clean `pip install -e ".[dev]"`:
+`ruff check .`, `mypy`, and `python -m pytest -q`. `ruff` selects `F` (pyflakes),
+`I` (import sorting), and `UP` (pyupgrade), so annotations are PEP 604
+(`str | None`, never `Optional[str]`) and `datetime.UTC` replaces
+`timezone.utc` — both enforced mechanically rather than by review.
+
+`mypy` runs over `webapp` and `crawler` (not `tests` or `scripts`) with
+`warn_redundant_casts`, `warn_unused_ignores`, and `warn_unreachable` rather
+than `--strict`: the codebase is partly annotated, and `--strict` would report
+hundreds of findings with no path to green. It must print `Success` with **no
+notes** — an `annotation-unchecked` note means mypy silently skipped a function
+body because it had no annotations, which is a gate that isn't checking.
+`anthropic` (optional at runtime) and `yt_dlp` (no published stubs) are declared
+in a `[[tool.mypy.overrides]]` block rather than as inline `type: ignore`s, so
+the pre-commit hook — whose venv has neither — agrees with a local run that does.
+
+Both linters also run as pre-commit hooks, each pinned to the same version as
+the `dev` extras; `tests/webapp/test_api.py::TestToolingPinsAgree` fails if a
+pair drifts. The mypy hook runs with `pass_filenames: false` so its scope comes
+from `pyproject.toml` rather than from whichever files happen to be staged.
 
 ## Data Model / SQLite Schema
 

@@ -1,7 +1,6 @@
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from crawler.models import Bookmark, ChannelMetadata, MatchType, VideoMetadata
 
@@ -57,7 +56,7 @@ CREATE TABLE IF NOT EXISTS channels (
 """
 
 
-def _dt(value: Optional[datetime]) -> Optional[str]:
+def _dt(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
 
 
@@ -119,7 +118,7 @@ class Datastore:
         self._conn.commit()
 
     def upsert_video(self, metadata: VideoMetadata, bookmark: Bookmark) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self._conn.execute(
             """
             INSERT INTO videos (
@@ -171,7 +170,7 @@ class Datastore:
             tag_id = self.add_tag(name)
             self.tag_video(metadata.video_id, tag_id)
 
-    def get_video_by_id(self, video_id: str) -> Optional[dict]:
+    def get_video_by_id(self, video_id: str) -> dict | None:
         row = self._conn.execute(
             "SELECT * FROM videos WHERE video_id = ?", (video_id,)
         ).fetchone()
@@ -216,7 +215,7 @@ class Datastore:
         ).fetchall()
         return [r[0] for r in rows]
 
-    def set_fetch_status(self, video_id: str, status: str, error: Optional[str] = None) -> None:
+    def set_fetch_status(self, video_id: str, status: str, error: str | None = None) -> None:
         self._conn.execute(
             "UPDATE videos SET fetch_status = ?, fetch_error = ? WHERE video_id = ?",
             (status, error, video_id),
@@ -226,7 +225,7 @@ class Datastore:
     def count_videos(self) -> int:
         return self._conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
 
-    def upsert_channel(self, meta: ChannelMetadata, source_url: Optional[str] = None) -> None:
+    def upsert_channel(self, meta: ChannelMetadata, source_url: str | None = None) -> None:
         self._conn.execute(
             """
             INSERT INTO channels

@@ -5,7 +5,7 @@ personal-engagement data, for a one-command "try it now" Airchivist demo.
 import argparse
 import sqlite3
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # Running this file directly (`python scripts/seed_demo_db.py`, as demo.sh and the
@@ -30,7 +30,7 @@ from webapp.db import (
     upsert_channel,
 )
 
-ANCHOR = datetime.now(timezone.utc)
+ANCHOR = datetime.now(UTC)
 
 # channel_name -> (channel_id, channel_url, avatar_thumbnail_url). Real, verified via
 # `yt-dlp`/`crawler.metadata_fetcher.fetch_channel_metadata` on 2026-08-20. An earlier pass

@@ -88,26 +88,34 @@ class TestResolveVideoDecorator:
 
 
 class TestToolingPinsAgree:
-    """`.pre-commit-config.yaml` pins a ruff rev and `pyproject.toml` pins a ruff
-    version. They agreed only by coincidence until 2026-09-25; a hook running a
-    different ruff than the local gate disagrees with it, which is worse than no
-    hook. Enforce the agreement instead of commenting about it."""
+    """`.pre-commit-config.yaml` pins a rev per hook and `pyproject.toml` pins a
+    version per tool. They agreed only by coincidence until 2026-09-25; a hook
+    running a different ruff or mypy than the local gate disagrees with it, which
+    is worse than no hook. Enforce the agreement instead of commenting about it."""
 
-    def test_precommit_rev_matches_the_dev_extra(self):
+    def _revs(self, tool, repo_marker):
         import re
         from pathlib import Path
 
         root = Path(__file__).resolve().parents[2]
         hook_rev = re.search(
-            r"ruff-pre-commit\s*\n\s*rev:\s*v([0-9][^\s]*)",
+            repo_marker + r"\s*\n\s*rev:\s*v([0-9][^\s]*)",
             (root / ".pre-commit-config.yaml").read_text(),
         )
         pinned = re.search(
-            r'"ruff==([^"]+)"', (root / "pyproject.toml").read_text()
+            rf'"{tool}==([^"]+)"', (root / "pyproject.toml").read_text()
         )
-        assert hook_rev, "could not find the ruff-pre-commit rev"
-        assert pinned, "pyproject's dev extras must pin ruff exactly (ruff==X.Y.Z)"
-        assert hook_rev.group(1) == pinned.group(1), (
-            f"pre-commit pins ruff v{hook_rev.group(1)} but the dev extras pin "
-            f"{pinned.group(1)} — they must match"
+        assert hook_rev, f"could not find the {repo_marker} rev"
+        assert pinned, f"pyproject's dev extras must pin {tool} exactly ({tool}==X.Y.Z)"
+        return hook_rev.group(1), pinned.group(1)
+
+    @pytest.mark.parametrize("tool,repo_marker", [
+        ("ruff", "ruff-pre-commit"),
+        ("mypy", "mirrors-mypy"),
+    ])
+    def test_precommit_rev_matches_the_dev_extra(self, tool, repo_marker):
+        hook_rev, pinned = self._revs(tool, repo_marker)
+        assert hook_rev == pinned, (
+            f"pre-commit pins {tool} v{hook_rev} but the dev extras pin "
+            f"{pinned} — they must match"
         )

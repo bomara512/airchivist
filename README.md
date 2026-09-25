@@ -114,7 +114,7 @@ Without it, tagging still works fully — just manually rather than with suggest
 ## Running tests
 
 `pip install -e .` only installs runtime dependencies. Test and lint tooling
-(pytest and friends, ruff, pre-commit — or Jest for the extension) isn't
+(pytest and friends, ruff, mypy, pre-commit — or Jest for the extension) isn't
 installed by the Setup steps above — install it first, then run the suites:
 
 ```bash
@@ -128,19 +128,28 @@ npm test               # extension (Jest) — requires Node.js
 A warning from either suite counts as a failure here, not as cleanup for
 later — see `CLAUDE.md`.
 
-## Linting
+## Linting and type checking
 
-`ruff` is the linter, configured in `pyproject.toml`. It comes from the same
-`pip install -e ".[dev]"` above:
+`ruff` is the linter and `mypy` the type checker, both configured in
+`pyproject.toml`. They come from the same `pip install -e ".[dev]"` above:
 
 ```bash
 ruff check .          # report
 ruff check --fix .    # fix what's auto-fixable
+mypy                  # type-check webapp/ and crawler/ (scope is in pyproject.toml)
 ```
 
-A pre-commit hook runs `ruff` on staged files. Installing it is a one-time
-step per clone (`pre-commit` itself comes from the dev extras):
+`mypy` runs with three warnings enabled rather than `--strict`, so it flags real
+type confusion without demanding that every function be annotated. It must print
+`Success` with no notes — a note means it silently skipped a function body.
+
+Pre-commit hooks run both on commit. Installing them is a one-time step per
+clone (`pre-commit` itself comes from the dev extras):
 
 ```bash
 pre-commit install
 ```
+
+Each hook's `rev` must match the version pinned in the `dev` extras; a test
+enforces it, because a hook running a different version than the local command
+disagrees with it.

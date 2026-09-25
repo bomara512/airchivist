@@ -23,7 +23,7 @@ def requested_page(args: Mapping[str, Any]) -> int:
         return 1
 
 
-def pagination_context(endpoint: str, *, requested_page: int, total: int, page_size: int) -> dict:
+def pagination_context(endpoint: str, *, requested_page: int, total: int, page_size: int) -> dict[str, Any]:
     """Page numbers plus Prev/Next URLs for a paginated route.
 
     Returns the template variables the paginated routes all pass through:
@@ -39,7 +39,9 @@ def pagination_context(endpoint: str, *, requested_page: int, total: int, page_s
     page = min(max(1, requested_page), total_pages)
 
     def url_for_page(target: int) -> str:
-        params = {k: v for k, v in request.args.to_dict().items() if k not in _TRANSIENT_ARGS}
+        params: dict[str, Any] = {
+            k: v for k, v in request.args.to_dict().items() if k not in _TRANSIENT_ARGS
+        }
         params["page"] = target
         return url_for(endpoint, **params)
 
