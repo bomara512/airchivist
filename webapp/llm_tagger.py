@@ -1,9 +1,9 @@
 from __future__ import annotations
+
 import hashlib
 import json
 import os
 import re
-from typing import Optional
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 MAX_ANCHOR_TAGS = 300   # top tags by video count, always sent

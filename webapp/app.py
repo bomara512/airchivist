@@ -1,8 +1,10 @@
 import re
 import sqlite3
+
 from flask import Flask, g
+
 from webapp import filters as _filters
-from webapp.db import init_webapp_tables, get_stats, get_watch_later_video_ids, get_canonical_tags_for_filter
+from webapp.db import get_canonical_tags_for_filter, get_stats, get_watch_later_video_ids, init_webapp_tables
 
 
 def _regexp(pattern, string):

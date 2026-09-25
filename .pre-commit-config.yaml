@@ -1,0 +1,9 @@
+# Keep `rev` in step with the ruff version pinned in pyproject.toml's dev
+# extras — a hook running a different ruff than `ruff check .` locally will
+# disagree with it, which is worse than having no hook.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.9
+    hooks:
+      - id: ruff-check
+        args: [--fix]

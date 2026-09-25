@@ -175,21 +175,21 @@ def add_alias_and_apply(
     total = 0
 
     if match_type == MatchType.EXACT:
-        cur = conn.execute(f"""
+        cur = conn.execute("""
             INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
             SELECT DISTINCT vt.video_id_fk, ?
             FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
             WHERE LOWER(t.name) = ?
         """, (tag_id, p))
     elif match_type == MatchType.PREFIX:
-        cur = conn.execute(f"""
+        cur = conn.execute("""
             INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
             SELECT DISTINCT vt.video_id_fk, ?
             FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
             WHERE LOWER(t.name) LIKE ? ESCAPE '\\'
         """, (tag_id, esc + "%"))
     elif match_type == MatchType.CONTAINS:
-        cur = conn.execute(f"""
+        cur = conn.execute("""
             INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
             SELECT DISTINCT vt.video_id_fk, ?
             FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
@@ -233,21 +233,21 @@ def edit_alias_and_apply(
     total = 0
 
     if match_type == MatchType.EXACT:
-        cur = conn.execute(f"""
+        cur = conn.execute("""
             INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
             SELECT DISTINCT vt.video_id_fk, ?
             FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
             WHERE LOWER(t.name) = ?
         """, (tag_id, p))
     elif match_type == MatchType.PREFIX:
-        cur = conn.execute(f"""
+        cur = conn.execute("""
             INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
             SELECT DISTINCT vt.video_id_fk, ?
             FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk
             WHERE LOWER(t.name) LIKE ? ESCAPE '\\'
         """, (tag_id, esc + "%"))
     elif match_type == MatchType.CONTAINS:
-        cur = conn.execute(f"""
+        cur = conn.execute("""
             INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
             SELECT DISTINCT vt.video_id_fk, ?
             FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk

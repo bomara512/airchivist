@@ -1,4 +1,5 @@
-from datetime import datetime, date as _date
+from datetime import date as _date
+from datetime import datetime
 
 
 def format_view_count(value):

@@ -113,14 +113,34 @@ Without it, tagging still works fully — just manually rather than with suggest
 
 ## Running tests
 
-`pip install -e .` only installs runtime dependencies. Test tooling (pytest and
-friends, or Jest for the extension) isn't installed by the Setup steps above —
-install it first, then run the suites:
+`pip install -e .` only installs runtime dependencies. Test and lint tooling
+(pytest and friends, ruff, pre-commit — or Jest for the extension) isn't
+installed by the Setup steps above — install it first, then run the suites:
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 python -m pytest -q   # backend (Python)
 
 npm install
 npm test               # extension (Jest) — requires Node.js
+```
+
+A warning from either suite counts as a failure here, not as cleanup for
+later — see `CLAUDE.md`.
+
+## Linting
+
+`ruff` is the linter, configured in `pyproject.toml`. It comes from the same
+`pip install -e ".[dev]"` above:
+
+```bash
+ruff check .          # report
+ruff check --fix .    # fix what's auto-fixable
+```
+
+A pre-commit hook runs `ruff` on staged files. Installing it is a one-time
+step per clone (`pre-commit` itself comes from the dev extras):
+
+```bash
+pre-commit install
 ```

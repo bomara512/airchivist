@@ -1,5 +1,6 @@
 from datetime import date
-from webapp.filters import format_view_count, format_date, format_duration
+
+from webapp.filters import format_date, format_duration, format_view_count
 
 TODAY = date(2026, 5, 31)
 

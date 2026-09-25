@@ -154,7 +154,7 @@ def confirm_and_dismiss_suggestion(
         )
 
         # Retroactively apply: find videos with this raw tag and link to canonical
-        conn.execute(f"""
+        conn.execute("""
             INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
             SELECT DISTINCT vt.video_id_fk, ?
             FROM video_tags vt JOIN tags t ON t.id = vt.tag_id_fk

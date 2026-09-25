@@ -45,9 +45,8 @@ airchivist/
 │       ├── test_datastore.py
 │       ├── test_cli.py
 │       └── test_integration.py
-├── pyproject.toml
-├── requirements.txt
-└── requirements-dev.txt
+├── pyproject.toml          # deps, dev extras (`.[dev]`), pytest + ruff config
+└── requirements.txt        # runtime deps plus the optional `anthropic` extra
 ```
 
 ---

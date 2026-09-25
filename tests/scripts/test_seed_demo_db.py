@@ -1,7 +1,9 @@
 import sqlite3
 from datetime import datetime, timezone
+
 import pytest
-from scripts.seed_demo_db import bootstrap_schema, seed_content, seed_tags, seed_engagement, VIDEOS, CHANNELS, run
+
+from scripts.seed_demo_db import CHANNELS, VIDEOS, bootstrap_schema, run, seed_content, seed_engagement, seed_tags
 
 
 @pytest.fixture

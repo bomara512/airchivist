@@ -1,5 +1,4 @@
 import sqlite3
-from typing import Optional
 
 from webapp.db.groups import get_tag_groups
 

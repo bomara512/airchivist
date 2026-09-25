@@ -1,7 +1,4 @@
-import sqlite3
-import pytest
 from datetime import datetime
-from pathlib import Path
 
 from crawler.datastore import Datastore
 from crawler.models import Bookmark, ChannelMetadata, VideoMetadata

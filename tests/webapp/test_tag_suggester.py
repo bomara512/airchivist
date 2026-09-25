@@ -1,5 +1,4 @@
-import pytest
-from webapp.tag_suggester import suggest_clusters, similarity
+from webapp.tag_suggester import similarity, suggest_clusters
 
 
 class TestSimilarity:

@@ -4,7 +4,6 @@
 
 from crawler.datastore import apply_aliases
 from crawler.models import FetchStatus, MatchType
-
 from webapp.db.aliases import (
     add_alias,
     add_alias_and_apply,
@@ -14,14 +13,6 @@ from webapp.db.aliases import (
     edit_alias_and_apply,
     retroactive_apply,
 )
-from webapp.db.groups import (
-    add_canonical_to_group,
-    create_tag_group,
-    delete_tag_group,
-    get_tag_groups,
-    get_ungrouped_canonicals,
-    remove_canonical_from_group,
-)
 from webapp.db.channels import (
     count_channels,
     get_all_channels,
@@ -29,6 +20,14 @@ from webapp.db.channels import (
     get_channel_by_source_url,
     get_channels_page,
     upsert_channel,
+)
+from webapp.db.groups import (
+    add_canonical_to_group,
+    create_tag_group,
+    delete_tag_group,
+    get_tag_groups,
+    get_ungrouped_canonicals,
+    remove_canonical_from_group,
 )
 from webapp.db.schema import init_webapp_tables
 from webapp.db.suggestions import (
@@ -73,14 +72,12 @@ from webapp.db.videos import (
     count_videos,
     delete_video,
     generate_rediscover_shelf,
-    get_video_channel_names,
     get_all_videos,
     get_current_rediscover_shelf,
     get_hidden_videos,
     get_stats,
     get_video_by_id,
-    set_favorite,
-    set_watched,
+    get_video_channel_names,
     get_videos_status_batch,
     get_watch_later_count,
     get_watch_later_queue,
@@ -93,6 +90,8 @@ from webapp.db.videos import (
     remove_from_rediscover_shelf,
     remove_from_watch_later,
     reorder_watch_later,
+    set_favorite,
+    set_watched,
     unhide_video,
 )
 

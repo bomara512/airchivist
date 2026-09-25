@@ -1,11 +1,13 @@
-import pytest
 import sqlite3
 from unittest.mock import patch
+
+import pytest
+
 from webapp.cli import main
 
 
 def make_db(tmp_path):
-    from tests.webapp.conftest import _setup_db, SEED_SQL
+    from tests.webapp.conftest import SEED_SQL, _setup_db
     db_path = str(tmp_path / "test.db")
     _setup_db(db_path)
     conn = sqlite3.connect(db_path)

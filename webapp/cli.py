@@ -2,6 +2,7 @@ import argparse
 import sqlite3
 import sys
 from pathlib import Path
+
 from webapp.app import create_app
 from webapp.db import collapse_case_variants
 

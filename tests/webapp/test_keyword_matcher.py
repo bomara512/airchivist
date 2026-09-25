@@ -1,4 +1,3 @@
-import pytest
 from webapp.keyword_matcher import find_matching_tags, group_videos_by_tags
 
 TAGS = [

@@ -14,6 +14,15 @@ dependencies = [
     "flask>=3.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "ruff",
+    "pre-commit",
+]
+
 [project.scripts]
 airchivist-crawler = "crawler.cli:main"
 airchivist-web = "webapp.cli:main"
@@ -27,3 +36,15 @@ addopts = "--cov=crawler --cov=webapp --cov=tools --cov=scripts --cov-report=ter
 
 [tool.coverage.run]
 omit = ["tests/*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+# F = pyflakes (dead imports, f-strings without placeholders)
+# I = import sorting
+# Deliberately deferred: "E"/"W" (line-length noise on existing prose-heavy
+# comments), "UP" (owned by Task 13 so the typing diff is reviewable alone),
+# "B"/"SIM" (findings need judgment; revisit once this baseline is green).
+select = ["F", "I"]

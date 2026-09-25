@@ -1,21 +1,50 @@
 import sqlite3
+
 import pytest
-from webapp.db import (
-    get_all_videos, get_video_by_id, get_video_channel_names, get_all_tags,
-    get_tags_with_keywords, get_tag_keywords, get_stats, get_tags_for_video,
-    record_visit, set_watched, create_tag, set_tag_keywords, delete_tag,
-    add_video_tag, remove_video_tag, init_webapp_tables, count_videos,
-    apply_aliases, get_canonical_tags, create_canonical_tag,
-    add_alias, delete_alias, retroactive_apply,
-    get_unclassified_tags, confirm_suggestion,
-    save_llm_suggestions, get_llm_suggestions, dismiss_llm_suggestion,
-    is_llm_suggestion_cache_stale, get_videos_status_batch,
-    confirm_and_dismiss_suggestion, accept_noise_and_dismiss_suggestion,
-    add_alias_and_apply, edit_alias_and_apply,
-    get_all_channels, get_channel, upsert_channel, get_channel_by_source_url,
-    get_channels_page, count_channels,
-)
+
 from crawler.models import ChannelMetadata
+from webapp.db import (
+    accept_noise_and_dismiss_suggestion,
+    add_alias,
+    add_alias_and_apply,
+    add_video_tag,
+    apply_aliases,
+    confirm_and_dismiss_suggestion,
+    confirm_suggestion,
+    count_channels,
+    count_videos,
+    create_canonical_tag,
+    create_tag,
+    delete_alias,
+    delete_tag,
+    dismiss_llm_suggestion,
+    edit_alias_and_apply,
+    get_all_channels,
+    get_all_tags,
+    get_all_videos,
+    get_canonical_tags,
+    get_channel,
+    get_channel_by_source_url,
+    get_channels_page,
+    get_llm_suggestions,
+    get_stats,
+    get_tag_keywords,
+    get_tags_for_video,
+    get_tags_with_keywords,
+    get_unclassified_tags,
+    get_video_by_id,
+    get_video_channel_names,
+    get_videos_status_batch,
+    init_webapp_tables,
+    is_llm_suggestion_cache_stale,
+    record_visit,
+    remove_video_tag,
+    retroactive_apply,
+    save_llm_suggestions,
+    set_tag_keywords,
+    set_watched,
+    upsert_channel,
+)
 
 
 class TestGetAllVideos:
@@ -352,8 +381,9 @@ class TestRemoveFromRediscoverShelf:
         db_conn.commit()
 
     def test_removes_video_from_active_shelf(self, db_conn):
-        from webapp.db import remove_from_rediscover_shelf
         import json
+
+        from webapp.db import remove_from_rediscover_shelf
         self._seed_shelf(db_conn, ["aaaaaaaaaa1", "aaaaaaaaaa2"])
         remove_from_rediscover_shelf(db_conn, "aaaaaaaaaa1")
         row = db_conn.execute(
@@ -377,8 +407,9 @@ class TestRemoveFromRediscoverShelf:
         remove_from_rediscover_shelf(db_conn, "aaaaaaaaaa1")  # must not raise
 
     def test_video_not_in_shelf_does_nothing(self, db_conn):
-        from webapp.db import remove_from_rediscover_shelf
         import json
+
+        from webapp.db import remove_from_rediscover_shelf
         self._seed_shelf(db_conn, ["aaaaaaaaaa2"])
         remove_from_rediscover_shelf(db_conn, "aaaaaaaaaa1")
         row = db_conn.execute(
@@ -390,7 +421,8 @@ class TestRemoveFromRediscoverShelf:
 class TestShelfVideosIncludeIsWatched:
     def test_shelf_video_dicts_carry_is_watched(self, db_conn):
         import json
-        from webapp.db import get_current_rediscover_shelf, set_watched
+
+        from webapp.db import get_current_rediscover_shelf
         # aaaaaaaaaa2 is watched in the seed (personal_view_count>0 → is_watched=1);
         # aaaaaaaaaa1 is unwatched. Seed a shelf with both.
         db_conn.execute(
@@ -470,7 +502,7 @@ class TestGetCanonicalTagsForVideo:
         assert tags == []
 
     def test_returns_canonical_tags_only(self, db_conn):
-        from webapp.db import get_canonical_tags_for_video, create_canonical_tag, add_video_tag
+        from webapp.db import add_video_tag, create_canonical_tag, get_canonical_tags_for_video
         canonical_id = create_canonical_tag(db_conn, "music")
         add_video_tag(db_conn, "aaaaaaaaaa1", canonical_id)
         tags = get_canonical_tags_for_video(db_conn, "aaaaaaaaaa1")
@@ -951,14 +983,14 @@ class TestHideVideo:
         assert row["is_hidden"] == 1
 
     def test_hidden_video_excluded_from_get_all_videos(self, db_conn):
-        from webapp.db import hide_video, get_all_videos
+        from webapp.db import get_all_videos, hide_video
         hide_video(db_conn, "aaaaaaaaaa1")
         videos = get_all_videos(db_conn)
         ids = [v["video_id"] for v in videos]
         assert "aaaaaaaaaa1" not in ids
 
     def test_unhide_video_restores_to_index(self, db_conn):
-        from webapp.db import hide_video, unhide_video, get_all_videos
+        from webapp.db import get_all_videos, hide_video, unhide_video
         hide_video(db_conn, "aaaaaaaaaa1")
         unhide_video(db_conn, "aaaaaaaaaa1")
         videos = get_all_videos(db_conn)
@@ -985,14 +1017,14 @@ class TestHideVideo:
         assert rows == []
 
     def test_get_hidden_videos_returns_hidden(self, db_conn):
-        from webapp.db import hide_video, get_hidden_videos
+        from webapp.db import get_hidden_videos, hide_video
         hide_video(db_conn, "aaaaaaaaaa1")
         hidden = get_hidden_videos(db_conn)
         assert len(hidden) == 1
         assert hidden[0]["video_id"] == "aaaaaaaaaa1"
 
     def test_count_hidden_videos(self, db_conn):
-        from webapp.db import hide_video, count_hidden_videos
+        from webapp.db import count_hidden_videos, hide_video
         assert count_hidden_videos(db_conn) == 0
         hide_video(db_conn, "aaaaaaaaaa1")
         assert count_hidden_videos(db_conn) == 1

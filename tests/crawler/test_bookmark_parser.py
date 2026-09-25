@@ -1,6 +1,8 @@
-import pytest
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
+
 from crawler.bookmark_parser import parse
 
 FIXTURES = Path(__file__).parent / "fixtures"

@@ -6,9 +6,7 @@ resulting SQLite database.
 import sqlite3
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from crawler import cli
 from crawler.models import VideoMetadata

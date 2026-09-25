@@ -1,9 +1,8 @@
-import pytest
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-from crawler.metadata_fetcher import fetch_metadata, fetch_channel_metadata
-from crawler.models import VideoMetadata, ChannelMetadata
+from crawler.metadata_fetcher import fetch_channel_metadata, fetch_metadata
+from crawler.models import ChannelMetadata, VideoMetadata
 
 _GOOD_INFO = {
     "id": "dQw4w9WgXcQ",

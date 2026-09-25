@@ -1,10 +1,11 @@
 import os
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from webapp.llm_tagger import (
-    compute_pool_hash,
     _build_user_message,
+    compute_pool_hash,
     get_suggestions,
     is_available,
 )

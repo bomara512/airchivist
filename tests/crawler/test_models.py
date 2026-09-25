@@ -1,6 +1,8 @@
-import pytest
-from crawler.models import Bookmark, VideoMetadata, ChannelMetadata, _YT_CHANNEL_RE
 from datetime import datetime
+
+import pytest
+
+from crawler.models import _YT_CHANNEL_RE, Bookmark, ChannelMetadata, VideoMetadata
 
 
 class TestBookmark:

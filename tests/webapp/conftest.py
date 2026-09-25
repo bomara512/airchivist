@@ -1,9 +1,10 @@
-import pytest
 import sqlite3
-from webapp.app import create_app, _regexp
-from webapp.db import init_webapp_tables
-from crawler.datastore import _SCHEMA as _CRAWLER_SCHEMA
 
+import pytest
+
+from crawler.datastore import _SCHEMA as _CRAWLER_SCHEMA
+from webapp.app import _regexp, create_app
+from webapp.db import init_webapp_tables
 
 SEED_SQL = """
 INSERT INTO videos (video_id, url, title, description, channel_name, yt_view_count,

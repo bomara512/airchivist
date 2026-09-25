@@ -1,4 +1,3 @@
-import pytest
 import sqlite3
 
 from crawler.models import ChannelMetadata, FetchStatus

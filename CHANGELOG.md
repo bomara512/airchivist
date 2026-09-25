@@ -6,6 +6,38 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-24
 
+### chore: add ruff + pre-commit, declare dev extras, fix 21 lint findings
+
+Task 1 of the code-quality remediation plan. The project had no linter,
+formatter, or type checker at all, so every convention in `CLAUDE.md` was
+enforced only by a human or agent noticing. Added `ruff` (rules `F` + `I`) and a
+`pre-commit` hook, plus `[project.optional-dependencies] dev` so
+`pip install -e ".[dev]"` works — previously `requirements-dev.txt` existed but
+pyproject declared nothing, which is the same clean-checkout gap the README rule
+was written about.
+
+The first run found 51 issues, all auto-fixed: 14 dead imports (4 in production
+— `os` in `routes.py`, `typing.Optional` in `llm_tagger.py` and `db/tags.py`),
+7 vestigial `f` prefixes on fully parameterized SQL strings, and 30 unsorted
+import blocks. The f-strings were harmless but actively misleading: they made
+parameterized SQL *look* interpolated, which is the pattern a reviewer scans for
+when auditing for injection. All 7 were verified as `?`-placeholder queries
+before fixing, not assumed.
+
+- **−** `E`/`W` (line length), `UP` (typing modernization, owned by Task 13), and
+  `B`/`SIM` are deliberately not enabled yet — the first would be pure noise
+  against existing prose comments, and the last two need case-by-case judgment.
+  So this is a baseline, not a finished standard.
+- **−** Deleted `requirements-dev.txt` as superseded by the dev extras. It
+  transitively pulled in `anthropic` where the extras do not; verified in a
+  fresh venv that the full suite (585 tests) passes without it, because
+  `test_llm_tagger.py` mocks `anthropic` through `sys.modules` rather than
+  importing it. `anthropic` remains documented as optional in its own README
+  section.
+- **+** The pre-commit `rev` is pinned to the same ruff version as the dev
+  extras (`v0.16.9`), with a comment saying why: a hook running a different ruff
+  than the local `ruff check .` would disagree with the gate.
+
 ### feat: extension — toggle favorite status on a video already in Airchivist
 
 Mirrors the watch-later toggle's growth from add-time-only to anytime-toggleable.

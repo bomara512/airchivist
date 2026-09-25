@@ -1,8 +1,8 @@
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Optional
-import re
 
 
 class FetchStatus(StrEnum):
