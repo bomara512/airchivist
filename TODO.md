@@ -34,6 +34,7 @@
 - ~~Manually add a tag to a single existing video — direct affordance (e.g. from the main list/card), for videos that arrived with thin/noise-only metadata and never got a canonical tag~~
 - ~~Archive button — hide videos from main view without deleting them (Hide does this)~~
 - ~~Tag distillation — consolidate many similar tags into a single canonical concept for cleaner search and grouping~~
+- [ ] Decide the fate of tag keywords — `tag_keywords` rows can only be written by `set_tag_keywords`, which has had no caller since `tag_detail.html` (its only UI) was deleted on 2026-09-25, so the table is permanently empty in production: the search join in `_build_where` can never match and `delete_tag`'s cleanup is a no-op. Either (a) build the keyword-editing UI the table was designed for, or (b) delete `get_tag_keywords` / `get_tags_with_keywords` / `set_tag_keywords`, the dead search join, and the table itself. Do not leave it in this half state a third time
 - [ ] Show ungrouped canonical tags on the /tags page — canonical tags not assigned to any tag group are currently invisible unless you use Auto-assign
 - [ ] Creator pages support — full support for bookmarking and tracking YouTube creator channels (not just videos)
   - [x] Crawler: extract and store channel URLs from Firefox bookmarks (Phase 1 complete)
@@ -72,7 +73,7 @@ Items identified in the 2026-06-07 architectural review. Completed items are str
 ### Medium (next)
 
 - [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js` and `content.js` are still untested; `popup.js` has Jest coverage for `doAdd`/`initWatchLaterToggle`/`initFavoriteToggle` only (`doAddChannel`, `doHide`, `doRestore`, `doDelete`, `renderState`, `renderChannelState`, `run` remain untested)
-- [ ] Code quality remediation — Tasks 1–5 of 14 done (ruff + pre-commit + dev extras; two dead modules deleted; public `extract_video_id`; `cors_json`/`resolve_video`/`video_api_route` decorators; all 12 API routes now go through `webapp/api.py`, `routes.py` 885→699 lines). Remaining: pagination/`index()` extraction, `db/videos.py` fragments, presentation logic into `filters.py`, the LLM error hierarchy, typing + mypy, and the extension popup cleanup. Spec: `docs/superpowers/specs/2026-09-24-code-quality-audit.md`. Plan: `docs/superpowers/plans/2026-09-24-code-quality-remediation.md`
+- [ ] Code quality remediation — Tasks 1–5 of 14 done (ruff + pre-commit + dev extras; two dead modules deleted; public `extract_video_id`; `cors_json`/`resolve_video`/`video_api_route` decorators; all 12 API routes now go through `webapp/api.py`, `routes.py` 885→699 lines). Remaining, in plan order: Task 6 `video_remove_tag` raw SQL into the DB layer, Task 7 the 404 contract on video mutation routes, Task 8 pagination helper (fixes an `append=1` leak), Task 9 `VideoListFilters` + splitting `index()`, Task 10 `db/videos.py` fragments, Task 11 presentation logic into `filters.py`, Task 12 the LLM error hierarchy, Task 13 typing + mypy, Task 14 the extension popup cleanup. Spec: `docs/superpowers/specs/2026-09-24-code-quality-audit.md`. Plan: `docs/superpowers/plans/2026-09-24-code-quality-remediation.md`
 
 ### Larger lifts
 

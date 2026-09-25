@@ -26,16 +26,22 @@ class ApiStatus(StrEnum):
 
 
 def _request_url() -> str:
-    """The `url` the caller sent, from the query string or the JSON body.
+    """The `url` the caller sent, from the JSON body or else the query string.
 
-    Checks both rather than branching on `request.method`: a route registered
-    for GET *and* POST would otherwise silently ignore `?url=` on a POST.
+    Body first: every route using this is POST, where the body is authoritative,
+    and a GET has no body so it falls through to the query string. Checking both
+    rather than branching on `request.method` means a route registered for both
+    would not silently ignore one of them.
+
+    A non-string `url` (e.g. `{"url": 123}`) yields "" rather than raising, so it
+    reaches the caller's "Not a YouTube URL" 400 instead of a 500.
     """
+    body = request.get_json(silent=True) or {}
+    from_body = body.get("url")
+    if isinstance(from_body, str) and from_body.strip():
+        return from_body.strip()
     from_args = request.args.get("url")
-    if from_args:
-        return from_args.strip()
-    data = request.get_json(silent=True) or {}
-    return (data.get("url") or "").strip()
+    return from_args.strip() if isinstance(from_args, str) else ""
 
 
 def cors_json(fn):

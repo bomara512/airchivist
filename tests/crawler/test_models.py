@@ -206,3 +206,8 @@ class TestExtractVideoId:
 
     def test_returns_none_for_none(self):
         assert extract_video_id(None) is None
+
+    def test_returns_none_for_non_string(self):
+        # A client sending {"url": 123} must reach a 400, not crash the route.
+        assert extract_video_id(12345) is None
+        assert extract_video_id(["https://youtu.be/aaaaaaaaaa1"]) is None

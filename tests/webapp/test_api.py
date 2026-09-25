@@ -85,3 +85,29 @@ class TestResolveVideoDecorator:
     def test_cors_header_on_400(self, client):
         resp = client.post("/api/favorite/add", json={"url": "https://example.com"})
         assert "Access-Control-Allow-Origin" in resp.headers
+
+
+class TestToolingPinsAgree:
+    """`.pre-commit-config.yaml` pins a ruff rev and `pyproject.toml` pins a ruff
+    version. They agreed only by coincidence until 2026-09-25; a hook running a
+    different ruff than the local gate disagrees with it, which is worse than no
+    hook. Enforce the agreement instead of commenting about it."""
+
+    def test_precommit_rev_matches_the_dev_extra(self):
+        import re
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[2]
+        hook_rev = re.search(
+            r"ruff-pre-commit\s*\n\s*rev:\s*v([0-9][^\s]*)",
+            (root / ".pre-commit-config.yaml").read_text(),
+        )
+        pinned = re.search(
+            r'"ruff==([^"]+)"', (root / "pyproject.toml").read_text()
+        )
+        assert hook_rev, "could not find the ruff-pre-commit rev"
+        assert pinned, "pyproject's dev extras must pin ruff exactly (ruff==X.Y.Z)"
+        assert hook_rev.group(1) == pinned.group(1), (
+            f"pre-commit pins ruff v{hook_rev.group(1)} but the dev extras pin "
+            f"{pinned.group(1)} — they must match"
+        )

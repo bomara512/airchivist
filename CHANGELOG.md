@@ -4,7 +4,48 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
-## 2026-09-24
+## 2026-09-25
+
+### fix: cover api_add's rewritten paths, retract a wrong dead-code call
+
+Second fix pass, from an independent review of the first one and of Task 5.
+
+**Retraction.** The entry below argued that `get_tag_keywords`,
+`get_tags_with_keywords`, and `set_tag_keywords` were kept because they are
+"unused accessors for live data." That rationale was wrong, and checking it takes
+one grep: the only two `INSERT`s into `tag_keywords` are inside `set_tag_keywords`
+itself (which has no callers) and the tag-merge path's `INSERT…SELECT`, which can
+only copy rows that already exist. **Nothing in production can ever write the
+first row**, so the table is permanently empty outside tests and the demo seed —
+the search join in `_build_where` can never match, and `delete_tag`'s cleanup
+`DELETE` is a no-op. The sharpest evidence was self-inflicted: the same commit
+deleted `tag_detail.html`, the only UI that could have populated the table, while
+keeping the function it was the sole consumer of. Filed as a real TODO item with
+the two honest options rather than deleted here, because removing the search join
+changes demo-mode and test behavior and deserves its own task.
+
+- **+** `api_add`'s `exists`, `added`, and failed-fetch paths had **zero** Python
+  coverage (`routes.py` 250–283), and Task 5 rewrote all three. Five tests added.
+  Verified they bite: deleting `record_visit` from the `exists` path fails
+  `test_existing_video_records_a_visit`, so this is real coverage, not nominal.
+  The earlier "the url_map test is a strict superset" claim held only for the
+  plan's OPTIONS check — it said nothing about the busiest body Task 5 touched.
+- **+** Found a live 500 while writing those tests: `{"url": 12345}` reached
+  `YT_ID_RE.search(12345)` and raised `TypeError`. `extract_video_id` now returns
+  `None` for any non-string, so a malformed client gets the intended 400. This
+  predates the refactor — `api_add` has always been reachable this way.
+- **+** `_request_url()` now prefers the JSON body over the query string, where
+  the previous fix pass silently made `?url=` outrank the body on a POST. Also
+  documented, which it was not.
+- **+** The ruff pin agreement between `pyproject.toml` and
+  `.pre-commit-config.yaml` is now asserted by a test rather than by two comments
+  pointing at each other.
+- **+** `api_status_batch` no longer mixes `ApiStatus` members with raw
+  `"exists"`/`"hidden"` strings from the DB layer in one response dict.
+- **−** The DB layer still returns those raw strings (`get_videos_status_batch`);
+  coercing at the route boundary is a patch over that, chosen because the DB layer
+  has no business importing the API vocabulary. The real fix is a shared status
+  vocabulary, which is not worth a module today.
 
 ### refactor: migrate the last five API routes onto cors_json
 
@@ -78,6 +119,10 @@ more routes.
   `webapp/db.py` (a file split into `db/` long ago) and still asserted the
   disproven ordering claim; `TODO.md` said "Tasks 1–2 of 14" after four shipped
   and had a duplicated Background-processing entry.
+
+---
+
+## 2026-09-24
 
 ### refactor: extract cors_json/resolve_video decorators, add ApiStatus enum
 

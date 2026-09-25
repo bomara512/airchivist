@@ -641,7 +641,10 @@ def api_status_batch():
     raw_ids = data.get("ids") or []
     ids = [v.strip() for v in raw_ids if isinstance(v, str) and v.strip()][:50]
     found = _db.get_videos_status_batch(g.db, ids)
-    return {vid: found.get(vid, ApiStatus.NOT_FOUND) for vid in ids}
+    # get_videos_status_batch returns raw strings (the DB layer has no business
+    # knowing the API vocabulary); coerce at this boundary so the response is
+    # uniformly ApiStatus-derived.
+    return {vid: ApiStatus(found.get(vid, ApiStatus.NOT_FOUND)) for vid in ids}
 
 
 @bp.route("/api/hide", methods=["POST", "OPTIONS"])

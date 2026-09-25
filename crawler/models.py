@@ -30,8 +30,15 @@ YT_CHANNEL_RE = re.compile(
 
 
 def extract_video_id(url: str | None) -> str | None:
-    """Return the 11-character YouTube video ID in `url`, or None if there isn't one."""
-    m = YT_ID_RE.search(url or "")
+    """Return the 11-character YouTube video ID in `url`, or None if there isn't one.
+
+    Anything that is not a string — None, or a JSON body sending `{"url": 123}` —
+    yields None rather than raising, so a malformed request reaches the caller's
+    400 instead of a 500.
+    """
+    if not isinstance(url, str):
+        return None
+    m = YT_ID_RE.search(url)
     return m.group(1) if m else None
 
 

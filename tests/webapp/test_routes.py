@@ -1,6 +1,18 @@
 import sqlite3
+from contextlib import closing
 
-from crawler.models import ChannelMetadata, FetchStatus
+from crawler.models import ChannelMetadata, FetchStatus, VideoMetadata
+
+
+def _query_one(client, sql, params=()):
+    """Read a single value from the test DB, guaranteeing the connection closes.
+
+    An unclosed sqlite3 handle surfaces later as a ResourceWarning attributed to
+    whatever unrelated test the GC happens to be running in — see CLAUDE.md.
+    """
+    with closing(sqlite3.connect(client.application.config["DATABASE"])) as conn:
+        row = conn.execute(sql, params).fetchone()
+    return row[0] if row else None
 
 
 class TestIndexRoute:
@@ -462,6 +474,83 @@ class TestRediscoverShelfRefresh:
     def test_returns_html_not_json(self, client):
         resp = client.post("/rediscover-shelf/refresh")
         assert resp.content_type.startswith("text/html")
+
+
+class TestApiAddExistingVideo:
+    """The `exists` path: /api/add on a video already in the library must report
+    `exists` AND record a visit. Task 5 rewrote this body; nothing covered it."""
+
+    def test_existing_video_reports_exists_with_title(self, client):
+        data = client.post(
+            "/api/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"}
+        ).get_json()
+        assert data["status"] == "exists"
+        assert data["title"] == "Guitar Lesson 1"
+
+    def test_existing_video_records_a_visit(self, client):
+        sql = "SELECT personal_view_count FROM videos WHERE video_id = ?"
+        before = _query_one(client, sql, ("aaaaaaaaaa1",))
+        client.post("/api/add", json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        after = _query_one(client, sql, ("aaaaaaaaaa1",))
+        assert after == before + 1
+
+
+class TestApiAddNewVideo:
+    """The `added` and fetch-failure paths, with the fetcher monkeypatched."""
+
+    def _fake_meta(self, status=FetchStatus.OK, error=None):
+        return VideoMetadata(
+            video_id="newvid00001",
+            url="https://www.youtube.com/watch?v=newvid00001",
+            title="Brand New Video",
+            description="d",
+            channel_name="SomeChannel",
+            channel_id="UCnew1",
+            yt_view_count=7,
+            duration_seconds=61,
+            thumbnail_url="https://img/n.jpg",
+            fetch_status=status,
+            fetch_error=error,
+        )
+
+    def test_new_video_is_added_and_persisted(self, client, monkeypatch):
+        monkeypatch.setattr(
+            "crawler.metadata_fetcher.fetch_metadata",
+            lambda video_id, delay=0: self._fake_meta(),
+        )
+        data = client.post(
+            "/api/add", json={"url": "https://www.youtube.com/watch?v=newvid00001"}
+        ).get_json()
+        assert data["status"] == "added"
+        assert data["title"] == "Brand New Video"
+        assert _query_one(
+            client, "SELECT title FROM videos WHERE video_id = ?", ("newvid00001",)
+        ) == "Brand New Video"
+        assert _query_one(
+            client, "SELECT personal_view_count FROM videos WHERE video_id = ?", ("newvid00001",)
+        ) == 1, "the add path must record a visit"
+
+    def test_failed_fetch_returns_error_with_http_200(self, client, monkeypatch):
+        # HTTP 200 with an "error" body is deliberate and extension-dependent:
+        # the row is still written and the caller shows the message.
+        monkeypatch.setattr(
+            "crawler.metadata_fetcher.fetch_metadata",
+            lambda video_id, delay=0: self._fake_meta(
+                status=FetchStatus.PRIVATE, error="video is private"
+            ),
+        )
+        resp = client.post(
+            "/api/add", json={"url": "https://www.youtube.com/watch?v=newvid00001"}
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "error"
+        assert data["error"] == "video is private"
+
+    def test_non_string_url_is_a_400_not_a_500(self, client):
+        resp = client.post("/api/add", json={"url": 12345})
+        assert resp.status_code == 400
+        assert resp.get_json()["status"] == "error"
 
 
 class TestApiAddHiddenVideo:
