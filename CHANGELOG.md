@@ -6,6 +6,47 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-24
 
+### fix: make transposed API decorators impossible, pin ruff, sweep stale docs
+
+Fix pass from an independent review of Tasks 1–4. The review disproved a claim
+made in the previous entry, in `webapp/api.py`'s docstring, and in `CLAUDE.md`:
+applying `@resolve_video` *above* `@cors_json` does **not** fail loudly. Flask
+accepts the `(dict, status)` tuple either way and returns correct JSON — just
+with **no CORS headers**, and with `OPTIONS` falling through to the view (400
+instead of 204). Verified independently before fixing. That is the worst shape a
+bug can take here: `pytest` cannot see a missing CORS header through
+`test_client`, so it would have shipped green and surfaced only as an opaque
+CORS failure in the extension — and Task 5 was about to apply the pattern to five
+more routes.
+
+- **+** `@video_api_route` now composes the two in the correct order, so the
+  seven routes have no order to get wrong; `resolve_video` additionally raises
+  `TypeError` at *import* time if applied above `cors_json`. Both the wrong-order
+  guard and a `url_map`-parametrized check (every `/api/*` route must carry CORS
+  on errors and answer OPTIONS with 204) are pinned by tests — the latter covers
+  routes added later, including the five Task 5 migrates.
+- **+** `ruff` is now pinned to `==0.16.9` in the dev extras. It was bare `"ruff"`
+  while `.pre-commit-config.yaml` pinned `v0.16.9` — they agreed only by
+  coincidence, so the config comment described a mismatch it could not prevent.
+  A fresh clone months from now would have had the hook and the local gate
+  disagreeing.
+- **+** Deleted `webapp/templates/tag_detail.html`: rendered by no route, and its
+  `url_for('main.set_tag_keywords')` names an endpoint that does not exist, so it
+  would have raised `BuildError` if ever reached.
+- **−** Did *not* delete `get_tag_keywords`, `get_tags_with_keywords`, or
+  `set_tag_keywords`, which the review flagged as matching Task 2's
+  zero-callers criterion (and there are three, not two — `set_tag_keywords` is
+  orphaned too). They are unused *accessors for live data*, not a superseded
+  implementation: `tag_keywords` rows are still written by `delete_tag` and the
+  tag-merge path, and still joined by search in `_build_where`. Deleting them
+  would discard 8 tests documenting behavior that a future keyword-editing UI
+  would need. Left in place deliberately; revisit if that UI never arrives.
+- Docs swept: `CLAUDE.md`'s heading still named the throwaway `_CORS_HEADERS`
+  alias while its body mandated decorators; `plan-webapp.md` still pointed at
+  `webapp/db.py` (a file split into `db/` long ago) and still asserted the
+  disproven ordering claim; `TODO.md` said "Tasks 1–2 of 14" after four shipped
+  and had a duplicated Background-processing entry.
+
 ### refactor: extract cors_json/resolve_video decorators, add ApiStatus enum
 
 Task 4 of the code-quality remediation plan. The nine extension-facing API routes

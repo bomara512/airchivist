@@ -19,7 +19,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "pytest-mock",
-    "ruff",
+    "ruff==0.16.9",   # keep in step with .pre-commit-config.yaml's rev
     "pre-commit",
 ]
 

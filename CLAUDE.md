@@ -142,19 +142,23 @@ different data structure), delete the old code in the same response.
 - If the old code might be needed for reference, that belongs in git history,
   not in the working tree.
 
-## Use `_CORS_HEADERS` for all API routes
+## Route all API responses through `webapp/api.py`
 
 Every route in `webapp/routes.py` that returns a JSON response to the extension
 must go through the decorators in `webapp/api.py` — never a locally-defined
 headers dict, and never a hand-rolled OPTIONS branch.
 
-- `@cors_json` (applied directly under `@bp.route`) answers the OPTIONS
-  preflight, JSON-encodes the return value, and attaches `CORS_HEADERS`. The
-  view returns a plain dict for 200, or a `(dict, status)` tuple otherwise.
-- `@resolve_video` (applied under `@cors_json`) parses the request's `url`,
-  loads the video row, and returns the shared 400/404 bodies itself — so use it
-  for any route that requires the video to already exist, and it hands the row
-  to the view as its first argument.
+- `@video_api_route` is the default for any route that requires the video to
+  already exist: it parses the request's `url`, loads the row, returns the
+  shared 400/404 bodies, answers the OPTIONS preflight, JSON-encodes the result
+  and attaches `CORS_HEADERS`. The view takes the row as its first argument and
+  returns a plain dict for 200, or a `(dict, status)` tuple otherwise.
+- `@cors_json` alone is for routes that must *not* 404 on an unknown video.
+- Do not hand-stack `@cors_json` + `@resolve_video`. Transposed, Flask still
+  returns the tuple — but with no CORS headers, and OPTIONS falls through to the
+  view — so `pytest` passes and the extension dies with an opaque CORS error in
+  the browser. `resolve_video` now raises at import time if applied above
+  `cors_json`, and `video_api_route` exists so there is no order to get wrong.
 - Never write a new API status literal: add a member to `ApiStatus` in
   `webapp/api.py` instead.
 - These replaced ~110 lines of per-route copy-paste on 2026-09-24 (38 copies of

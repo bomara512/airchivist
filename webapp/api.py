@@ -26,9 +26,14 @@ class ApiStatus(StrEnum):
 
 
 def _request_url() -> str:
-    """The `url` the caller sent — query string on GET, JSON body otherwise."""
-    if request.method == "GET":
-        return (request.args.get("url") or "").strip()
+    """The `url` the caller sent, from the query string or the JSON body.
+
+    Checks both rather than branching on `request.method`: a route registered
+    for GET *and* POST would otherwise silently ignore `?url=` on a POST.
+    """
+    from_args = request.args.get("url")
+    if from_args:
+        return from_args.strip()
     data = request.get_json(silent=True) or {}
     return (data.get("url") or "").strip()
 
@@ -38,6 +43,9 @@ def cors_json(fn):
 
     The wrapped view returns either a body dict (implying 200) or a
     (body, status) tuple.
+
+    Use this alone for routes that must not 404 on an unknown video — see
+    `video_api_route` for the ones that must.
     """
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
@@ -48,15 +56,27 @@ def cors_json(fn):
         resp = jsonify(body)
         resp.headers.update(CORS_HEADERS)
         return resp, status
+    wrapper._is_cors_json = True
     return wrapper
 
 
 def resolve_video(fn):
     """Parse the request's `url` and load its video row, or return the shared errors.
 
-    Passes the row to the view as its first positional argument. Must be applied
-    *below* `cors_json`, which encodes the error bodies returned here.
+    Passes the row to the view as its first positional argument, and returns
+    plain dicts — so it only works *below* `cors_json`, which encodes them.
+    Prefer `video_api_route`, which composes the two correctly; this is exported
+    for the rare case that needs them apart.
     """
+    if getattr(fn, "_is_cors_json", False):
+        raise TypeError(
+            "resolve_video must be applied below cors_json, not above it. "
+            "Transposed, Flask still returns the (dict, status) tuple — but with "
+            "no CORS headers, and OPTIONS falls through to the view — so the "
+            "mistake is invisible to the test client and surfaces only as an "
+            "opaque CORS failure in the extension. Use @video_api_route instead."
+        )
+
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         video_id = extract_video_id(_request_url())
@@ -67,3 +87,13 @@ def resolve_video(fn):
             return {"status": ApiStatus.ERROR, "error": "Video not found"}, 404
         return fn(video, *args, **kwargs)
     return wrapper
+
+
+def video_api_route(fn):
+    """The standard stack for an API route that requires the video to already exist.
+
+    Equivalent to `@cors_json` over `@resolve_video`, as one decorator so the
+    order cannot be transposed. The view receives the video row as its first
+    argument and returns a dict, or a (dict, status) tuple.
+    """
+    return cors_json(resolve_video(fn))

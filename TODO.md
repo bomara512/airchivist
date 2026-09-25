@@ -72,11 +72,10 @@ Items identified in the 2026-06-07 architectural review. Completed items are str
 ### Medium (next)
 
 - [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js` and `content.js` are still untested; `popup.js` has Jest coverage for `doAdd`/`initWatchLaterToggle`/`initFavoriteToggle` only (`doAddChannel`, `doHide`, `doRestore`, `doDelete`, `renderState`, `renderChannelState`, `run` remain untested)
-- [ ] Code quality remediation — Tasks 1–2 of 14 done (ruff + pre-commit + dev extras; dead modules deleted). Remaining 12 from the 2026-09-24 audit: add ruff/mypy (the project has no linter at all), delete two fully dead modules, collapse ~130 lines of duplicated CORS/URL-parsing boilerplate in `routes.py`, and fix two latent bugs found on the way. Spec: `docs/superpowers/specs/2026-09-24-code-quality-audit.md`. Plan: `docs/superpowers/plans/2026-09-24-code-quality-remediation.md`
+- [ ] Code quality remediation — Tasks 1–4 of 14 done (ruff + pre-commit + dev extras; two dead modules deleted; public `extract_video_id`; `cors_json`/`resolve_video`/`video_api_route` decorators, `routes.py` 885→748 lines). Remaining: migrate the last 5 API routes onto `@cors_json` (Task 5), then pagination/`index()` extraction, `db/videos.py` fragments, presentation logic into `filters.py`, the LLM error hierarchy, typing + mypy, and the extension popup cleanup. Spec: `docs/superpowers/specs/2026-09-24-code-quality-audit.md`. Plan: `docs/superpowers/plans/2026-09-24-code-quality-remediation.md`
 
 ### Larger lifts
 
 - [ ] Proper migrations table — replace the ALTER TABLE wrapped in try/except with a tracked migration history. Pairs with unifying the two persistence layers (`crawler.Datastore` vs `webapp/db/*`), deliberately deferred out of the 2026-09-24 code-quality plan — see that spec's "Out of scope" section for the full knot
-- [ ] Background processing for blocking operations — `fetch_metadata` (yt-dlp, ~2–5s) and LLM calls (~3–10s) both block a Flask worker thread synchronously
 - [ ] Background processing for blocking operations — `fetch_metadata` (yt-dlp, ~2–5s) and LLM calls (~3–10s) both block a Flask worker thread synchronously
 

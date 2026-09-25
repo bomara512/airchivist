@@ -7,7 +7,7 @@ from crawler.models import YT_CHANNEL_RE, YT_ID_RE, FetchStatus
 from webapp import db as _db
 from webapp import llm_tagger as _llm
 from webapp.api import CORS_HEADERS as _CORS_HEADERS
-from webapp.api import ApiStatus, cors_json, resolve_video
+from webapp.api import ApiStatus, video_api_route
 from webapp.db import MatchType
 
 bp = Blueprint("main", __name__)
@@ -687,8 +687,7 @@ def api_status_batch():
 
 
 @bp.route("/api/hide", methods=["POST", "OPTIONS"])
-@cors_json
-@resolve_video
+@video_api_route
 def api_hide(video):
     _db.hide_video(g.db, video["video_id"])
     return {"status": ApiStatus.HIDDEN, "title": video.get("title")}
@@ -701,8 +700,7 @@ def rediscover_shelf_refresh():
 
 
 @bp.route("/api/watch-later/add", methods=["POST", "OPTIONS"])
-@cors_json
-@resolve_video
+@video_api_route
 def api_watch_later_add(video):
     if not _db.add_to_watch_later(g.db, video["video_id"]):
         return {"status": ApiStatus.ALREADY_IN_QUEUE}, 409
@@ -710,8 +708,7 @@ def api_watch_later_add(video):
 
 
 @bp.route("/api/watch-later/remove", methods=["POST", "OPTIONS"])
-@cors_json
-@resolve_video
+@video_api_route
 def api_watch_later_remove(video):
     if not _db.remove_from_watch_later(g.db, video["video_id"]):
         return {"status": ApiStatus.ERROR, "error": "Not in queue"}, 404
@@ -719,30 +716,26 @@ def api_watch_later_remove(video):
 
 
 @bp.route("/api/watch-later/status", methods=["POST", "OPTIONS"])
-@cors_json
-@resolve_video
+@video_api_route
 def api_watch_later_status(video):
     return {"in_queue": _db.is_in_watch_later(g.db, video["video_id"])}
 
 
 @bp.route("/api/favorite/add", methods=["POST", "OPTIONS"])
-@cors_json
-@resolve_video
+@video_api_route
 def api_favorite_add(video):
     _db.set_favorite(g.db, video["video_id"], True)
     return {"status": ApiStatus.ADDED}
 
 
 @bp.route("/api/favorite/remove", methods=["POST", "OPTIONS"])
-@cors_json
-@resolve_video
+@video_api_route
 def api_favorite_remove(video):
     _db.set_favorite(g.db, video["video_id"], False)
     return {"status": ApiStatus.REMOVED}
 
 
 @bp.route("/api/favorite/status", methods=["POST", "OPTIONS"])
-@cors_json
-@resolve_video
+@video_api_route
 def api_favorite_status(video):
     return {"is_favorite": bool(video.get("is_favorite"))}
