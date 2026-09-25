@@ -6,6 +6,23 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-24
 
+### refactor: make YouTube regexes public, add extract_video_id helper
+
+Task 3 of the code-quality remediation plan. `webapp/routes.py` was importing
+`_YT_ID_RE` and `_YT_CHANNEL_RE` from `crawler.models` — a leading underscore
+means "not part of this module's public API," so importing it across a package
+boundary contradicted the name. Renamed both to `YT_ID_RE` / `YT_CHANNEL_RE` with
+no compatibility aliases, and added `extract_video_id(url) -> str | None`.
+
+- **+** The helper takes `None` as well as `str`, so the nine call sites that
+  each did `m = _YT_ID_RE.search(url)` then `m.group(1)` collapse to one call.
+  Task 4 makes that substitution; this task only publishes the interface, which
+  keeps the rename reviewable on its own.
+- **−** Renaming rather than aliasing means any out-of-tree consumer breaks
+  immediately. Acceptable here: the only importers are this repo's own
+  `webapp/routes.py` and `tests/crawler/test_models.py`, both updated in the
+  same commit.
+
 ### refactor: delete superseded tag_suggester and keyword_matcher modules
 
 Task 2 of the code-quality remediation plan. Both modules had zero callers in

@@ -18,15 +18,21 @@ class MatchType(StrEnum):
     PREFIX = 'prefix'
     CONTAINS = 'contains'
 
-_YT_ID_RE = re.compile(
+YT_ID_RE = re.compile(
     r'(?:youtube\.com/watch\?.*?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)'
     r'([A-Za-z0-9_-]{11})'
 )
 
 # Keep in sync with extension/popup/popup.js YT_CHANNEL_RE.
-_YT_CHANNEL_RE = re.compile(
+YT_CHANNEL_RE = re.compile(
     r'youtube\.com/(?:channel/(UC[A-Za-z0-9_-]+)|(?:c|user)/([^/?#]+)|@([^/?#]+))'
 )
+
+
+def extract_video_id(url: str | None) -> str | None:
+    """Return the 11-character YouTube video ID in `url`, or None if there isn't one."""
+    m = YT_ID_RE.search(url or "")
+    return m.group(1) if m else None
 
 
 @dataclass
@@ -37,12 +43,12 @@ class Bookmark:
 
     @property
     def youtube_video_id(self) -> Optional[str]:
-        m = _YT_ID_RE.search(self.url)
+        m = YT_ID_RE.search(self.url)
         return m.group(1) if m else None
 
     @property
     def youtube_channel_url(self) -> Optional[str]:
-        return self.url if _YT_CHANNEL_RE.search(self.url) else None
+        return self.url if YT_CHANNEL_RE.search(self.url) else None
 
 
 @dataclass

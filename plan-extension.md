@@ -194,7 +194,7 @@ The content script now also injects on channel pages, not just `/watch*` — `co
 
 **Current channel title** — on a channel page, the header title (`CHANNEL_TITLE_SELECTOR`, a comma-separated list of known YouTube channel-header selectors) is colored green (`TITLE_COLOR.exists`) if the channel is already tracked in Airchivist. Unlike video titles, there is no red/hidden case — channels have no "hidden" state, so the title is either green or left at its default color.
 
-`content.js` gained `YT_CHANNEL_RE` (kept byte-identical to the copy in `popup.js`, itself synced to `crawler/models.py`'s `_YT_CHANNEL_RE`) and `channelUrlFrom()` to derive the canonical channel URL, plus `checkCurrentChannel()` which mirrors `checkCurrentVideo()`'s structure: it re-checks the URL after each `await` so a fast SPA navigation away from the channel (or to a different channel) can't leave a stale green title behind.
+`content.js` gained `YT_CHANNEL_RE` (kept byte-identical to the copy in `popup.js`, itself synced to `crawler/models.py`'s `YT_CHANNEL_RE`) and `channelUrlFrom()` to derive the canonical channel URL, plus `checkCurrentChannel()` which mirrors `checkCurrentVideo()`'s structure: it re-checks the URL after each `await` so a fast SPA navigation away from the channel (or to a different channel) can't leave a stale green title behind.
 
 `run()` now branches on the URL: video-ID URLs still take the existing `checkCurrentVideo`/`watchRelated` path unchanged; otherwise, if the URL matches `YT_CHANNEL_RE`, `checkCurrentChannel()` runs instead. The existing `yt-navigate-finish`/`DOMContentLoaded` wiring re-triggers `run()` automatically, so it re-branches correctly when navigating between video and channel pages.
 

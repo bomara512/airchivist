@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from crawler.models import _YT_CHANNEL_RE, Bookmark, ChannelMetadata, VideoMetadata
+from crawler.models import YT_CHANNEL_RE, Bookmark, ChannelMetadata, VideoMetadata, extract_video_id
 
 
 class TestBookmark:
@@ -108,32 +108,32 @@ class TestVideoMetadata:
 
 class TestYtChannelRe:
     def test_matches_at_handle(self):
-        assert _YT_CHANNEL_RE.search("https://www.youtube.com/@rickastley")
+        assert YT_CHANNEL_RE.search("https://www.youtube.com/@rickastley")
 
     def test_matches_at_handle_with_path(self):
-        assert _YT_CHANNEL_RE.search("https://www.youtube.com/@rickastley/videos")
+        assert YT_CHANNEL_RE.search("https://www.youtube.com/@rickastley/videos")
 
     def test_matches_c_prefix(self):
-        assert _YT_CHANNEL_RE.search("https://www.youtube.com/c/RickAstleyVEVO")
+        assert YT_CHANNEL_RE.search("https://www.youtube.com/c/RickAstleyVEVO")
 
     def test_matches_user_prefix(self):
-        assert _YT_CHANNEL_RE.search("https://www.youtube.com/user/RickAstleyVEVO")
+        assert YT_CHANNEL_RE.search("https://www.youtube.com/user/RickAstleyVEVO")
 
     def test_matches_channel_id(self):
-        assert _YT_CHANNEL_RE.search(
+        assert YT_CHANNEL_RE.search(
             "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
         )
 
     def test_does_not_match_video_url(self):
-        assert not _YT_CHANNEL_RE.search(
+        assert not YT_CHANNEL_RE.search(
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         )
 
     def test_does_not_match_non_youtube(self):
-        assert not _YT_CHANNEL_RE.search("https://vimeo.com/@rickastley")
+        assert not YT_CHANNEL_RE.search("https://vimeo.com/@rickastley")
 
     def test_does_not_match_shorts_url(self):
-        assert not _YT_CHANNEL_RE.search(
+        assert not YT_CHANNEL_RE.search(
             "https://www.youtube.com/shorts/dQw4w9WgXcQ"
         )
 
@@ -189,3 +189,20 @@ class TestChannelMetadata:
         )
         assert m.subscriber_count == 42000
         assert m.description == "A channel"
+
+
+class TestExtractVideoId:
+    def test_returns_id_from_watch_url(self):
+        assert extract_video_id("https://www.youtube.com/watch?v=aaaaaaaaaa1") == "aaaaaaaaaa1"
+
+    def test_returns_id_from_short_url(self):
+        assert extract_video_id("https://youtu.be/aaaaaaaaaa1") == "aaaaaaaaaa1"
+
+    def test_returns_none_for_non_youtube_url(self):
+        assert extract_video_id("https://example.com") is None
+
+    def test_returns_none_for_empty_string(self):
+        assert extract_video_id("") is None
+
+    def test_returns_none_for_none(self):
+        assert extract_video_id(None) is None

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, abort, g, jsonify, make_response, redirect, render_template, request, url_for
 
-from crawler.models import _YT_CHANNEL_RE, _YT_ID_RE, FetchStatus
+from crawler.models import YT_CHANNEL_RE, YT_ID_RE, FetchStatus
 from webapp import db as _db
 from webapp import llm_tagger as _llm
 from webapp.db import MatchType
@@ -248,7 +248,7 @@ def api_add():
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
 
-    m = _YT_ID_RE.search(url)
+    m = YT_ID_RE.search(url)
     if not m:
         resp = jsonify({"status": "error", "error": "Not a YouTube video URL"})
         resp.headers.update(_CORS_HEADERS)
@@ -305,7 +305,7 @@ def api_channel_status():
         return make_response("", 204, _CORS_HEADERS)
 
     url = (request.args.get("url") or "").strip()
-    if not _YT_CHANNEL_RE.search(url):
+    if not YT_CHANNEL_RE.search(url):
         resp = jsonify({"status": "error", "error": "Not a YouTube channel URL"})
         resp.headers.update(_CORS_HEADERS)
         return resp, 400
@@ -326,7 +326,7 @@ def api_channel_add():
 
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
-    if not _YT_CHANNEL_RE.search(url):
+    if not YT_CHANNEL_RE.search(url):
         resp = jsonify({"status": "error", "error": "Not a YouTube channel URL"})
         resp.headers.update(_CORS_HEADERS)
         return resp, 400
@@ -658,7 +658,7 @@ def api_status():
     if request.method == "OPTIONS":
         return make_response("", 204, _CORS_HEADERS)
     url = (request.args.get("url") or "").strip()
-    m = _YT_ID_RE.search(url)
+    m = YT_ID_RE.search(url)
     if not m:
         resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
         resp.headers.update(_CORS_HEADERS)
@@ -695,7 +695,7 @@ def api_hide():
         return make_response("", 204, _CORS_HEADERS)
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
-    m = _YT_ID_RE.search(url)
+    m = YT_ID_RE.search(url)
     if not m:
         resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
         resp.headers.update(_CORS_HEADERS)
@@ -725,7 +725,7 @@ def api_watch_later_add():
 
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
-    m = _YT_ID_RE.search(url)
+    m = YT_ID_RE.search(url)
     if not m:
         resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
         resp.headers.update(_CORS_HEADERS)
@@ -756,7 +756,7 @@ def api_watch_later_remove():
 
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
-    m = _YT_ID_RE.search(url)
+    m = YT_ID_RE.search(url)
     if not m:
         resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
         resp.headers.update(_CORS_HEADERS)
@@ -787,7 +787,7 @@ def api_watch_later_status():
 
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
-    m = _YT_ID_RE.search(url)
+    m = YT_ID_RE.search(url)
     if not m:
         resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
         resp.headers.update(_CORS_HEADERS)
@@ -813,7 +813,7 @@ def api_favorite_add():
 
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
-    m = _YT_ID_RE.search(url)
+    m = YT_ID_RE.search(url)
     if not m:
         resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
         resp.headers.update(_CORS_HEADERS)
@@ -839,7 +839,7 @@ def api_favorite_remove():
 
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
-    m = _YT_ID_RE.search(url)
+    m = YT_ID_RE.search(url)
     if not m:
         resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
         resp.headers.update(_CORS_HEADERS)
@@ -865,7 +865,7 @@ def api_favorite_status():
 
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
-    m = _YT_ID_RE.search(url)
+    m = YT_ID_RE.search(url)
     if not m:
         resp = jsonify({"status": "error", "error": "Not a YouTube URL"})
         resp.headers.update(_CORS_HEADERS)
