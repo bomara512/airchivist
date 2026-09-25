@@ -559,12 +559,16 @@ def video_remove_from_rediscover_shelf(video_id):
 
 @bp.route("/videos/<video_id>/hide", methods=["POST"])
 def video_hide(video_id):
+    if not _db.get_video_by_id(g.db, video_id):
+        abort(404)
     _db.hide_video(g.db, video_id)
     return "", 204
 
 
 @bp.route("/videos/<video_id>/unhide", methods=["POST"])
 def video_unhide(video_id):
+    if not _db.get_video_by_id(g.db, video_id):
+        abort(404)
     _db.unhide_video(g.db, video_id)
     return redirect(url_for("main.hidden"))
 
@@ -583,6 +587,8 @@ def watch_later_reorder(video_id):
 
 @bp.route("/videos/<video_id>/delete", methods=["POST"])
 def video_delete(video_id):
+    if not _db.get_video_by_id(g.db, video_id):
+        abort(404)
     _db.delete_video(g.db, video_id)
     return redirect(url_for("main.hidden"))
 

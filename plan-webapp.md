@@ -372,9 +372,9 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 | POST | `/videos/<id>/watched` | Toggles `videos.is_watched` via `set_watched`; 404 if video not found; returns `{"is_watched": bool}` |
 | POST | `/videos/<id>/favorite` | Toggles `videos.is_favorite` via `set_favorite`; 404 if video not found; returns `{"is_favorite": bool}` |
 | POST | `/videos/<id>/rediscover-shelf/remove` | Removes from the active shelf only — does not touch `personal_view_count`/`date_last_viewed`; 404 if video not found; returns 204 |
-| POST | `/videos/<id>/hide` | Soft-delete: set `is_hidden = 1`; returns 204 (used by right-click JS and extension) |
-| POST | `/videos/<id>/unhide` | Restore hidden video; redirects to `/hidden` |
-| POST | `/videos/<id>/delete` | Hard delete; `video_tags` rows cascade; redirects to `/hidden` |
+| POST | `/videos/<id>/hide` | Soft-delete: set `is_hidden = 1`; 404 if video not found; returns 204 (used by right-click JS and extension) |
+| POST | `/videos/<id>/unhide` | Restore hidden video; 404 if video not found; redirects to `/hidden` |
+| POST | `/videos/<id>/delete` | Hard delete; `video_tags` rows cascade; 404 if video not found; redirects to `/hidden` |
 | POST | `/videos/<id>/tags/add` | form `tag_name`; creates or promotes a canonical tag and attaches it to the video; 400 if blank, 404 if video not found; returns rendered tag-pills HTML |
 | GET | `/hidden` | Hidden videos management page — Restore and Delete permanently per card |
 | GET | `/api/status` | CORS. `?url=<yt_url>` → `{status: not_found\|exists\|hidden, video_id, title}` |
@@ -384,6 +384,15 @@ All routes are defined in `webapp/routes.py` and registered as a blueprint named
 | POST | `/api/watch-later/remove` | CORS. `{url}` → removes from queue |
 | POST | `/api/watch-later/status` | CORS. `{url}` → `{in_queue: bool}` |
 | POST | `/videos/<id>/watch-later/reorder` | `{position}` → moves the video to that 1-indexed position via `reorder_watch_later`; 400 if `position` missing/non-int, 404 if not in queue |
+
+**404 contract on video mutation routes**: every `POST /videos/<id>/...` route
+aborts with 404 when the ID names no row, and the check runs before any write.
+`hide`, `unhide`, and `delete` silently succeeded until 2026-09-25, so a stale
+button posting an already-deleted ID looked like it worked. The guard is
+repeated inline in each route rather than extracted into a decorator: `tags/add`
+must return 400 for a blank `tag_name` *before* it looks the video up, so a
+decorator could not cover every route, and one covering six of seven would read
+as a guarantee it doesn't make.
 
 ### Tag Groups
 

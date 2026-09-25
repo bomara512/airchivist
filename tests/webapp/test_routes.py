@@ -1,6 +1,8 @@
 import sqlite3
 from contextlib import closing
 
+import pytest
+
 from crawler.models import ChannelMetadata, FetchStatus, VideoMetadata
 
 
@@ -1002,3 +1004,32 @@ class TestChannelsPage:
         assert "<!doctype html>" not in body.lower()
 
 
+class TestVideoMutationRoutes404:
+    """F8: `hide`, `unhide`, and `delete` silently succeeded on an unknown ID
+    while their four siblings aborted with 404. Silent success on a mutation
+    hides the caller's bug — a stale HTMX button posting a deleted ID looked
+    like it worked."""
+
+    @pytest.mark.parametrize("path", [
+        "/videos/zzzzzzzzzz9/hide",
+        "/videos/zzzzzzzzzz9/unhide",
+        "/videos/zzzzzzzzzz9/delete",
+    ])
+    def test_unknown_video_id_returns_404(self, client, path):
+        assert client.post(path).status_code == 404
+
+    @pytest.mark.parametrize("path", [
+        "/videos/zzzzzzzzzz9/watched",
+        "/videos/zzzzzzzzzz9/mark-watched",
+        "/videos/zzzzzzzzzz9/favorite",
+        "/videos/zzzzzzzzzz9/rediscover-shelf/remove",
+    ])
+    def test_siblings_already_return_404(self, client, path):
+        assert client.post(path).status_code == 404
+
+    def test_a_404_does_not_mutate(self, client):
+        """The guard must run before the write, not alongside it."""
+        client.post("/videos/aaaaaaaaaa1/hide")
+        assert client.post("/videos/zzzzzzzzzz9/delete").status_code == 404
+        # the real hidden video is untouched by the failed delete
+        assert b"aaaaaaaaaa1" in client.get("/hidden").data

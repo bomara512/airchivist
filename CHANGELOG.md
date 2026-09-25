@@ -6,6 +6,31 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-25
 
+### fix: 404 on unknown video id for hide/unhide/delete (Task 7/14)
+
+`video_hide`, `video_unhide`, and `video_delete` silently succeeded when the
+`video_id` in the URL named no row — 204 and 302 respectively — while their four
+sibling mutation routes (`favorite`, `watched`, `mark-watched`,
+`rediscover-shelf/remove`) already aborted with 404. All seven now 404, checked
+before any write.
+
+- **Pro:** a stale HTMX button or extension action posting an ID that has since
+  been deleted now reports the failure instead of looking like it worked. No
+  existing test asserted the silent behavior (verified before changing it), so
+  nothing broke.
+- **Con:** this is a user-visible behavior change, one of exactly two the
+  remediation plan authorizes. A client that was relying on hide-as-upsert
+  semantics would now see a 404 — nothing in this codebase does, but that is the
+  shape of the risk.
+- Added `TestVideoMutationRoutes404` (8 tests): the three fixed routes, the four
+  siblings as a regression fence, and one asserting a 404 leaves the database
+  untouched — i.e. that the guard runs before the write rather than beside it.
+- Deliberately *not* extracted into a decorator, unlike the JSON API's
+  `resolve_video`: `tags/add` returns 400 for a blank `tag_name` before it
+  checks the video, so a decorator cannot cover all seven, and a six-of-seven
+  one advertises a guarantee it doesn't make. Net line saving would have been
+  about two lines.
+
 ### refactor: last raw SQL statement out of routes.py (Task 6/14)
 
 `video_remove_tag` looked up a tag's id with an inline
