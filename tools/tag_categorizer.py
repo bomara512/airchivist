@@ -26,6 +26,8 @@ from pathlib import Path
 # Allow importing from the project root (webapp.db, etc.)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from webapp.llm_tagger import NOISE_CANONICAL  # noqa: E402 — needs the sys.path line above
+
 DEFAULT_DB = "airchivist-test.db"
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 DEFAULT_MIN_VIDEOS = 5
@@ -374,7 +376,7 @@ def cmd_suggest(args: argparse.Namespace) -> None:
         noise = [t.strip() for t in result.get("noise", []) if t and t.strip()]
         if noise:
             all_proposals.append({
-                "canonical": "_noise",
+                "canonical": NOISE_CANONICAL,
                 "members": noise,
                 "confidence": "high",
                 "is_noise": True,
@@ -465,7 +467,7 @@ def cmd_review(args: argparse.Namespace) -> None:
         all_noise: list[str] = []
         for p in noise_proposals:
             all_noise.extend(p["members"])
-        noise_group = {"canonical": "_noise", "members": all_noise,
+        noise_group = {"canonical": NOISE_CANONICAL, "members": all_noise,
                        "confidence": "high", "is_noise": True, "is_existing": False}
 
         print(f"\n{'─' * 60}")

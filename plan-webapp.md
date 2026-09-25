@@ -32,6 +32,7 @@ airchivist/
 │   ├── cli.py                  # Entry point: parses --db arg, calls create_app()
 │   ├── db/                     # SQLite query and write functions, split by domain
 │   ├── filters.py              # Jinja2 template filters + user-facing label strings
+│   ├── timeutil.py             # as_utc() — shared by filters.py and db/videos.py
 │   └── templates/
 │       ├── base.html           # Shared layout, nav, HTMX script tag
 │       ├── index.html          # Main bookmarks table/card view
@@ -537,11 +538,16 @@ one-argument `shelf_reason` Jinja filter (a Jinja filter receives only the piped
 so the wrapper reads both fields off the row). `get_current_rediscover_shelf` returns data
 only — it stopped writing a `reason` string into each row on 2026-09-25.
 
-- Both labels treat a timestamp with no UTC offset as UTC. Everything in the app writes
-  tz-aware UTC, but a row written at the SQL level (`datetime('now')`) is naive, and
-  subtracting naive from aware raises `TypeError` — which rendered as a 500 on the entire
-  index page rather than one bad label. Found by rendering the page during the refactor;
-  the pre-existing code had the same hole.
+- **Every** site that reads a stored timestamp goes through `as_utc()` in
+  `webapp/timeutil.py`, which treats a missing UTC offset as UTC. Everything in the app
+  writes tz-aware UTC, but a row written at the SQL level (`datetime('now')`) is naive, and
+  comparing or subtracting naive against aware raises `TypeError`. All three sites sit
+  behind a whole-page render, so the failure is a 500 on the index page rather than one bad
+  value: the two labels here, and `get_current_rediscover_shelf`'s `expires_at <= now`
+  check in `webapp/db/videos.py`. `timeutil.py` is a leaf module precisely so the DB layer
+  and the Jinja filters can share it without depending on each other — the first pass fixed
+  only the labels and left the DB comparison crashing, which moved the 500 rather than
+  removing it (caught in review 2026-09-25).
 - `shelf_expires_label` truncates rather than rounding, so a freshly generated 7-day shelf
   reads "6 days" for its whole first day. Preserved deliberately (changing it is a
   user-visible change) and pinned by `test_truncates_rather_than_rounding`; filed in

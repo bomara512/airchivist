@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 from datetime import date as _date
 
+from webapp.timeutil import as_utc
+
 
 def format_view_count(value):
     if value is None:
@@ -42,25 +44,12 @@ def format_duration(seconds):
     return f"{m}:{s:02d}"
 
 
-def _as_utc(value: str) -> datetime:
-    """Parse an ISO timestamp, treating a missing offset as UTC.
-
-    Every writer in the app stores tz-aware UTC (`datetime.now(timezone.utc)`),
-    but a row written at the SQL level (`datetime('now')`) or by hand is naive,
-    and subtracting a naive from an aware datetime raises TypeError — which
-    reached the template as a 500 on the whole index page, not a bad label on one
-    card. Assuming UTC is right for this app's data and cannot raise.
-    """
-    parsed = datetime.fromisoformat(value)
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
-
-
 def shelf_expires_label(expires_at: str | None) -> str:
     """Human label for how long the rediscover shelf has left ("3 days", "5 hours")."""
     if not expires_at:
         return "—"
     try:
-        expires = _as_utc(expires_at)
+        expires = as_utc(expires_at)
     except (TypeError, ValueError):
         return "—"
     diff = expires - datetime.now(UTC)
@@ -85,7 +74,7 @@ def last_viewed_reason(
         return "Not recently viewed"
     reference = now or datetime.now(UTC)
     try:
-        last_viewed = _as_utc(date_last_viewed)
+        last_viewed = as_utc(date_last_viewed)
     except (TypeError, ValueError):
         return "Not recently viewed"
     days = (reference - last_viewed).days

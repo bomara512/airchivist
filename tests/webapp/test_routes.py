@@ -1042,6 +1042,7 @@ class TestVideoMutationRoutes404:
         # the real hidden video is untouched by the failed delete
         assert b"aaaaaaaaaa1" in client.get("/hidden").data
 
+
 class TestHiddenPaginationUrls:
     def test_append_param_is_not_carried_into_pagination_links(self, client, monkeypatch):
         monkeypatch.setattr("webapp.routes.PAGE_SIZE", 1)
@@ -1057,6 +1058,14 @@ class TestLlmErrorSurfacing:
     address bar, browser history, and any access log — and `tags.html` rendered it
     verbatim. Both routes now emit a stable code, and anything that isn't an
     LLMError is left to 500 so it surfaces in the server log instead of the URL."""
+
+    def _error_box(self, client, code):
+        """Just the `.llm-error` div — the page's own "set ANTHROPIC_API_KEY to
+        enable smart suggestions" hint renders whenever the key is absent, which it
+        is under test, so a whole-page search would always match it."""
+        body = client.get(f"/tags?llm_error={code}").get_data(as_text=True)
+        start = body.index('<div class="llm-error">')
+        return body[start:body.index("</div>", start)]
 
     def _boom(self, exc):
         def raiser(*a, **kw):
@@ -1102,9 +1111,53 @@ class TestLlmErrorSurfacing:
         assert "llm_error=unavailable" in resp.headers["Location"]
 
     def test_the_page_renders_copy_not_the_raw_code(self, client):
-        body = client.get("/tags?llm_error=unavailable").get_data(as_text=True)
-        assert "ANTHROPIC_API_KEY is set" in body
+        assert "ANTHROPIC_API_KEY is set" in self._error_box(client, "unavailable")
+
+    def test_a_request_failure_gets_its_own_code_and_copy(self, client, monkeypatch):
+        """A timeout or rate limit is not a setup problem — telling the user to check
+        their API key when the key is fine sends them to debug the wrong thing."""
+        import webapp.llm_tagger as llm
+
+        monkeypatch.setattr(
+            "webapp.llm_tagger.get_suggestions",
+            self._boom(llm.LLMRequestError("Connection error.")),
+        )
+        resp = client.post("/tags/llm-suggest")
+        assert "llm_error=request_failed" in resp.headers["Location"]
+        box = self._error_box(client, "request_failed")
+        assert "ANTHROPIC_API_KEY" not in box
+        assert "try again" in box.lower()
+
+    def test_a_bad_response_gets_its_own_code_and_copy(self, client, monkeypatch):
+        import webapp.llm_tagger as llm
+
+        monkeypatch.setattr(
+            "webapp.llm_tagger.get_suggestions",
+            self._boom(llm.LLMResponseError("LLM did not call the categorize_tags tool")),
+        )
+        resp = client.post("/tags/llm-suggest")
+        assert "llm_error=bad_response" in resp.headers["Location"]
+        box = self._error_box(client, "bad_response")
+        assert "ANTHROPIC_API_KEY" not in box
+        assert "unusable reply" in box
 
     def test_an_unknown_code_gets_generic_copy(self, client):
-        body = client.get("/tags?llm_error=something-else").get_data(as_text=True)
-        assert "Check the server log for details" in body
+        assert "Check the server log for details" in self._error_box(client, "something-else")
+
+
+class TestAbsurdPageParamDoesNotCrash:
+    """`/channels` was immune because it clamps before querying; `/` and `/hidden`
+    passed the raw page straight into OFFSET."""
+
+    @pytest.mark.parametrize("path", ["/", "/hidden", "/channels"])
+    def test_huge_page_is_a_200(self, client, path):
+        assert client.get(f"{path}?page=99999999999999999999").status_code == 200
+
+
+class TestShelfWithNaiveExpiryRenders:
+    def test_index_does_not_500(self, client):
+        client.get("/")  # generate a shelf
+        with closing(sqlite3.connect(client.application.config["DATABASE"])) as conn:
+            conn.execute("UPDATE rediscover_shelf SET expires_at = datetime('now','+3 days')")
+            conn.commit()
+        assert client.get("/").status_code == 200

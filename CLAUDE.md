@@ -35,6 +35,30 @@ After making a code change, read `TODO.md` and:
 1. **Mark completed items** — if the change implements or closes something on the list, strike it through.
 2. **Suggest related items** — if the change touches an area where nearby TODO items could be tackled with little extra effort, mention them briefly at the end of the response. Don't implement them unbidden; just surface them.
 
+## Harden the value, not the crash site
+
+When you fix a value read from the database — coercing a timestamp, normalizing a
+NULL, replacing a magic sentinel with a constant — grep for **every** site that
+reads that column or literal, including `tools/` and `scripts/`, and fix or
+explicitly rule on each one in the same response. Put the shared coercion in a
+leaf module both layers can import, never in whichever layer happened to crash.
+
+- Fixing the presentation layer while the DB layer keeps the same hazard *moves*
+  the crash, it does not remove it — and it leaves the living docs asserting a
+  guarantee that isn't true.
+- This happened twice in one change on 2026-09-25, both caught in review. A
+  timestamp-coercion helper was added to `webapp/filters.py` so two labels stopped
+  raising `TypeError` on a tz-naive value — but `get_current_rediscover_shelf`
+  compared the same kind of stored timestamp against an aware `now` two files away,
+  so the index page still returned 500, for the same reason, from the same trigger
+  (a row written with SQLite's `datetime('now')`). It is now `as_utc()` in
+  `webapp/timeutil.py`, used by both. Separately, a `"_noise"` sentinel was
+  replaced with a named constant in `webapp/` while `tools/tag_categorizer.py` kept
+  writing the bare string into the same JSON those functions consume.
+- The tell: you are about to write a fix in a file whose name does not match the
+  layer that owns the data. Before you do, `grep -rn` for the column name or the
+  literal across the whole repo — not just the package you are editing.
+
 ## When a miss is identified, sweep and codify it
 
 Whenever a bug, inconsistency, or anti-pattern is found — whether by the user

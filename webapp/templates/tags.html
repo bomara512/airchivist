@@ -48,6 +48,10 @@
   <div class="llm-error">
     {% if llm_error == 'unavailable' %}
       Smart Suggest is unavailable — check that the anthropic package is installed and ANTHROPIC_API_KEY is set.
+    {% elif llm_error == 'request_failed' %}
+      Smart Suggest couldn't reach the model — it may have timed out or been rate limited. Please try again in a minute.
+    {% elif llm_error == 'bad_response' %}
+      Smart Suggest got an unusable reply from the model. Please try again; the server log has the details.
     {% else %}
       Smart Suggest failed. Check the server log for details.
     {% endif %}

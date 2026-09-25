@@ -56,10 +56,11 @@ def main() -> None:
             total = len(video_bookmarks)
             for i, bookmark in enumerate(video_bookmarks, 1):
                 vid_id = bookmark.youtube_video_id
-                if vid_id is None:
-                    # video_bookmarks was filtered on this property, but it is
-                    # recomputed from the URL on each access — narrow explicitly.
-                    continue
+                # Cannot be None: video_bookmarks was filtered on this property, and
+                # it is a pure function of the bookmark's URL. Asserting rather than
+                # `if vid_id is None: continue`, which would be an unreachable silent
+                # skip that also desynchronizes the [i/total] counter.
+                assert vid_id is not None
                 print(f"[{i}/{total}] {vid_id}", flush=True)
 
                 if not args.force_refresh and ds.get_video_by_id(vid_id):

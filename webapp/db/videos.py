@@ -7,6 +7,7 @@ from typing import Any
 
 from crawler.datastore import apply_aliases
 from crawler.models import FetchStatus
+from webapp.timeutil import as_utc
 
 ALLOWED_SORT_COLUMNS = frozenset({
     'title', 'channel_name', 'yt_view_count', 'personal_view_count',
@@ -415,7 +416,7 @@ def get_current_rediscover_shelf(conn: sqlite3.Connection) -> dict[str, Any]:
 
     now = datetime.now(UTC)
 
-    if not row or datetime.fromisoformat(row["expires_at"]) <= now:
+    if not row or as_utc(row["expires_at"]) <= now:
         generate_rediscover_shelf(conn)
         row = conn.execute(
             "SELECT video_ids, generated_at, expires_at FROM rediscover_shelf ORDER BY generated_at DESC LIMIT 1"

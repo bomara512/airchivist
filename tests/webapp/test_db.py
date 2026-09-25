@@ -433,6 +433,36 @@ class TestRemoveFromRediscoverShelf:
         assert json.loads(row["video_ids"]) == ["aaaaaaaaaa2"]
 
 
+class TestShelfExpiryIsTimezoneSafe:
+    """Review finding: `_as_utc` hardened the two *labels* against a timestamp with
+    no UTC offset, but `get_current_rediscover_shelf` compared `expires_at` against
+    an aware `now` directly — so a row written with SQLite's `datetime('now')`
+    raised TypeError and took down the whole index page, exactly the failure the
+    label hardening was supposed to close."""
+
+    def test_naive_expires_at_does_not_raise(self, db_conn):
+        from webapp.db import get_current_rediscover_shelf
+
+        get_current_rediscover_shelf(db_conn)  # generate one
+        db_conn.execute("UPDATE rediscover_shelf SET expires_at = datetime('now','+3 days')")
+        db_conn.commit()
+        shelf = get_current_rediscover_shelf(db_conn)
+        assert "videos" in shelf
+
+    def test_a_naive_past_expiry_still_regenerates(self, db_conn):
+        from webapp.db import get_current_rediscover_shelf
+
+        get_current_rediscover_shelf(db_conn)
+        db_conn.execute("UPDATE rediscover_shelf SET expires_at = datetime('now','-1 days')")
+        db_conn.commit()
+        before = db_conn.execute("SELECT COUNT(*) FROM rediscover_shelf").fetchone()[0]
+        get_current_rediscover_shelf(db_conn)
+        # regeneration replaces the row rather than adding one
+        assert db_conn.execute("SELECT COUNT(*) FROM rediscover_shelf").fetchone()[0] == before
+        expires = db_conn.execute("SELECT expires_at FROM rediscover_shelf").fetchone()[0]
+        assert "+00:00" in expires  # the fresh row is written tz-aware
+
+
 class TestShelfVideosIncludeIsWatched:
     def test_shelf_video_dicts_carry_is_watched(self, db_conn):
         import json

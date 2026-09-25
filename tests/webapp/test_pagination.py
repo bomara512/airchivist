@@ -19,6 +19,12 @@ class TestRequestedPage:
         args = {} if raw is None else {"page": raw}
         assert requested_page(args) == expected
 
+    def test_clamps_an_absurd_integer(self):
+        """A page number too large for SQLite's INTEGER reached the OFFSET param and
+        raised OverflowError — a 500, not the "harmless first page" this function
+        promises. The cap is far above any real library's page count."""
+        assert requested_page({"page": "99999999999999999999"}) == 10**9
+
 
 class TestPaginationContext:
     def test_clamps_page_beyond_the_last(self, app):

@@ -14,6 +14,22 @@ bp = Blueprint("main", __name__)
 
 PAGE_SIZE = 100
 
+# Which failure the user is looking at, as a stable code `tags.html` maps to copy.
+# Never `str(e)`: a redirect target lands in the address bar, browser history, and
+# any access log.
+_LLM_ERROR_CODES = {
+    _llm.LLMUnavailableError: "unavailable",
+    _llm.LLMRequestError: "request_failed",
+    _llm.LLMResponseError: "bad_response",
+}
+
+
+def _llm_error_code(exc: _llm.LLMError) -> str:
+    for cls, code in _LLM_ERROR_CODES.items():
+        if isinstance(exc, cls):
+            return code
+    return "unavailable"
+
 
 
 @bp.route("/")
@@ -355,11 +371,11 @@ def tag_groups_auto_assign():
     groups = _db.get_tag_groups(g.db)
     try:
         assignments = _llm.suggest_group_assignments(ungrouped, groups)
-    except _llm.LLMError:
+    except _llm.LLMError as e:
         # A stable code, not str(e): this lands in the address bar and browser
-        # history, and `tags.html` renders it. Anything unexpected is left to
-        # propagate as a 500 so it shows up in the log instead of the URL.
-        return redirect(url_for("main.tags", llm_error="unavailable"))
+        # history, and `tags.html` renders it. Anything that is not an LLMError is
+        # left to propagate as a 500 so it shows up in the log instead of the URL.
+        return redirect(url_for("main.tags", llm_error=_llm_error_code(e)))
     for item in assignments:
         _db.add_canonical_to_group(g.db, item["group_id"], item["canonical_id"])
     return redirect(url_for("main.tags", assigned_groups=len(assignments)))
@@ -397,9 +413,9 @@ def tags_llm_suggest():
     pool_hash = _llm.compute_pool_hash(unclassified)
     try:
         suggestions = _llm.get_suggestions(canonical, unclassified)
-    except _llm.LLMError:
+    except _llm.LLMError as e:
         # See tag_groups_auto_assign: a code, not exception text.
-        return redirect(url_for("main.tags", llm_error="unavailable"))
+        return redirect(url_for("main.tags", llm_error=_llm_error_code(e)))
     _db.save_llm_suggestions(g.db, suggestions, pool_hash)
     return redirect(url_for("main.tags"))
 

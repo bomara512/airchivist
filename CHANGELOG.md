@@ -6,6 +6,65 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-25
 
+### fix: review pass on tasks 6–14 — three 500s, two incomplete sweeps
+
+A fresh-context reviewer audited the nine commits from Task 6 to Task 14. All five
+of the plan's Review Focus input classes passed empirically, and the `/channels`
+clamp asymmetry was confirmed genuinely preserved. Seven findings, all fixed here;
+each reproduced first, then pinned by a test that failed before the fix.
+
+**1. The recurring Smart Suggest failure had become a bare 500 page.** Task 12
+turned only three things into `LLMError`: `anthropic` not installed, no API key,
+and "the model didn't call the tool". Everything the Anthropic SDK actually raises
+in production — timeout, rate limit, 429/529, a *rejected* key — subclasses its own
+`APIError`, so it sailed past `except LLMError` and Werkzeug's default error page,
+with no way back to `/tags`. The two failures that *were* handled are one-time setup
+problems; the one that regressed is the one that recurs. Added
+`LLMRequestError`, raised by wrapping the API call, plus a `request_failed` code.
+A genuine programming bug still 500s, which was the point of that decision.
+
+**2. The timezone-naive fix from Task 11 had moved the crash instead of removing
+it.** `as_utc` hardened the two labels in `filters.py`, but
+`get_current_rediscover_shelf` compared a stored `expires_at` against an aware
+`now` two files away — so a shelf row written with SQLite's `datetime('now')` still
+returned **500 on the entire index page**, from the same trigger, for the same
+reason. Reproduced, then fixed by moving the coercion into `webapp/timeutil.py` as
+`as_utc()` and using it at all three sites. `plan-webapp.md` had been left asserting
+the hazard was closed. Codified as a new `CLAUDE.md` rule — *"Harden the value, not
+the crash site"* — since the same shape appeared twice in one change.
+
+**3. `?page=99999999999999999999` was a 500** on `/` and `/hidden`
+(`OverflowError: Python int too large to convert to SQLite INTEGER`, from the
+`OFFSET` parameter). Pre-existing — the old `except ValueError` missed it too — but
+`requested_page`'s new docstring promised "a harmless first page instead of a 500",
+so the claim was false as written. Now clamped to 10⁹. `/channels` was immune
+because it clamps before querying.
+
+**4. The `"_noise"` sweep had stopped at `webapp/`.** `tools/tag_categorizer.py`
+still wrote the bare string into the same JSON the constant-using DB functions
+consume. Now imports `NOISE_CANONICAL`.
+
+**5. One error code gave misleading copy.** An `LLMResponseError` sent the user to
+"check that ANTHROPIC_API_KEY is set" when the key was fine. Two error classes
+existed precisely so callers could tell them apart; collapsing them to one code
+threw that away at the last step. Three codes now, one branch each.
+
+**6.** Replaced Task 13's unreachable `if vid_id is None: continue` in
+`crawler/cli.py` with an `assert` — it satisfied mypy by inventing a silent-skip
+path that would also have desynchronized the `[i/total]` counter.
+
+**7.** Trivial: a missing blank line between two test classes, and a missing
+trailing newline in `conftest.py`.
+
+- **Pro:** three separate 500s are gone, two of which took down the whole index
+  page. 12 new tests (654 total). The new `CLAUDE.md` rule targets the actual
+  failure mode rather than either instance of it.
+- **Con:** `webapp/timeutil.py` is a new single-function module. That is the price
+  of the DB layer and the Jinja filters sharing a coercion without depending on each
+  other; putting it in either one is what caused the miss.
+- Also corrected this changelog: the Task 13 entry counted four mypy findings as
+  pre-existing when one of them was introduced by Task 8 of this same plan.
+
 ### refactor: extract initToggle in the extension popup (Task 14/14) — plan complete
 
 `initWatchLaterToggle` and `initFavoriteToggle` were ~90% identical line for line
@@ -43,7 +102,10 @@ rather than `str`, and added `mypy` as a second gate alongside ruff — in
 `pyproject.toml`, in the dev extras, and as a pre-commit hook.
 
 - **Pro:** mypy found four real pieces of type confusion, all now fixed rather
-  than silenced: `create_tag`/`create_canonical_tag` returned `cursor.lastrowid`
+  than silenced — three pre-existing, and one this plan had introduced four tasks
+  earlier (the `pagination_context` one, added in Task 8; a later review pointed out
+  this entry originally counted all four as pre-existing):
+  `create_tag`/`create_canonical_tag` returned `cursor.lastrowid`
   (`int | None`) from a function declared `-> int`; `crawler/cli.py` passed a
   `str | None` video ID into a `str` parameter (safe today only because a list
   comprehension filtered on a *recomputed* property); `pagination_context` assigned

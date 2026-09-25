@@ -30,6 +30,16 @@ class LLMUnavailableError(LLMError):
     """The anthropic package is missing, or no API key is configured."""
 
 
+class LLMRequestError(LLMError):
+    """The API call itself failed — timeout, rate limit, 5xx, or a rejected key.
+
+    This is the *recurring* failure, unlike the two setup failures above, so it
+    gets its own class and its own user-facing copy: telling someone to check
+    whether `anthropic` is installed when the real problem is a 429 sends them to
+    debug the wrong thing.
+    """
+
+
 class LLMResponseError(LLMError):
     """The model replied, but not in the shape we require."""
 
@@ -51,14 +61,25 @@ def _client():
 
 def _call_tool(*, system: str, tool: dict, user_message: str, model: str, max_tokens: int) -> dict[str, Any]:
     """Force one tool call and return its input, or raise LLMResponseError."""
-    response = _client().messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        system=system,
-        tools=[tool],
-        tool_choice={"type": "tool", "name": tool["name"]},
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        response = _client().messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            system=system,
+            tools=[tool],
+            tool_choice={"type": "tool", "name": tool["name"]},
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except LLMError:
+        raise  # _client()'s own "not installed" / "no key" failures pass through
+    except Exception as exc:
+        # Broad on purpose: `anthropic` is an optional dependency, so we cannot name
+        # its exception types here without importing it at module scope. Everything
+        # the SDK raises (APIConnectionError, APITimeoutError, RateLimitError,
+        # APIStatusError, AuthenticationError) subclasses its own APIError, which is
+        # a plain Exception — so before this existed, a timeout propagated past the
+        # routes' `except LLMError` and became a bare 500 page.
+        raise LLMRequestError(f"The Anthropic API call failed: {exc}") from exc
     tool_use = next((b for b in response.content if b.type == "tool_use"), None)
     if tool_use is None:
         raise LLMResponseError(f"LLM did not call the {tool['name']} tool")

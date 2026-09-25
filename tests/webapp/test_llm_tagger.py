@@ -5,6 +5,7 @@ import pytest
 
 from webapp.llm_tagger import (
     LLMError,
+    LLMRequestError,
     LLMResponseError,
     LLMUnavailableError,
     _build_user_message,
@@ -208,11 +209,52 @@ class TestGetSuggestions:
 class TestErrorHierarchy:
     """Routes catch the single base class, so both leaves must subclass it."""
 
-    def test_both_subclass_llm_error(self):
+    def test_all_subclass_llm_error(self):
         assert issubclass(LLMUnavailableError, LLMError)
         assert issubclass(LLMResponseError, LLMError)
+        assert issubclass(LLMRequestError, LLMError)
 
     def test_llm_error_is_not_an_oserror(self):
         # The old code raised EnvironmentError, which is an alias of OSError — so
         # `except OSError` anywhere upstream would have swallowed a missing API key.
         assert not issubclass(LLMError, OSError)
+
+
+class TestApiFailuresBecomeLLMRequestError:
+    """Review finding: only three failures were LLMError — package missing, key
+    missing, and "didn't call the tool". Everything the Anthropic SDK actually
+    raises in production (timeout, rate limit, 429/529, a *wrong* key) subclasses
+    its own APIError, so it propagated past the routes' `except LLMError` and became
+    a bare 500 page. That is the recurring failure, not the one-time setup ones."""
+
+    def _client_raising(self, exc):
+        mock_client = MagicMock()
+        mock_client.messages.create.side_effect = exc
+        return mock_client
+
+    def test_a_transport_failure_is_an_llm_request_error(self):
+        # Stands in for anthropic.APIConnectionError / APITimeoutError / RateLimitError,
+        # none of which can be imported here — anthropic is an optional dependency.
+        mock_client = self._client_raising(RuntimeError("Connection error."))
+        with patch.dict("sys.modules", {"anthropic": _mock_anthropic(mock_client)}), \
+             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            with pytest.raises(LLMRequestError, match="Connection error"):
+                get_suggestions([], [])
+
+    def test_the_original_exception_is_chained_not_discarded(self):
+        original = RuntimeError("rate limited")
+        mock_client = self._client_raising(original)
+        with patch.dict("sys.modules", {"anthropic": _mock_anthropic(mock_client)}), \
+             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            with pytest.raises(LLMRequestError) as exc_info:
+                get_suggestions([], [])
+        assert exc_info.value.__cause__ is original
+
+    def test_group_assignments_takes_the_same_path(self):
+        from webapp.llm_tagger import suggest_group_assignments
+
+        mock_client = self._client_raising(RuntimeError("boom"))
+        with patch.dict("sys.modules", {"anthropic": _mock_anthropic(mock_client)}), \
+             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            with pytest.raises(LLMRequestError):
+                suggest_group_assignments([], [])
