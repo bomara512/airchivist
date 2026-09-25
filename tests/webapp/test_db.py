@@ -176,6 +176,20 @@ class TestGetAllVideos:
         rows = get_all_videos(db_conn, page=2, page_size=3)
         assert len(rows) == 1
 
+    def test_video_with_no_tags_gets_empty_string_not_none(self, db_conn):
+        # aaaaaaaaaa4 has no canonical tags, so GROUP_CONCAT yields SQL NULL.
+        # Templates call .split(",") on this, so it must be "" and never None.
+        rows = {r["video_id"]: r for r in get_all_videos(db_conn)}
+        assert rows["aaaaaaaaaa4"]["tags"] == ""
+
+    def test_hidden_videos_keep_the_same_tags_contract(self, db_conn):
+        from webapp.db import get_hidden_videos
+
+        db_conn.execute("UPDATE videos SET is_hidden = 1 WHERE video_id = 'aaaaaaaaaa4'")
+        db_conn.commit()
+        rows = {r["video_id"]: r for r in get_hidden_videos(db_conn)}
+        assert rows["aaaaaaaaaa4"]["tags"] == ""
+
 
 class TestCountVideos:
     def test_returns_total_count(self, db_conn):

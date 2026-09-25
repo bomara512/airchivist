@@ -22,8 +22,34 @@ _DURATION_BUCKETS = {
 }
 _ADDED_WITHIN_DAYS = frozenset({7, 30, 90, 365})
 
+# Shared SQL for "a video row plus its canonical tag names". Every query using
+# these GROUPs BY v.id, so GROUP_CONCAT collapses the joined tag rows into one
+# comma-separated column — NULL when the video has no canonical tags, which
+# _to_video_dicts normalizes to "".
+_CANONICAL_TAGS_SELECT = "GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END) AS tags"
+_VIDEO_TAGS_JOIN = """
+        LEFT JOIN video_tags vt ON vt.video_id_fk = v.id
+        LEFT JOIN tags t ON t.id = vt.tag_id_fk
+"""
 
-def _build_where(channel, tag, search, favorites_only=False,
+
+def _video_pk(conn: sqlite3.Connection, video_id: str) -> int | None:
+    """The `videos.id` surrogate key for a YouTube video ID, or None if absent."""
+    row = conn.execute("SELECT id FROM videos WHERE video_id = ?", (video_id,)).fetchone()
+    return row[0] if row else None
+
+
+def _to_video_dicts(rows) -> list[dict]:
+    """Row objects to plain dicts, with a NULL `tags` column normalized to ""."""
+    result = []
+    for row in rows:
+        d = dict(row)
+        d["tags"] = d.get("tags") or ""
+        result.append(d)
+    return result
+
+
+def _build_where(*, channel=None, tag=None, search=None, favorites_only=False,
                  unwatched_only=False, duration=None, added_within=None):
     params = []
     clauses = ["v.fetch_status = 'ok'", "v.is_hidden = 0"]
@@ -101,7 +127,8 @@ def get_all_videos(
         raise ValueError(f"Invalid sort_dir: {sort_dir!r}")
 
     where_sql, params = _build_where(
-        channel, tag, search, favorites_only, unwatched_only, duration, added_within
+        channel=channel, tag=tag, search=search, favorites_only=favorites_only,
+        unwatched_only=unwatched_only, duration=duration, added_within=added_within,
     )
 
     limit_sql = ""
@@ -116,23 +143,15 @@ def get_all_videos(
         order_sql = f"v.is_watched ASC, {order_sql}"
 
     sql = f"""
-        SELECT v.*, GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END) as tags
+        SELECT v.*, {_CANONICAL_TAGS_SELECT}
         FROM videos v
-        LEFT JOIN video_tags vt ON vt.video_id_fk = v.id
-        LEFT JOIN tags t ON t.id = vt.tag_id_fk
+        {_VIDEO_TAGS_JOIN}
         {where_sql}
         GROUP BY v.id
         ORDER BY {order_sql}
         {limit_sql}
     """
-    rows = conn.execute(sql, params).fetchall()
-    result = []
-    for row in rows:
-        d = dict(row)
-        if d.get("tags") is None:
-            d["tags"] = ""
-        result.append(d)
-    return result
+    return _to_video_dicts(conn.execute(sql, params).fetchall())
 
 
 def count_videos(
@@ -146,7 +165,8 @@ def count_videos(
     added_within: Optional[int] = None,
 ) -> int:
     where_sql, params = _build_where(
-        channel, tag, search, favorites_only, unwatched_only, duration, added_within
+        channel=channel, tag=tag, search=search, favorites_only=favorites_only,
+        unwatched_only=unwatched_only, duration=duration, added_within=added_within,
     )
     sql = f"""
         SELECT COUNT(DISTINCT v.id)
@@ -279,8 +299,8 @@ def add_video(
     ))
     conn.commit()
 
-    video_row = conn.execute("SELECT id FROM videos WHERE video_id = ?", (video_id,)).fetchone()
-    if video_row and yt_tags:
+    pk = _video_pk(conn, video_id)
+    if pk is not None and yt_tags:
         for name in yt_tags:
             name = name.strip().lower()
             if not name:
@@ -289,7 +309,7 @@ def add_video(
             tag_row = conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()
             conn.execute(
                 "INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk) VALUES (?, ?)",
-                (video_row[0], tag_row[0]),
+                (pk, tag_row[0]),
             )
         conn.commit()
 
@@ -337,24 +357,18 @@ def get_hidden_videos(
     if page_size is not None:
         limit_sql = "LIMIT ? OFFSET ?"
         params = [page_size, (page - 1) * page_size]
+    # No fetch_status filter here, unlike _build_where: a video you archived
+    # should stay visible on the Archived page even if its metadata fetch failed.
     sql = f"""
-        SELECT v.*, GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END) as tags
+        SELECT v.*, {_CANONICAL_TAGS_SELECT}
         FROM videos v
-        LEFT JOIN video_tags vt ON vt.video_id_fk = v.id
-        LEFT JOIN tags t ON t.id = vt.tag_id_fk
+        {_VIDEO_TAGS_JOIN}
         WHERE v.is_hidden = 1
         GROUP BY v.id
         ORDER BY v.{sort_by} {sort_dir}
         {limit_sql}
     """
-    rows = conn.execute(sql, params).fetchall()
-    result = []
-    for row in rows:
-        d = dict(row)
-        if d.get("tags") is None:
-            d["tags"] = ""
-        result.append(d)
-    return result
+    return _to_video_dicts(conn.execute(sql, params).fetchall())
 
 
 def count_hidden_videos(conn: sqlite3.Connection) -> int:
@@ -419,18 +433,15 @@ def get_current_rediscover_shelf(conn: sqlite3.Connection) -> dict:
         SELECT v.video_id, v.title, v.channel_name, v.channel_id, v.thumbnail_url,
                v.yt_view_count, v.duration_seconds, v.date_published, v.date_added,
                v.personal_view_count, v.date_last_viewed, v.is_watched,
-               GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END) AS tags
+               {_CANONICAL_TAGS_SELECT}
         FROM videos v
-        LEFT JOIN video_tags vt ON vt.video_id_fk = v.id
-        LEFT JOIN tags t ON t.id = vt.tag_id_fk
+        {_VIDEO_TAGS_JOIN}
         WHERE v.video_id IN ({placeholders})
         GROUP BY v.id
     """, video_ids).fetchall()
 
     video_dict = {}
-    for r in rows:
-        v = dict(r)
-        v["tags"] = v["tags"] or ""
+    for v in _to_video_dicts(rows):
         if v["personal_view_count"] == 0:
             v["reason"] = "Never opened"
         elif v["date_last_viewed"]:
@@ -458,16 +469,13 @@ def refresh_rediscover_shelf(conn: sqlite3.Connection) -> dict:
 
 def add_to_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
     """Add a video to the watch later queue. Returns True if added, False if already in queue."""
-    # Get the video row
-    video = conn.execute(
-        "SELECT id FROM videos WHERE video_id = ?", (video_id,)
-    ).fetchone()
-    if not video:
+    pk = _video_pk(conn, video_id)
+    if pk is None:
         return False
 
     # Check if already in queue
     existing = conn.execute(
-        "SELECT id FROM watch_later WHERE video_id_fk = ?", (video["id"],)
+        "SELECT id FROM watch_later WHERE video_id_fk = ?", (pk,)
     ).fetchone()
     if existing:
         return False
@@ -480,7 +488,7 @@ def add_to_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
     now = datetime.now(timezone.utc).isoformat()
     conn.execute(
         "INSERT INTO watch_later (video_id_fk, position, added_at) VALUES (?, ?, ?)",
-        (video["id"], max_pos + 1, now),
+        (pk, max_pos + 1, now),
     )
     _remove_from_rediscover_shelf(conn, video_id)
     conn.commit()
@@ -489,15 +497,13 @@ def add_to_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
 
 def remove_from_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
     """Remove a video from the watch later queue. Returns True if removed, False if not found."""
-    video = conn.execute(
-        "SELECT id FROM videos WHERE video_id = ?", (video_id,)
-    ).fetchone()
-    if not video:
+    pk = _video_pk(conn, video_id)
+    if pk is None:
         return False
 
     # Get the position being removed
     row = conn.execute(
-        "SELECT position FROM watch_later WHERE video_id_fk = ?", (video["id"],)
+        "SELECT position FROM watch_later WHERE video_id_fk = ?", (pk,)
     ).fetchone()
     if not row:
         return False
@@ -506,7 +512,7 @@ def remove_from_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
 
     # Delete the video
     conn.execute(
-        "DELETE FROM watch_later WHERE video_id_fk = ?", (video["id"],)
+        "DELETE FROM watch_later WHERE video_id_fk = ?", (pk,)
     )
 
     # Shift down positions after the deleted one
@@ -519,25 +525,19 @@ def remove_from_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
 
 def get_watch_later_queue(conn: sqlite3.Connection) -> list:
     """Get all videos in the watch later queue, ordered by position."""
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT v.video_id, v.title, v.channel_name, v.channel_id, v.thumbnail_url,
                v.yt_view_count, v.personal_view_count, v.duration_seconds,
                v.date_published, v.date_added,
                v.date_last_viewed, wl.position, wl.added_at AS queue_added_at,
-               GROUP_CONCAT(CASE WHEN t.is_canonical = 1 THEN t.name ELSE NULL END) AS tags
+               {_CANONICAL_TAGS_SELECT}
         FROM watch_later wl
         JOIN videos v ON v.id = wl.video_id_fk
-        LEFT JOIN video_tags vt ON vt.video_id_fk = v.id
-        LEFT JOIN tags t ON t.id = vt.tag_id_fk
+        {_VIDEO_TAGS_JOIN}
         GROUP BY v.id
         ORDER BY wl.position ASC
     """).fetchall()
-    result = []
-    for row in rows:
-        d = dict(row)
-        d["tags"] = d["tags"] or ""
-        result.append(d)
-    return result
+    return _to_video_dicts(rows)
 
 
 def get_watch_later_video_ids(conn: sqlite3.Connection) -> set:
@@ -551,28 +551,24 @@ def get_watch_later_video_ids(conn: sqlite3.Connection) -> set:
 
 def is_in_watch_later(conn: sqlite3.Connection, video_id: str) -> bool:
     """Check if a video is in the watch later queue."""
-    video = conn.execute(
-        "SELECT id FROM videos WHERE video_id = ?", (video_id,)
-    ).fetchone()
-    if not video:
+    pk = _video_pk(conn, video_id)
+    if pk is None:
         return False
 
     row = conn.execute(
-        "SELECT id FROM watch_later WHERE video_id_fk = ?", (video["id"],)
+        "SELECT id FROM watch_later WHERE video_id_fk = ?", (pk,)
     ).fetchone()
     return row is not None
 
 
 def reorder_watch_later(conn: sqlite3.Connection, video_id: str, new_position: int) -> bool:
     """Move a video to a new position in the queue. Returns True if moved, False if video not found."""
-    video = conn.execute(
-        "SELECT id FROM videos WHERE video_id = ?", (video_id,)
-    ).fetchone()
-    if not video:
+    pk = _video_pk(conn, video_id)
+    if pk is None:
         return False
 
     row = conn.execute(
-        "SELECT position FROM watch_later WHERE video_id_fk = ?", (video["id"],)
+        "SELECT position FROM watch_later WHERE video_id_fk = ?", (pk,)
     ).fetchone()
     if not row:
         return False
@@ -601,7 +597,7 @@ def reorder_watch_later(conn: sqlite3.Connection, video_id: str, new_position: i
     # Set the video to its new position
     conn.execute(
         "UPDATE watch_later SET position = ? WHERE video_id_fk = ?",
-        (new_position, video["id"]),
+        (new_position, pk),
     )
     conn.commit()
     return True

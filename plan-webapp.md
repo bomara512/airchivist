@@ -74,6 +74,15 @@ This is an invariant worth keeping — the last holdout was the tag-removal rout
 which looked up a tag id inline until `get_tag_id_by_name` was added to
 `tags.py`.
 
+Three module-private helpers in `webapp/db/videos.py` carry what its queries
+repeat: `_video_pk(conn, video_id)` resolves a YouTube ID to the `videos.id`
+surrogate key (five call sites had their own copy), `_to_video_dicts(rows)`
+converts rows to dicts and normalizes a NULL `tags` column to `""` (four copies,
+two of which used subtly different spellings of the same check), and
+`_CANONICAL_TAGS_SELECT` / `_VIDEO_TAGS_JOIN` hold the canonical-tags
+`GROUP_CONCAT` + double `LEFT JOIN` that four list queries spell out. The `""`
+normalization matters because templates call `.split(",")` on `tags`.
+
 ### Functions in `db.py`
 
 ```python
@@ -155,7 +164,7 @@ def collapse_case_variants(conn) -> int        # one-time admin: merges case-dup
 # webapp/db.py:      MatchType(StrEnum)   — EXACT, PREFIX, CONTAINS
 ```
 
-`get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments. `fetch_status = 'ok'` and `is_hidden = 0` are always applied as base conditions — hidden videos and videos with any other status are never shown in the main index. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
+`get_all_videos` and `count_videos` share a `_build_where` helper that composes the `WHERE` clause and params list from the filter arguments; its parameters are keyword-only so the two call sites cannot drift positionally. `fetch_status = 'ok'` and `is_hidden = 0` are always applied as base conditions — hidden videos and videos with any other status are never shown in the main index. `get_hidden_videos` deliberately does *not* use `_build_where` and applies no `fetch_status` filter: a video you archived should stay visible on the Archived page even if its metadata fetch failed, so the two cannot be merged. `get_all_videos` appends `LIMIT ? OFFSET ?` when `page_size` is not `None`. The `sort_by` column name is validated against `ALLOWED_SORT_COLUMNS` before string interpolation (column names cannot be parameterized in SQLite). `sort_dir` is validated against `{'asc', 'desc'}`.
 
 `_build_where` also accepts three quick-filter params, alongside the existing `favorites_only`:
 

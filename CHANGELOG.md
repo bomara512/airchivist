@@ -6,6 +6,30 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-25
 
+### refactor: extract repeated SQL fragments and row handling in db/videos (Task 10/14)
+
+Five copies of the video-PK lookup (`SELECT id FROM videos WHERE video_id = ?`),
+four of the row→dict + NULL-`tags` normalization, four of the canonical-tags
+`GROUP_CONCAT` + double `LEFT JOIN`. Now `_video_pk`, `_to_video_dicts`,
+`_CANONICAL_TAGS_SELECT`, and `_VIDEO_TAGS_JOIN`, all module-private.
+`_build_where`'s parameters are keyword-only, so its two callers can't drift
+positionally.
+
+- **Pro:** the `tags` normalization had two different spellings across the four
+  copies (`if d.get("tags") is None` vs `d["tags"] or ""` — same result, but a
+  reader has to prove that); now there is one. `videos.py` loses 68 lines of the
+  132 it touched.
+- **Con:** the SQL of a query is no longer literally readable at its call site —
+  you have to resolve two f-string names to see what it selects and joins.
+- **Deliberately not merged:** `get_hidden_videos` into `get_all_videos`.
+  `_build_where` always adds `v.fetch_status = 'ok'`; `get_hidden_videos` omits
+  it on purpose so an archived video whose metadata fetch failed still appears on
+  the Archived page. Unifying them would have silently hidden those rows. Now
+  stated in a comment at the query.
+- Added two characterization tests first (a tagless video's `tags` is `""` and not
+  `None`, on both the main list and the Archived list), since templates call
+  `.split(",")` on that column and nothing pinned it.
+
 ### refactor: extract VideoListFilters and group_videos out of index() (Task 9/14)
 
 `index()` was ~115 lines doing six jobs: parse 10 query params, derive two
