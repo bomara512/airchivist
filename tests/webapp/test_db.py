@@ -28,6 +28,7 @@ from webapp.db import (
     get_channels_page,
     get_llm_suggestions,
     get_stats,
+    get_tag_id_by_name,
     get_tag_keywords,
     get_tags_for_video,
     get_tags_with_keywords,
@@ -1605,3 +1606,17 @@ class TestUnwatchedFilterUsesIsWatched:
         assert "aaaaaaaaaa1" not in ids
         # A video with count 0 and is_watched 0 stays unwatched:
         assert "aaaaaaaaaa4" in ids
+
+
+class TestGetTagIdByName:
+    def test_returns_id_for_existing_tag(self, db_conn):
+        assert get_tag_id_by_name(db_conn, "guitar") == 1
+
+    def test_returns_none_for_unknown_tag(self, db_conn):
+        assert get_tag_id_by_name(db_conn, "does-not-exist") is None
+
+    def test_is_exact_not_partial(self, db_conn):
+        # the route deletes by this id, so a partial match would remove the
+        # wrong tag from the video
+        assert get_tag_id_by_name(db_conn, "guit") is None
+        assert get_tag_id_by_name(db_conn, "thai") is None

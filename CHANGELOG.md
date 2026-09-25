@@ -6,6 +6,26 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-25
 
+### refactor: last raw SQL statement out of routes.py (Task 6/14)
+
+`video_remove_tag` looked up a tag's id with an inline
+`g.db.execute("SELECT id FROM tags WHERE name = ?")` — the only route in the
+webapp that touched SQL directly. Moved it into `webapp/db/tags.py` as
+`get_tag_id_by_name(conn, name) -> int | None`.
+
+- **Pro:** `grep "g.db.execute" webapp/routes.py` now returns nothing, so the
+  "no SQL above the DB layer" rule is mechanically checkable rather than a
+  convention someone has to remember. The lookup is also now testable without
+  a request context, and the `is not None` guard is explicit where the old
+  truthiness check on a `sqlite3.Row` was incidental.
+- **Con:** one more name in an already-large `webapp/db/__init__.py` re-export
+  block, for a two-line function with a single caller. That is the cost of the
+  invariant; a second caller (a tag-rename or tag-merge route) would have
+  needed it anyway.
+- Added `TestGetTagIdByName` (3 tests) covering the hit, the miss, and that the
+  match is exact rather than a prefix/substring — the last being the behavior a
+  future caller is most likely to assume wrongly.
+
 ### fix: cover api_add's rewritten paths, retract a wrong dead-code call
 
 Second fix pass, from an independent review of the first one and of Task 5.

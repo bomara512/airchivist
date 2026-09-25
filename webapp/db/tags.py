@@ -24,6 +24,12 @@ def get_tags_with_keywords(conn: sqlite3.Connection) -> list:
     return result
 
 
+def get_tag_id_by_name(conn: sqlite3.Connection, name: str) -> int | None:
+    """The `tags.id` for an exact tag name, or None if no such tag exists."""
+    row = conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()
+    return row[0] if row else None
+
+
 def get_tag_keywords(conn: sqlite3.Connection, tag_id: int) -> list[str]:
     rows = conn.execute(
         "SELECT keyword FROM tag_keywords WHERE tag_id = ?", (tag_id,)

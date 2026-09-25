@@ -68,6 +68,12 @@ airchivist/
 | `channels.py` | Channel CRUD and lookup |
 | `schema.py` | `init_webapp_tables` (creates/migrates all tables) |
 
+No route issues SQL directly: `webapp/routes.py` contains zero `g.db.execute(...)`
+calls, so every statement in the webapp lives in one of the submodules above.
+This is an invariant worth keeping — the last holdout was the tag-removal route,
+which looked up a tag id inline until `get_tag_id_by_name` was added to
+`tags.py`.
+
 ### Functions in `db.py`
 
 ```python
@@ -103,6 +109,8 @@ def record_visit(conn, video_id: str) -> None  # increments personal_view_count,
 def set_watched(conn, video_id: str, value: bool) -> None  # sets is_watched only; never touches personal_view_count
 
 def create_tag(conn, name: str) -> int
+
+def get_tag_id_by_name(conn, name: str) -> int | None   # exact match, not prefix/contains
 
 def set_tag_keywords(conn, tag_id: int, keywords: list[str]) -> None
 

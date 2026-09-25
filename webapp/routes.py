@@ -207,9 +207,9 @@ def channels():
 def video_remove_tag(video_id):
     tag_name = request.form.get("tag_name", "").strip()
     if tag_name:
-        tag_row = g.db.execute("SELECT id FROM tags WHERE name = ?", (tag_name,)).fetchone()
-        if tag_row:
-            _db.remove_video_tag(g.db, video_id, tag_row["id"])
+        tag_id = _db.get_tag_id_by_name(g.db, tag_name)
+        if tag_id is not None:
+            _db.remove_video_tag(g.db, video_id, tag_id)
     return "", 204
 
 
