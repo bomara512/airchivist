@@ -647,3 +647,71 @@ class TestUpsertVideoPreservesOnFailure:
             row = ds.get_video_by_id("aaaaaaaaaa1")
         assert row is not None
         assert row["fetch_status"] == "deleted"
+
+
+class TestGetStaleVideoIds:
+    def _seed(self, ds, rows):
+        """rows: list of (video_id, last_fetched_at or None)."""
+        for video_id, fetched in rows:
+            ds._conn.execute(
+                "INSERT INTO videos (video_id, url, fetch_status, last_fetched_at) "
+                "VALUES (?, ?, 'ok', ?)",
+                (video_id, f"https://www.youtube.com/watch?v={video_id}", fetched),
+            )
+        ds._conn.commit()
+
+    def test_orders_oldest_refreshed_first(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed(ds, [
+                ("newest00001", "2026-09-01T00:00:00+00:00"),
+                ("oldest00001", "2026-01-01T00:00:00+00:00"),
+                ("middle00001", "2026-05-01T00:00:00+00:00"),
+            ])
+            assert ds.get_stale_video_ids(10) == ["oldest00001", "middle00001", "newest00001"]
+
+    def test_never_fetched_videos_come_first(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed(ds, [
+                ("fetched0001", "2026-01-01T00:00:00+00:00"),
+                ("neverfetch1", None),
+            ])
+            assert ds.get_stale_video_ids(10)[0] == "neverfetch1"
+
+    def test_honors_the_limit(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed(ds, [(f"video00000{i}", f"2026-0{i}-01T00:00:00+00:00") for i in range(1, 6)])
+            assert len(ds.get_stale_video_ids(2)) == 2
+
+    def test_includes_hidden_and_already_dead_videos(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            ds._conn.execute(
+                "INSERT INTO videos (video_id, url, fetch_status, is_hidden, last_fetched_at) "
+                "VALUES ('hidden00001', 'u', 'deleted', 1, '2026-01-01T00:00:00+00:00')"
+            )
+            ds._conn.commit()
+            assert ds.get_stale_video_ids(10) == ["hidden00001"]
+
+    def test_a_non_positive_limit_selects_nothing(self, tmp_path):
+        """Review Focus #1: SQLite reads LIMIT -1 as *no limit*, so a typo'd
+        `--limit -1` would refresh the entire library in one run."""
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed(ds, [("video000001", None), ("video000002", None)])
+            assert ds.get_stale_video_ids(0) == []
+            assert ds.get_stale_video_ids(-1) == []
+
+    def test_empty_library_returns_empty(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            assert ds.get_stale_video_ids(10) == []
+
+
+class TestCountVideos:
+    def test_counts_every_row(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            ds._conn.execute("INSERT INTO videos (video_id, url) VALUES ('a0000000001', 'u')")
+            ds._conn.execute("INSERT INTO videos (video_id, url) VALUES ('a0000000002', 'u')")
+            ds._conn.commit()
+            assert ds.count_videos() == 2
+
+    def test_empty_library_is_zero(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            assert ds.count_videos() == 0

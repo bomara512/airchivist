@@ -285,6 +285,28 @@ class Datastore:
     def count_videos(self) -> int:
         return self._conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
 
+    def get_stale_video_ids(self, limit: int) -> list[str]:
+        """The `limit` least-recently-refreshed video IDs, stalest first.
+
+        Never-fetched rows sort first because SQLite orders NULL before any value —
+        which is the priority we want and costs nothing to get.
+
+        Includes hidden videos and videos already marked dead: an archived video that
+        gets deleted upstream is exactly the case where keeping the last-known title
+        matters, and a private video can become public again.
+
+        A non-positive limit selects nothing. This is a guard, not a formality:
+        SQLite reads `LIMIT -1` as *no limit*, so passing a negative straight through
+        would refresh the entire library in one run.
+        """
+        if limit <= 0:
+            return []
+        rows = self._conn.execute(
+            "SELECT video_id FROM videos ORDER BY last_fetched_at ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [r["video_id"] for r in rows]
+
     def upsert_channel(self, meta: ChannelMetadata, source_url: str | None = None) -> None:
         self._conn.execute(
             """

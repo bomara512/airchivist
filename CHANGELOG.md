@@ -6,6 +6,33 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-26
 
+### feat: add staleness selection to Datastore
+
+Added `Datastore.get_stale_video_ids(limit)` and `Datastore.count_videos()`
+— the read side of the nightly refresh, which Task 4 combines with
+`refresh_video` into the actual run loop. `get_stale_video_ids` returns the
+`limit` least-recently-refreshed video IDs ordered by `last_fetched_at ASC`;
+never-fetched rows sort first for free because SQLite orders `NULL` before
+any value, which is the priority a refresh run wants anyway. It includes
+hidden and already-`deleted`/`private` videos deliberately — those are
+exactly the rows where a returning video or a stale last-known title
+matters most.
+
+A non-positive `limit` returns `[]` immediately, before any query runs.
+SQLite treats `LIMIT -1` as *no limit at all*, so without this guard a
+negative limit (a CLI typo, or a miscomputed value) would refresh the
+entire library — thousands of videos, over an hour of run time — instead
+of nothing.
+
+- **Pro:** the nightly run can pick its N stalest videos with one indexed
+  query, and never-fetched videos are prioritized without any extra
+  ordering logic.
+- **Con:** `get_stale_video_ids` has no way to distinguish "never fetched"
+  from "fetched a very long time ago before the column existed" — both
+  produce `NULL` and sort identically first. That distinction doesn't
+  matter for this feature (both cases want to be refreshed soonest), but
+  it would if a future caller needed to tell them apart.
+
 ### feat: add Datastore.refresh_video, preserve metadata on failed fetch
 
 `crawler.metadata_fetcher.fetch_metadata`'s failure path (private, deleted, or
