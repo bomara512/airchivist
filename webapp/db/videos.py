@@ -23,6 +23,18 @@ _DURATION_BUCKETS = {
 }
 _ADDED_WITHIN_DAYS = frozenset({7, 30, 90, 365})
 
+# Values the ?fetch_status= filter accepts. "dead" is the useful one — "show me
+# everything that is no longer watchable" — and the three concrete statuses let the
+# user narrow further. Keep in sync with the <select> in webapp/templates/index.html
+# and with FetchStatusFilter in webapp/video_filters.py.
+_FETCH_STATUS_CLAUSES = {
+    "ok": "v.fetch_status = 'ok'",
+    "dead": "v.fetch_status != 'ok'",
+    "deleted": "v.fetch_status = 'deleted'",
+    "private": "v.fetch_status = 'private'",
+    "error": "v.fetch_status = 'error'",
+}
+
 # Shared SQL for "a video row plus its canonical tag names". Every query using
 # these GROUPs BY v.id, so GROUP_CONCAT collapses the joined tag rows into one
 # comma-separated column — NULL when the video has no canonical tags, which
@@ -51,9 +63,19 @@ def _to_video_dicts(rows) -> list[dict]:
 
 
 def _build_where(*, channel=None, tag=None, search=None, favorites_only=False,
-                 unwatched_only=False, duration=None, added_within=None):
+                 unwatched_only=False, duration=None, added_within=None,
+                 fetch_status=None):
     params = []
-    clauses = ["v.fetch_status = 'ok'", "v.is_hidden = 0"]
+    # The status clause is REPLACED, not appended to: the default "only watchable
+    # videos" view is itself a fetch_status filter, so appending would produce
+    # `fetch_status = 'ok' AND fetch_status = 'deleted'` and always match nothing.
+    if fetch_status is not None:
+        if fetch_status not in _FETCH_STATUS_CLAUSES:
+            raise ValueError(f"Invalid fetch_status: {fetch_status!r}")
+        status_clause = _FETCH_STATUS_CLAUSES[fetch_status]
+    else:
+        status_clause = _FETCH_STATUS_CLAUSES["ok"]
+    clauses = [status_clause, "v.is_hidden = 0"]
     if channel:
         clauses.append("v.channel_name = ?")
         params.append(channel)
@@ -119,6 +141,7 @@ def get_all_videos(
     unwatched_first: bool = False,
     duration: str | None = None,
     added_within: int | None = None,
+    fetch_status: str | None = None,
 ) -> list[dict]:
     if sort_by not in ALLOWED_SORT_COLUMNS:
         raise ValueError(f"Invalid sort_by: {sort_by!r}")
@@ -128,6 +151,7 @@ def get_all_videos(
     where_sql, params = _build_where(
         channel=channel, tag=tag, search=search, favorites_only=favorites_only,
         unwatched_only=unwatched_only, duration=duration, added_within=added_within,
+        fetch_status=fetch_status,
     )
 
     limit_sql = ""
@@ -162,10 +186,12 @@ def count_videos(
     unwatched_only: bool = False,
     duration: str | None = None,
     added_within: int | None = None,
+    fetch_status: str | None = None,
 ) -> int:
     where_sql, params = _build_where(
         channel=channel, tag=tag, search=search, favorites_only=favorites_only,
         unwatched_only=unwatched_only, duration=duration, added_within=added_within,
+        fetch_status=fetch_status,
     )
     sql = f"""
         SELECT COUNT(DISTINCT v.id)

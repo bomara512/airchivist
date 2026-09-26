@@ -6,6 +6,43 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-26
 
+### feat: add a fetch_status filter to the video queries
+
+`webapp/db/videos.py`'s `_build_where` (shared by `get_all_videos` and
+`count_videos`) gained a `fetch_status: str | None` keyword accepting
+`"ok"`, `"dead"`, `"deleted"`, `"private"`, or `"error"`, via a new
+`_FETCH_STATUS_CLAUSES` allow-list. This is the DB-layer half of making
+the crawler's nightly refresh (added in earlier 2026-09-26 entries)
+visible in the web UI — until now, a video the refresh marked `deleted`
+or `private` simply vanished from the main list with no way to find it.
+An unrecognized value raises `ValueError`, same as the existing
+`duration`/`added_within` params, for the `index` route to turn into an
+HTTP 400. Added `TestFetchStatusFilter` (8 tests) to
+`tests/webapp/test_db.py`.
+
+The base "only watchable videos" view was already a `fetch_status = 'ok'`
+clause hardcoded in `_build_where`; the new filter **replaces** that
+clause rather than appending to it. Appending would have produced
+`fetch_status = 'ok' AND fetch_status = 'deleted'`, a contradiction no
+row can satisfy — the filter would silently return zero rows, and every
+test that only checks "the right rows came back" for the *other*
+filters would still pass, hiding the bug. Verified this is genuinely
+load-bearing by swapping in an appending implementation and confirming
+`test_filtering_to_deleted_overrides_the_base_ok_clause` (and three
+others) fail against it.
+
+- **Pro:** the crawler's refresh work from the last several days is now
+  actually reachable — a video the nightly job marks dead can be queried
+  for, rather than only visible via direct DB inspection. `get_hidden_videos`
+  (the Archived page) is explicitly untouched: an archived video should
+  stay visible there even if its metadata fetch failed, so status and
+  hidden are kept as separate axes.
+- **Con:** this is DB-layer only — no route or template wiring yet, so
+  there is no way for a person using the app today to actually apply this
+  filter. Tasks 8 (route + `<select>`) and 9 (card badge) still need to
+  land before a refreshed-away video is visible to anyone but a
+  developer calling `get_all_videos` directly.
+
 ### feat: add a launchd template for the nightly refresh
 
 Added `scripts/com.airchivist.refresh.plist`, a `launchd` template that runs

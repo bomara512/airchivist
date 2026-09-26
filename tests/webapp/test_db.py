@@ -201,6 +201,68 @@ class TestCountVideos:
         assert count_videos(db_conn, search="shrimp") == 1
 
 
+class TestFetchStatusFilter:
+    def _seed_dead(self, db_conn):
+        db_conn.executescript("""
+            INSERT INTO videos (video_id, url, title, channel_name, date_added, fetch_status)
+            VALUES
+              ('dead0000001', 'u', 'Deleted Video', 'C', '2024-01-01', 'deleted'),
+              ('priv0000001', 'u', 'Private Video', 'C', '2024-01-02', 'private'),
+              ('err00000001', 'u', 'Error Video',   'C', '2024-01-03', 'error');
+        """)
+        db_conn.commit()
+
+    def test_default_still_shows_only_ok_videos(self, db_conn):
+        self._seed_dead(db_conn)
+        titles = {r["title"] for r in get_all_videos(db_conn)}
+        assert "Deleted Video" not in titles
+        assert "Guitar Lesson 1" in titles
+
+    def test_filtering_to_deleted_overrides_the_base_ok_clause(self, db_conn):
+        # The clause the base WHERE hardcodes is exactly the one this must replace.
+        self._seed_dead(db_conn)
+        titles = {r["title"] for r in get_all_videos(db_conn, fetch_status="deleted")}
+        assert titles == {"Deleted Video"}
+
+    def test_filtering_to_private(self, db_conn):
+        self._seed_dead(db_conn)
+        titles = {r["title"] for r in get_all_videos(db_conn, fetch_status="private")}
+        assert titles == {"Private Video"}
+
+    def test_filtering_to_ok_matches_the_default(self, db_conn):
+        """Review Focus #4: an explicit ?fetch_status=ok must not double-add the
+        clause or return nothing."""
+        self._seed_dead(db_conn)
+        explicit = {r["video_id"] for r in get_all_videos(db_conn, fetch_status="ok")}
+        default = {r["video_id"] for r in get_all_videos(db_conn)}
+        assert explicit == default
+        assert explicit
+
+    def test_dead_filter_matches_every_non_ok_status(self, db_conn):
+        self._seed_dead(db_conn)
+        titles = {r["title"] for r in get_all_videos(db_conn, fetch_status="dead")}
+        # The db_conn fixture already seeds a fifth video (aaaaaaaaaa5, "Random
+        # Video") with fetch_status='error' — "dead" correctly matches it too.
+        assert titles == {"Deleted Video", "Private Video", "Error Video", "Random Video"}
+
+    def test_an_unrecognized_status_raises_value_error(self, db_conn):
+        with pytest.raises(ValueError, match="fetch_status"):
+            get_all_videos(db_conn, fetch_status="bogus")
+
+    def test_count_videos_honors_the_filter(self, db_conn):
+        self._seed_dead(db_conn)
+        assert count_videos(db_conn, fetch_status="deleted") == 1
+        # 3 seeded here + the fixture's own pre-existing error-status video.
+        assert count_videos(db_conn, fetch_status="dead") == 4
+
+    def test_the_filter_still_excludes_hidden_videos(self, db_conn):
+        """Archived is a separate axis: the Archived page owns hidden videos."""
+        self._seed_dead(db_conn)
+        db_conn.execute("UPDATE videos SET is_hidden = 1 WHERE video_id = 'dead0000001'")
+        db_conn.commit()
+        assert count_videos(db_conn, fetch_status="deleted") == 0
+
+
 class TestVideoFilterQuickWins:
     def _seed_extra(self, db_conn):
         # Rows with explicit duration + recent/old date_added for bucket/window tests.
