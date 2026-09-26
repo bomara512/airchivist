@@ -112,7 +112,8 @@ class TestWalMode:
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `python -m pytest tests/webapp/test_db.py -k wal tests/crawler/test_datastore.py -k wal -v --no-cov`
+Run: `python -m pytest tests/webapp/test_db.py -k wal -v --no-cov` **and** `python -m pytest tests/crawler/test_datastore.py -k wal -v --no-cov`
+(Two commands on purpose: pytest honors only the **last** `-k`, so a single combined invocation would apply one filter to both files and silently skip tests.)
 Expected: FAIL — all three assert `'delete' == 'wal'`.
 
 - [ ] **Step 3: Implement**
@@ -137,7 +138,8 @@ In `crawler/datastore.py`, in `__init__` immediately after `self._conn.execute("
 
 - [ ] **Step 4: Run them to verify they pass**
 
-Run: `python -m pytest tests/webapp/test_db.py -k wal tests/crawler/test_datastore.py -k wal -v --no-cov`
+Run: `python -m pytest tests/webapp/test_db.py -k wal -v --no-cov` **and** `python -m pytest tests/crawler/test_datastore.py -k wal -v --no-cov`
+(Two commands on purpose: pytest honors only the **last** `-k`, so a single combined invocation would apply one filter to both files and silently skip tests.)
 Expected: PASS (3 tests).
 
 - [ ] **Step 5: Verify the whole suite and the real database**
@@ -1514,7 +1516,8 @@ class TestFetchStatusRouteFilter:
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `python -m pytest tests/webapp/test_video_filters.py -k FetchStatus tests/webapp/test_routes.py -k FetchStatusRoute -v --no-cov`
+Run: `python -m pytest tests/webapp/test_video_filters.py -k FetchStatus -v --no-cov` **and** `python -m pytest tests/webapp/test_routes.py -k FetchStatusRoute -v --no-cov`
+(Two commands on purpose: pytest honors only the **last** `-k`, so the combined form silently skips the five `test_video_filters.py` tests.)
 Expected: FAIL — `AttributeError: 'VideoListFilters' object has no attribute 'fetch_status'`.
 
 - [ ] **Step 3: Implement**
