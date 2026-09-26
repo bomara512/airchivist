@@ -311,7 +311,7 @@ footer .accent-dot { color: var(--accent); }
     <div class="stat-line">
       <span><strong>10</strong> areas cataloged</span>
       <span class="dot">·</span>
-      <span><strong>42</strong> features shipped</span>
+      <span><strong>43</strong> features shipped</span>
       <span class="dot">·</span>
       <span><strong>7</strong> queued</span>
     </div>
@@ -323,7 +323,7 @@ footer .accent-dot { color: var(--accent); }
       <li>Central library of saved videos — thumbnails, titles, channel, view count, duration, and date added</li>
       <li>Full-text search across your library</li>
       <li>Filter by <b>channel</b>, <b>tag</b>, favorites-only, unwatched-only, date-added range, duration (short / medium / long), and availability (surface videos the nightly refresh found deleted, private, or erroring, instead of only silently hiding them)</li>
-      <li>Videos that have vanished from YouTube wear a corner badge on their own card — "Deleted", "Private", or "Unavailable" — so you can see a video is gone at a glance instead of finding out by clicking through to an error page</li>
+      <li>Videos that have vanished from YouTube wear a corner badge on their own card — "Deleted", "Private", "Unavailable", or "Not checked yet" — so you can see a video is gone at a glance instead of finding out by clicking through to an error page. The badge follows the video everywhere it appears, including your Watch Later queue and the Rediscover shelf, so nothing that is already gone gets recommended to you without a warning</li>
       <li>Sort by date added, title, views, watch count, last viewed, or date published — with an "unwatched first" toggle that reorders any of those without excluding watched videos</li>
       <li>Flat "Load more" view or grouped-by-channel paginated view</li>
       <li>Clicking a video opens it on YouTube and silently logs the visit — view count and last-viewed date build themselves</li>
@@ -415,6 +415,7 @@ footer .accent-dot { color: var(--accent); }
       <li>Fetches rich metadata per video — title, description, view count, duration, thumbnail, channel — with graceful handling of deleted or private videos</li>
       <li>On-demand refresh of already-saved videos, so view counts and other YouTube-owned details don't go stale forever</li>
       <li>Can run that refresh on its own overnight schedule, so the library keeps itself current — including flagging videos that have vanished from YouTube — without you remembering to run anything</li>
+      <li>The overnight refresh only updates what YouTube owns. Your own curation is never touched: tags you removed stay removed, favorites, watch history and archive state are left alone, and a video that has gone missing keeps its last-known title, channel and thumbnail rather than being blanked out</li>
       <li>One-command demo mode seeds a fully-populated sample library — real videos across a mix of topics, with fabricated favorites, watch-later, tags, and watch history — so you can try the app before pointing it at your own bookmarks</li>
     </ul>
   </section>

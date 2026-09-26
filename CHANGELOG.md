@@ -6,6 +6,134 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-26
 
+### fix: five write paths that were safe once and unsafe on a timer
+
+A final whole-branch review of the nightly-refresh work found one Critical
+and four Important issues, all of one shape: **a write path that was safe
+when it ran once became unsafe when put on a timer.** Fixed as one wave.
+Suite 717 → 747; `npm test` unchanged at 123.
+
+**Critical — the nightly refresh silently restored tag links the user had
+deliberately removed.** `Datastore.refresh_video`'s OK branch ended with
+`_apply_yt_tags` + `apply_aliases`. Those are idempotent against the
+database (`INSERT OR IGNORE` into `video_tags`) but not against the *user*:
+the webapp's per-video "remove this tag" action deletes the link, and the
+refresh put it straight back. Reproduced as `['guitar']` →
+`['guitar', 'lesson']` after one refresh. With ~2,959 videos, ~5,443 alias
+rules and an active tag-curation workflow, every row passed back through
+this roughly every 15 days, unattended — so hand-built editorial state
+eroded with no error, no log line and no way to notice except by spotting a
+tag you had removed months ago.
+
+**This one was my own spec's fault, not an implementation slip.**
+`docs/superpowers/specs/2026-09-25-crawler-refresh-and-scheduling-design.md`
+§2 said, in as many words, "Also re-apply yt-tags and aliases, as
+`upsert_video` does." The implementation did exactly what it was told. The
+sentence has been corrected in place with a note saying why it was wrong,
+so the spec stops recommending the bug; `plan-crawler.md` now documents the
+prohibition rather than the behavior. Both calls are simply deleted — no
+suppression mechanism, no "don't re-add removed tags" table. Picking up
+genuinely new upstream tags is a separate feature and needs its own design;
+bolting a half-version of it onto the fix would have traded a data-integrity
+bug for a schema we would have to live with.
+
+**A successful fetch could still blank a stored field.** `fetch_status =
+ok` means yt-dlp's `extract_info` did not raise, *not* that every field came
+back populated — `duration_seconds` is `None` for a live stream or scheduled
+premiere, `yt_view_count` is `None` when the uploader hides counts, and
+`channel_name` comes from `info.get("uploader")`, which yt-dlp has drifted
+on across versions and player clients. The OK branch assigned all nine
+columns unconditionally. The seven where "absent" is never meaningful
+(`url`, `channel_name`, `channel_id`, `yt_view_count`, `duration_seconds`,
+`thumbnail_url`, `date_published`) now go through `COALESCE(?, col)`;
+`title` and `description` stay assignable, because those are the two where
+"now empty" can genuinely be true. `channel_name` was the dangerous one: the
+channel `<select>`, `/channels`, group-by-channel and `get_stats` all key on
+it, so a blanked value drops the row out of its channel's filter *and* its
+count rather than showing as an empty field. Trade-off: it is now impossible
+to clear a channel name through a refresh even if YouTube really did drop
+it — the right call, but it is a real loss of expressiveness, and the
+asymmetry with `upsert_video` narrows to exactly two fields, which is
+subtler to explain than "refresh trusts the status."
+
+**The badge was invisible on the two surfaces that say "watch this next".**
+`get_watch_later_queue` and `get_current_rediscover_shelf` select explicit
+column lists and both omitted `fetch_status`; `_video_card.html`'s guard is
+a truthiness check, so Jinja handed it `Undefined`, which is falsy, and the
+badge silently did not render. The shelf persists 7 days, so a refresh could
+kill a video mid-shelf and the app would go on actively recommending it with
+no indication — the exact experience the badge was added to eliminate. Both
+now select `v.fetch_status`, with a comment on each saying why. Added a test
+for the Archived page too, which was already correct (it selects `v.*`) and
+untested.
+
+**A deterministically-failing video kept its place at the head of the queue
+forever.** The FAILED path left the row completely untouched — including
+`last_fetched_at`, which is the selection cursor. Correct for a transient
+error, wrong for a repeatable one: such a video was re-selected first on
+every run, forever, and at 200 of them the rotation stopped entirely and
+nothing else was ever refreshed again. The only symptom would have been a
+summary line reading `refreshed 200 of 2959 (200 failed)`. The FAILED path
+now calls a new `Datastore.mark_fetch_attempted`, which bumps
+`last_fetched_at` and deliberately writes neither `fetch_status` nor
+`fetch_error` (a bare network error says nothing about the video, so the last
+status that *was* determined stays put). The trade-off cuts both ways and was
+ruled deliberately: not bumping risks unbounded harm (a stalled rotation),
+bumping risks a bounded, self-correcting one — an outage spanning one run
+pushes up to 200 videos to the back of a ~15-day rotation, losing no data and
+misreporting nothing. The cost is real: a video that fails during an outage
+now waits two weeks for another look instead of being retried the next night.
+
+**Flags given before the subcommand were silently discarded.**
+`airchivist-crawler --delay 0 refresh --db X` ran at `delay=1.5` — a
+five-minute run for anyone with muscle memory from the bare ingest form, with
+nothing in the output explaining why. argparse parses a subcommand into its
+own namespace and then copies every key it holds over the top-level one,
+including keys present only because of a default. Every subparser copy of a
+top-level flag now carries `default=argparse.SUPPRESS`, so a pre-subcommand
+flag survives and a post-subcommand flag still wins; `--force-refresh ingest
+...` was losing its `True` to the same mechanism and is fixed by the same
+change. One wart: `refresh --limit` can no longer hold its own default, so the
+200 lives in `_run_refresh` instead of in `add_argument`, which is where a
+reader would look for it.
+
+Minor fixes in the same files: the `dead` filter clause is now
+`COALESCE(v.fetch_status, '') != 'ok'` — SQL three-valued logic made
+`NULL != 'ok'` evaluate to `NULL` rather than true, so a row whose status was
+never written was excluded from `dead` *and* from the default `ok` view,
+unreachable from the main list by any filter at all. `FetchStatus.PENDING` now
+renders as "Not checked yet" with its own (blue, informational) badge color
+instead of "Unavailable", which claimed knowledge the app did not have.
+`FetchStatusFilter` was dead code — nothing outside tests and docs referenced
+it, while the SQL clause table, the `<select>` and the badge conditional all
+spelled the statuses as literals; rather than plumb it through all three, one
+test now asserts `set(_FETCH_STATUS_CLAUSES) == {s.value for s in
+FetchStatusFilter}`, turning four "keep in sync" comments into one assertion,
+and `plan-webapp.md`'s false claim that these enums mean "no route or module
+spells one as a literal" is corrected. `--api-key` is dropped from the
+`refresh` subparser and marked NOT IMPLEMENTED in `--help`, `README.md` and
+`plan-crawler.md` — nothing under `crawler/` has ever read `args.api_key` and
+`fetch_metadata_batch` does not exist; this branch had quietly added the flag
+to a third parser. The README's launchd steps now copy the plist *before*
+telling you to edit the copy (following the old order literally edited the
+git-tracked template and left home-directory paths in `git status`), and add
+the one diagnosis that is otherwise unguessable: an empty log plus a non-zero
+status in `launchctl list` means the binary path is wrong, because launchd's
+spawn failure goes to the system log and never opens the job's own log file.
+`.gitignore`'s bare `demo.db` becomes `demo.db*`, so the `-wal`/`-shm` files a
+demo run leaves behind stop showing up as untracked.
+
+The common lesson, worth stating plainly: **every one of these was correct
+code before this branch.** Nothing here is a typo or an oversight in the usual
+sense. Putting an existing write path on a schedule changes what it means —
+"idempotent" stops being enough once a user can edit the same rows between
+runs, "the fetch succeeded" stops implying "every field is populated" once
+you're writing 200 rows a night unattended, and "leave it for next time"
+becomes "never do anything else" once the thing you left behind is the
+selection cursor. A review pass asking specifically "what does this write path
+mean on a timer?" would have caught all five; the plan's own review focus
+areas did not ask that.
+
 ### feat: badge videos whose YouTube source is gone
 
 `_video_card.html` now renders a `.status-badge` in the thumbnail's
