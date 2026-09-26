@@ -29,7 +29,11 @@ _ADDED_WITHIN_DAYS = frozenset({7, 30, 90, 365})
 # and with FetchStatusFilter in webapp/video_filters.py.
 _FETCH_STATUS_CLAUSES = {
     "ok": "v.fetch_status = 'ok'",
-    "dead": "v.fetch_status != 'ok'",
+    # COALESCE, not a bare `!= 'ok'`: SQL three-valued logic makes
+    # `NULL != 'ok'` evaluate to NULL, not true, so a row whose status was never
+    # written would be excluded from "dead" *and* from the default "ok" view —
+    # unreachable from the main list by any filter.
+    "dead": "COALESCE(v.fetch_status, '') != 'ok'",
     "deleted": "v.fetch_status = 'deleted'",
     "private": "v.fetch_status = 'private'",
     "error": "v.fetch_status = 'error'",
@@ -458,6 +462,11 @@ def get_current_rediscover_shelf(conn: sqlite3.Connection) -> dict[str, Any]:
         SELECT v.video_id, v.title, v.channel_name, v.channel_id, v.thumbnail_url,
                v.yt_view_count, v.duration_seconds, v.date_published, v.date_added,
                v.personal_view_count, v.date_last_viewed, v.is_watched,
+               -- fetch_status is what _video_card.html's badge guard reads. The
+               -- shelf lives 7 days, so a nightly refresh can kill a video
+               -- mid-shelf; omit this and the card silently sees Jinja Undefined
+               -- and the app goes on recommending a dead video.
+               v.fetch_status,
                {_CANONICAL_TAGS_SELECT}
         FROM videos v
         {_VIDEO_TAGS_JOIN}
@@ -541,6 +550,9 @@ def get_watch_later_queue(conn: sqlite3.Connection) -> list[dict]:
         SELECT v.video_id, v.title, v.channel_name, v.channel_id, v.thumbnail_url,
                v.yt_view_count, v.personal_view_count, v.duration_seconds,
                v.date_published, v.date_added,
+               -- See get_current_rediscover_shelf: the badge guard in
+               -- _video_card.html needs this column or it fails open.
+               v.fetch_status,
                v.date_last_viewed, wl.position, wl.added_at AS queue_added_at,
                {_CANONICAL_TAGS_SELECT}
         FROM watch_later wl

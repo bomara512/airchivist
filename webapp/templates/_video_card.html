@@ -18,6 +18,7 @@
       <span class="status-badge status-badge--{{ video.fetch_status }}">
         {% if video.fetch_status == 'deleted' %}Deleted
         {% elif video.fetch_status == 'private' %}Private
+        {% elif video.fetch_status == 'pending' %}Not checked yet
         {% else %}Unavailable{% endif %}
       </span>
       {% endif %}

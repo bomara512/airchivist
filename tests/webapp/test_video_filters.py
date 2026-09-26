@@ -1,4 +1,5 @@
-from webapp.video_filters import VideoListFilters, group_videos
+from webapp.db.videos import _FETCH_STATUS_CLAUSES
+from webapp.video_filters import FetchStatusFilter, VideoListFilters, group_videos
 
 
 class TestFromArgs:
@@ -122,3 +123,12 @@ class TestGroupVideos:
         groups = {g["tag"]["name"]: g["videos"] for g in group_videos(self.VIDEOS, "tag")}
         assert groups["x"] == [self.VIDEOS[0], self.VIDEOS[2]]
         assert groups["y"] == [self.VIDEOS[0]]
+
+
+class TestFetchStatusFilterEnum:
+    def test_every_member_has_a_sql_clause_and_vice_versa(self):
+        """The enum's whole job. Four "keep in sync with" comments (here, in
+        webapp/db/videos.py, in index.html's <select>, and in the badge
+        conditional) collapse into this one assertion — without it the enum is
+        dead code that documents an invariant nothing enforces."""
+        assert set(_FETCH_STATUS_CLAUSES) == {s.value for s in FetchStatusFilter}

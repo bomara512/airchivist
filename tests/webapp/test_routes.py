@@ -330,6 +330,20 @@ class TestFetchStatusRouteFilter:
     def test_an_unrecognized_status_is_a_400(self, client):
         assert client.get("/?fetch_status=bogus").status_code == 400
 
+    def test_a_null_status_is_reachable_under_dead(self, client):
+        """`v.fetch_status != 'ok'` is NULL — not true — for a NULL status, so such a
+        row was invisible in the default view *and* under `dead`: unreachable from
+        the main list by any filter at all."""
+        with closing(sqlite3.connect(client.application.config["DATABASE"])) as conn:
+            conn.execute(
+                "INSERT INTO videos (video_id, url, title, channel_name, date_added, "
+                "fetch_status) VALUES ('null0000001', 'u', 'Never Checked', 'C', "
+                "'2024-01-01', NULL)"
+            )
+            conn.commit()
+        body = client.get("/?fetch_status=dead", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "Never Checked" in body
+
     def test_the_select_reflects_the_current_choice(self, client):
         body = client.get("/?fetch_status=dead").get_data(as_text=True)
         option_line = next(l for l in body.splitlines() if 'value="dead"' in l)
@@ -357,6 +371,17 @@ class TestUnavailableBadge:
         assert "status-badge" in body
         assert label in body
 
+    def test_pending_reads_as_not_yet_checked_rather_than_a_failure(self, client):
+        """`pending` means nobody has looked yet. Labeling it "Unavailable" claims
+        something the app does not know."""
+        self._seed(client, "pending")
+        body = client.get("/?fetch_status=dead", headers={"HX-Request": "true"}).get_data(as_text=True)
+        # Scoped to this card's own badge: the seeded `error` video legitimately
+        # renders "Unavailable" in the same response.
+        badge = body.split("status-badge--pending", 1)[1].split("</span>", 1)[0]
+        assert "Not checked yet" in badge
+        assert "Unavailable" not in badge
+
     def test_an_ok_video_has_no_badge(self, client):
         body = client.get("/", headers={"HX-Request": "true"}).get_data(as_text=True)
         assert "status-badge" not in body
@@ -364,6 +389,38 @@ class TestUnavailableBadge:
     def test_the_badge_carries_the_status_as_a_class(self, client):
         self._seed(client, "deleted")
         body = client.get("/?fetch_status=deleted", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "status-badge--deleted" in body
+
+    def _kill(self, client, video_id="aaaaaaaaaa1"):
+        """Mark an already-stored video dead — exactly what a nightly refresh does."""
+        with closing(sqlite3.connect(client.application.config["DATABASE"])) as conn:
+            conn.execute(
+                "UPDATE videos SET fetch_status = 'deleted' WHERE video_id = ?", (video_id,)
+            )
+            conn.commit()
+
+    def test_the_badge_renders_on_watch_later(self, client):
+        """A queued video can die after it was queued. Watch Later is one of the two
+        surfaces that say "watch this next", so the badge matters most here."""
+        client.post("/api/watch-later/add",
+                    json={"url": "https://www.youtube.com/watch?v=aaaaaaaaaa1"})
+        self._kill(client)
+        body = client.get("/watch-later").get_data(as_text=True)
+        assert "status-badge--deleted" in body
+
+    def test_the_badge_renders_on_the_rediscover_shelf(self, client):
+        """The shelf persists 7 days, so a refresh can kill a video mid-shelf and the
+        app would otherwise go on recommending it with no indication. `/`'s main list
+        excludes dead videos by default, so this badge can only come from the shelf."""
+        client.post("/rediscover-shelf/refresh")
+        self._kill(client)
+        body = client.get("/").get_data(as_text=True)
+        assert "status-badge--deleted" in body
+
+    def test_the_badge_renders_on_the_archived_page(self, client):
+        client.post("/videos/aaaaaaaaaa1/hide")
+        self._kill(client)
+        body = client.get("/hidden").get_data(as_text=True)
         assert "status-badge--deleted" in body
 
 
