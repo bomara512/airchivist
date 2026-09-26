@@ -6,6 +6,45 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-26
 
+### feat: add Datastore.refresh_video, preserve metadata on failed fetch
+
+`crawler.metadata_fetcher.fetch_metadata`'s failure path (private, deleted, or
+network error) returns a `VideoMetadata` with every descriptive field — title,
+description, channel, thumbnail, view count, duration — set to `None`. The
+nightly refresh job this feature exists to support re-fetches videos already
+in the library, so a naive re-fetch of a since-deleted video would silently
+NULL out the only record of what it used to be, one row at a time, with
+nothing visibly wrong until the data was gone.
+
+Added `Datastore.refresh_video(metadata)`: on any `fetch_status` other than
+`ok` it writes only `fetch_status`, `fetch_error`, and `last_fetched_at`,
+leaving the descriptive columns at their last known values; on `ok` it
+updates all of them and clears `fetch_error` so a video that comes back to
+life doesn't keep a stale error message forever. It never touches
+`date_added`, `personal_view_count`, `date_last_viewed`, `is_watched`,
+`is_favorite`, `is_hidden`, or `date_hidden` — those are the user's own data,
+not YouTube's.
+
+Also changed `upsert_video`'s `ON CONFLICT DO UPDATE SET` to wrap each of the
+eight descriptive columns in `COALESCE(excluded.col, videos.col)` instead of
+a bare `excluded.col` assignment. This closes the same hazard on the older
+`--force-refresh` path over a bookmarks file.
+
+- **Pro:** a nightly refresh (or `--force-refresh`) can no longer erase the
+  metadata for a video that has since disappeared from YouTube; the library
+  keeps the last-known title/channel/thumbnail/etc. forever, which is the
+  entire point of an archive.
+- **Con:** `upsert_video`'s `COALESCE` is asymmetric with `refresh_video`'s
+  branch-on-status approach — a *successful* `upsert_video` fetch that
+  genuinely returns `None` for one field (e.g. a video whose description was
+  removed) now keeps the old value rather than clearing it, because
+  `upsert_video` has no way to distinguish "fetch failed" from "field is
+  actually empty now." That's judged the safer failure mode for an archive,
+  but it means `upsert_video` can very slightly go stale on that one edge
+  case; `refresh_video` doesn't share this problem because it checks
+  `fetch_status` before deciding whether to touch the descriptive columns
+  at all.
+
 ### perf: switch SQLite to WAL so a refresh never blocks page loads
 
 Both the webapp and crawler now set `PRAGMA journal_mode = WAL` on the first

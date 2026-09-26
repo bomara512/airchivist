@@ -3,7 +3,7 @@ from contextlib import closing
 from datetime import datetime
 
 from crawler.datastore import Datastore
-from crawler.models import Bookmark, ChannelMetadata, VideoMetadata
+from crawler.models import Bookmark, ChannelMetadata, FetchStatus, VideoMetadata
 
 
 def _make_metadata(video_id="abc12345678", **kwargs):
@@ -466,3 +466,166 @@ class TestWalMode:
             pass
         with closing(sqlite3.connect(str(db_path))) as conn:
             assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+
+class TestRefreshVideo:
+    """A refresh must never trade a real title for the fact that a video died."""
+
+    def _seed_ok(self, ds):
+        ds.upsert_video(
+            VideoMetadata(
+                video_id="aaaaaaaaaa1",
+                url="https://www.youtube.com/watch?v=aaaaaaaaaa1",
+                title="Original Title",
+                description="Original description",
+                channel_name="Original Channel",
+                channel_id="UCorig",
+                yt_view_count=1000,
+                duration_seconds=600,
+                thumbnail_url="https://example.test/thumb.jpg",
+                fetch_status=FetchStatus.OK,
+            ),
+            Bookmark(url="https://www.youtube.com/watch?v=aaaaaaaaaa1", title="Original Title"),
+        )
+
+    def test_a_deleted_video_keeps_its_last_known_metadata(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed_ok(ds)
+            ds.refresh_video(VideoMetadata(
+                video_id="aaaaaaaaaa1",
+                url="https://www.youtube.com/watch?v=aaaaaaaaaa1",
+                fetch_status=FetchStatus.DELETED,
+                fetch_error="Video unavailable",
+            ))
+            row = ds.get_video_by_id("aaaaaaaaaa1")
+        assert row["fetch_status"] == "deleted"
+        assert row["fetch_error"] == "Video unavailable"
+        assert row["title"] == "Original Title"
+        assert row["description"] == "Original description"
+        assert row["channel_name"] == "Original Channel"
+        assert row["channel_id"] == "UCorig"
+        assert row["yt_view_count"] == 1000
+        assert row["duration_seconds"] == 600
+        assert row["thumbnail_url"] == "https://example.test/thumb.jpg"
+
+    def test_a_private_video_keeps_its_last_known_metadata(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed_ok(ds)
+            ds.refresh_video(VideoMetadata(
+                video_id="aaaaaaaaaa1",
+                url="https://www.youtube.com/watch?v=aaaaaaaaaa1",
+                fetch_status=FetchStatus.PRIVATE,
+                fetch_error="Private video",
+            ))
+            row = ds.get_video_by_id("aaaaaaaaaa1")
+        assert row["fetch_status"] == "private"
+        assert row["title"] == "Original Title"
+
+    def test_a_successful_refresh_updates_the_metadata(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed_ok(ds)
+            ds.refresh_video(VideoMetadata(
+                video_id="aaaaaaaaaa1",
+                url="https://www.youtube.com/watch?v=aaaaaaaaaa1",
+                title="Renamed Title",
+                description="New description",
+                channel_name="Renamed Channel",
+                channel_id="UCnew",
+                yt_view_count=5000,
+                duration_seconds=601,
+                thumbnail_url="https://example.test/new.jpg",
+                fetch_status=FetchStatus.OK,
+            ))
+            row = ds.get_video_by_id("aaaaaaaaaa1")
+        assert row["title"] == "Renamed Title"
+        assert row["yt_view_count"] == 5000
+        assert row["channel_name"] == "Renamed Channel"
+
+    def test_a_video_coming_back_to_life_clears_the_stale_error(self, tmp_path):
+        """Review Focus #3: deleted -> ok must not leave fetch_error set forever."""
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed_ok(ds)
+            ds.refresh_video(VideoMetadata(
+                video_id="aaaaaaaaaa1", url="u",
+                fetch_status=FetchStatus.DELETED, fetch_error="Video unavailable",
+            ))
+            ds.refresh_video(VideoMetadata(
+                video_id="aaaaaaaaaa1", url="u",
+                title="Back Again", yt_view_count=7,
+                fetch_status=FetchStatus.OK,
+            ))
+            row = ds.get_video_by_id("aaaaaaaaaa1")
+        assert row["fetch_status"] == "ok"
+        assert row["fetch_error"] is None
+        assert row["title"] == "Back Again"
+
+    def test_last_fetched_at_advances_on_both_outcomes(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed_ok(ds)
+            ds._conn.execute("UPDATE videos SET last_fetched_at = '2020-01-01T00:00:00+00:00'")
+            ds._conn.commit()
+            ds.refresh_video(VideoMetadata(
+                video_id="aaaaaaaaaa1", url="u", fetch_status=FetchStatus.DELETED,
+            ))
+            after_fail = ds.get_video_by_id("aaaaaaaaaa1")["last_fetched_at"]
+            assert after_fail > "2020-01-01T00:00:00+00:00"
+
+    def test_never_touches_user_owned_columns(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed_ok(ds)
+            ds._conn.execute("""
+                UPDATE videos SET personal_view_count = 7, date_last_viewed = '2026-01-01',
+                       is_hidden = 1, date_added = '2024-06-01'
+            """)
+            ds._conn.commit()
+            for status in (FetchStatus.OK, FetchStatus.DELETED):
+                ds.refresh_video(VideoMetadata(
+                    video_id="aaaaaaaaaa1", url="u", title="X", fetch_status=status,
+                ))
+            row = ds.get_video_by_id("aaaaaaaaaa1")
+        assert row["personal_view_count"] == 7
+        assert row["date_last_viewed"] == "2026-01-01"
+        assert row["is_hidden"] == 1
+        assert row["date_added"] == "2024-06-01"
+
+    def test_refreshing_an_unknown_video_id_is_a_no_op(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            ds.refresh_video(VideoMetadata(
+                video_id="zzzzzzzzzz9", url="u", fetch_status=FetchStatus.OK, title="T",
+            ))
+            assert ds.get_video_by_id("zzzzzzzzzz9") is None
+
+
+class TestUpsertVideoPreservesOnFailure:
+    """Same hazard, older path: `--force-refresh` over a bookmarks file containing a
+    since-deleted video would otherwise NULL out its title."""
+
+    def test_a_failed_upsert_keeps_the_existing_title(self, tmp_path):
+        bookmark = Bookmark(url="https://www.youtube.com/watch?v=aaaaaaaaaa1", title="T")
+        with Datastore(tmp_path / "t.db") as ds:
+            ds.upsert_video(VideoMetadata(
+                video_id="aaaaaaaaaa1", url="u", title="Original Title",
+                channel_name="Original Channel", yt_view_count=10,
+                fetch_status=FetchStatus.OK,
+            ), bookmark)
+            ds.upsert_video(VideoMetadata(
+                video_id="aaaaaaaaaa1", url="u",
+                fetch_status=FetchStatus.DELETED, fetch_error="Video unavailable",
+            ), bookmark)
+            row = ds.get_video_by_id("aaaaaaaaaa1")
+        assert row["fetch_status"] == "deleted"
+        assert row["title"] == "Original Title"
+        assert row["channel_name"] == "Original Channel"
+        assert row["yt_view_count"] == 10
+
+    def test_a_first_time_failed_insert_still_creates_the_row(self, tmp_path):
+        """A brand-new bookmark whose video is already dead has no metadata to
+        preserve — the row must still exist, so the user sees they saved something."""
+        with Datastore(tmp_path / "t.db") as ds:
+            ds.upsert_video(VideoMetadata(
+                video_id="aaaaaaaaaa1", url="u",
+                fetch_status=FetchStatus.DELETED, fetch_error="Video unavailable",
+            ), Bookmark(url="u", title="T"))
+            row = ds.get_video_by_id("aaaaaaaaaa1")
+        assert row is not None
+        assert row["fetch_status"] == "deleted"

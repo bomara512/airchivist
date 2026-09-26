@@ -2,7 +2,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from crawler.models import Bookmark, ChannelMetadata, MatchType, VideoMetadata
+from crawler.models import Bookmark, ChannelMetadata, FetchStatus, MatchType, VideoMetadata
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS videos (
@@ -129,16 +129,21 @@ class Datastore:
                 yt_view_count, duration_seconds, thumbnail_url, date_added,
                 date_published, fetch_status, fetch_error, last_fetched_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            -- COALESCE, not a bare assignment: fetch_metadata's failure path returns
+            -- every descriptive field as None, so `--force-refresh` over a bookmarks
+            -- file containing a since-deleted video would otherwise NULL out the
+            -- record of what that video was. A successful fetch always supplies a
+            -- value, so COALESCE is a no-op on the happy path.
             ON CONFLICT(video_id) DO UPDATE SET
-                url             = excluded.url,
-                title           = excluded.title,
-                description     = excluded.description,
-                channel_name    = excluded.channel_name,
-                channel_id      = excluded.channel_id,
-                yt_view_count   = excluded.yt_view_count,
-                duration_seconds = excluded.duration_seconds,
-                thumbnail_url   = excluded.thumbnail_url,
-                date_published  = excluded.date_published,
+                url             = COALESCE(excluded.url, videos.url),
+                title           = COALESCE(excluded.title, videos.title),
+                description     = COALESCE(excluded.description, videos.description),
+                channel_name    = COALESCE(excluded.channel_name, videos.channel_name),
+                channel_id      = COALESCE(excluded.channel_id, videos.channel_id),
+                yt_view_count   = COALESCE(excluded.yt_view_count, videos.yt_view_count),
+                duration_seconds = COALESCE(excluded.duration_seconds, videos.duration_seconds),
+                thumbnail_url   = COALESCE(excluded.thumbnail_url, videos.thumbnail_url),
+                date_published  = COALESCE(excluded.date_published, videos.date_published),
                 fetch_status    = excluded.fetch_status,
                 fetch_error     = excluded.fetch_error,
                 last_fetched_at = excluded.last_fetched_at
@@ -159,6 +164,58 @@ class Datastore:
                 metadata.fetch_error,
                 now,
             ),
+        )
+        self._conn.commit()
+        self._apply_yt_tags(metadata)
+        apply_aliases(self._conn, metadata.video_id)
+
+    # Columns a successful fetch is allowed to overwrite. Deliberately excludes
+    # date_added, personal_view_count, date_last_viewed, is_watched, is_favorite,
+    # is_hidden and date_hidden — those are the user's own data, not YouTube's.
+    _REFRESHABLE_COLUMNS = (
+        "url", "title", "description", "channel_name", "channel_id",
+        "yt_view_count", "duration_seconds", "thumbnail_url", "date_published",
+    )
+
+    def refresh_video(self, metadata: VideoMetadata) -> None:
+        """Update an existing video from a re-fetch. No-op if the row is absent.
+
+        On a successful fetch this refreshes the descriptive columns. On any other
+        status it writes ONLY fetch_status, fetch_error and last_fetched_at, leaving
+        title/channel/thumbnail/view count/duration at their last known values —
+        because `fetch_metadata`'s failure path returns those as None, and a nightly
+        job that wrote them through would erase the record of what a since-deleted
+        video was. That is the whole reason this method exists rather than reusing
+        `upsert_video`.
+        """
+        now = datetime.now(UTC).isoformat()
+        if metadata.fetch_status != FetchStatus.OK:
+            self._conn.execute(
+                """
+                UPDATE videos
+                   SET fetch_status = ?, fetch_error = ?, last_fetched_at = ?
+                 WHERE video_id = ?
+                """,
+                (metadata.fetch_status, metadata.fetch_error, now, metadata.video_id),
+            )
+            self._conn.commit()
+            return
+
+        assignments = ", ".join(f"{col} = ?" for col in self._REFRESHABLE_COLUMNS)
+        values = [
+            metadata.url, metadata.title, metadata.description,
+            metadata.channel_name, metadata.channel_id, metadata.yt_view_count,
+            metadata.duration_seconds, metadata.thumbnail_url,
+            _dt(metadata.date_published),
+        ]
+        self._conn.execute(
+            f"""
+            UPDATE videos
+               SET {assignments},
+                   fetch_status = ?, fetch_error = NULL, last_fetched_at = ?
+             WHERE video_id = ?
+            """,
+            (*values, metadata.fetch_status, now, metadata.video_id),
         )
         self._conn.commit()
         self._apply_yt_tags(metadata)
