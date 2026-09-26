@@ -522,11 +522,14 @@ class TestRefreshVideo:
         assert row["title"] == "Original Title"
 
     def test_a_successful_refresh_updates_the_metadata(self, tmp_path):
+        """Every refreshable column gets a distinct, recognizable value here so a
+        positional mix-up between two columns (e.g. description <-> thumbnail_url)
+        cannot coincidentally satisfy two assertions at once."""
         with Datastore(tmp_path / "t.db") as ds:
             self._seed_ok(ds)
             ds.refresh_video(VideoMetadata(
                 video_id="aaaaaaaaaa1",
-                url="https://www.youtube.com/watch?v=aaaaaaaaaa1",
+                url="https://example.test/new-url",
                 title="Renamed Title",
                 description="New description",
                 channel_name="Renamed Channel",
@@ -534,12 +537,19 @@ class TestRefreshVideo:
                 yt_view_count=5000,
                 duration_seconds=601,
                 thumbnail_url="https://example.test/new.jpg",
+                date_published=datetime(2025, 3, 4, 5, 6, 7),
                 fetch_status=FetchStatus.OK,
             ))
             row = ds.get_video_by_id("aaaaaaaaaa1")
+        assert row["url"] == "https://example.test/new-url"
         assert row["title"] == "Renamed Title"
-        assert row["yt_view_count"] == 5000
+        assert row["description"] == "New description"
         assert row["channel_name"] == "Renamed Channel"
+        assert row["channel_id"] == "UCnew"
+        assert row["yt_view_count"] == 5000
+        assert row["duration_seconds"] == 601
+        assert row["thumbnail_url"] == "https://example.test/new.jpg"
+        assert row["date_published"] == "2025-03-04T05:06:07"
 
     def test_a_video_coming_back_to_life_clears_the_stale_error(self, tmp_path):
         """Review Focus #3: deleted -> ok must not leave fetch_error set forever."""
@@ -569,6 +579,14 @@ class TestRefreshVideo:
             ))
             after_fail = ds.get_video_by_id("aaaaaaaaaa1")["last_fetched_at"]
             assert after_fail > "2020-01-01T00:00:00+00:00"
+
+            ds._conn.execute("UPDATE videos SET last_fetched_at = '2020-01-01T00:00:00+00:00'")
+            ds._conn.commit()
+            ds.refresh_video(VideoMetadata(
+                video_id="aaaaaaaaaa1", url="u", title="X", fetch_status=FetchStatus.OK,
+            ))
+            after_ok = ds.get_video_by_id("aaaaaaaaaa1")["last_fetched_at"]
+            assert after_ok > "2020-01-01T00:00:00+00:00"
 
     def test_never_touches_user_owned_columns(self, tmp_path):
         with Datastore(tmp_path / "t.db") as ds:

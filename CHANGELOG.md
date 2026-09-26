@@ -26,7 +26,7 @@ life doesn't keep a stale error message forever. It never touches
 not YouTube's.
 
 Also changed `upsert_video`'s `ON CONFLICT DO UPDATE SET` to wrap each of the
-eight descriptive columns in `COALESCE(excluded.col, videos.col)` instead of
+nine descriptive columns in `COALESCE(excluded.col, videos.col)` instead of
 a bare `excluded.col` assignment. This closes the same hazard on the older
 `--force-refresh` path over a bookmarks file.
 
