@@ -403,6 +403,88 @@ class TestRefreshSubcommand:
         cli.main()  # must not raise SystemExit(2) for a missing -i
 
 
+class TestFlagsBeforeTheSubcommand:
+    """argparse copies a subparser's parsed values over the top-level namespace, so
+    a subparser flag carrying its own default silently overwrote one already parsed
+    before the subcommand. `--delay 0 refresh --db X` ran at delay=1.5 — a
+    5-minute run for someone with muscle memory from the bare ingest form, with
+    nothing explaining why."""
+
+    def _run(self, tmp_path, monkeypatch, argv_tail):
+        db = tmp_path / "t.db"
+        with Datastore(db):
+            pass
+        captured = {}
+
+        def fake_run_refresh(ds, limit, delay, **kwargs):
+            captured["limit"] = limit
+            captured["delay"] = delay
+            from crawler.refresh import RefreshSummary
+            return RefreshSummary(attempted=0, library_total=0, counts={}, elapsed_seconds=0.0)
+
+        monkeypatch.setattr("crawler.cli.run_refresh", fake_run_refresh)
+        monkeypatch.setattr("sys.argv", ["airchivist-crawler", *argv_tail(db)])
+        cli.main()
+        return captured
+
+    def test_delay_before_the_subcommand_survives(self, tmp_path, monkeypatch):
+        captured = self._run(tmp_path, monkeypatch,
+                             lambda db: ["--delay", "0", "refresh", "--db", str(db)])
+        assert captured["delay"] == 0.0
+
+    def test_delay_after_the_subcommand_still_works(self, tmp_path, monkeypatch):
+        captured = self._run(tmp_path, monkeypatch,
+                             lambda db: ["refresh", "--db", str(db), "--delay", "0"])
+        assert captured["delay"] == 0.0
+
+    def test_a_post_subcommand_delay_wins_over_a_pre_subcommand_one(self, tmp_path, monkeypatch):
+        captured = self._run(
+            tmp_path, monkeypatch,
+            lambda db: ["--delay", "9", "refresh", "--db", str(db), "--delay", "0"],
+        )
+        assert captured["delay"] == 0.0
+
+    def test_limit_before_the_subcommand_survives(self, tmp_path, monkeypatch):
+        captured = self._run(tmp_path, monkeypatch,
+                             lambda db: ["--limit", "7", "refresh", "--db", str(db)])
+        assert captured["limit"] == 7
+
+    def test_limit_after_the_subcommand_still_works(self, tmp_path, monkeypatch):
+        captured = self._run(tmp_path, monkeypatch,
+                             lambda db: ["refresh", "--db", str(db), "--limit", "7"])
+        assert captured["limit"] == 7
+
+    def test_a_post_subcommand_limit_wins_over_a_pre_subcommand_one(self, tmp_path, monkeypatch):
+        captured = self._run(
+            tmp_path, monkeypatch,
+            lambda db: ["--limit", "9", "refresh", "--db", str(db), "--limit", "7"],
+        )
+        assert captured["limit"] == 7
+
+    def test_refresh_still_defaults_to_200_when_no_limit_is_given_anywhere(
+        self, tmp_path, monkeypatch
+    ):
+        captured = self._run(tmp_path, monkeypatch, lambda db: ["refresh", "--db", str(db)])
+        assert captured["limit"] == 200
+
+    def test_log_level_before_the_subcommand_survives(self, tmp_path, monkeypatch):
+        args = cli._build_parser().parse_args(["--log-level", "DEBUG", "refresh", "--db", "x"])
+        assert args.log_level == "DEBUG"
+
+    def test_force_refresh_before_the_ingest_subcommand_survives(self, tmp_path):
+        """Same shape, ingest side: a store_true default of False overwrote a True."""
+        args = cli._build_parser().parse_args(
+            ["--force-refresh", "ingest", "-i", "a.json", "-o", "b.db"]
+        )
+        assert args.force_refresh is True
+
+    def test_api_key_is_not_accepted_on_refresh(self, tmp_path):
+        """Nothing under crawler/ reads args.api_key, and the flag was never
+        implemented for refresh at all."""
+        with pytest.raises(SystemExit):
+            cli._build_parser().parse_args(["refresh", "--db", "x", "--api-key", "AIza"])
+
+
 class TestIngestStaysBackwardCompatible:
     def test_a_bare_input_output_invocation_still_ingests(self, tmp_path, monkeypatch):
         """The README documents this exact form; it must keep working verbatim."""

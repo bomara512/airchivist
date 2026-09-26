@@ -79,8 +79,8 @@ airchivist-crawler -i path/to/bookmarks.json -o airchivist.db
 This fetches metadata (title, description, view count, duration, thumbnail, channel) for
 every YouTube video and channel link found, via `yt-dlp`. It's polite by default (a delay
 between requests) and safe to re-run — already-fetched videos are skipped unless you pass
-`--force-refresh`. Run `airchivist-crawler --help` for all options, including `--api-key` to
-use the YouTube Data API v3 for faster batch fetching instead.
+`--force-refresh`. Run `airchivist-crawler --help` for all options. (`--api-key` is
+accepted but **not implemented** — it is ignored, and everything goes through `yt-dlp`.)
 
 The bare `-i`/`-o` form above is unchanged and keeps working exactly as shown. It's shorthand
 for the explicit `ingest` subcommand, which takes the same flags:
@@ -109,21 +109,33 @@ running it nightly cycles a 3,000-video library about every two weeks. A `launch
 template is in `scripts/com.airchivist.refresh.plist`.
 
 1. Find the absolute path to the installed command: `which airchivist-crawler`
-2. Edit the copy of the plist, replacing both `/REPLACE/` paths and the log path.
-   launchd does no shell expansion — a `~` is a literal directory name, and a
-   relative command is never found.
-3. Run it by hand once first, so a misconfiguration surfaces where you can see it:
+2. Run it by hand once first, so a misconfiguration surfaces where you can see it:
    `airchivist-crawler refresh --db airchivist.db --limit 5`
-4. Install and load it:
+3. Copy the template into place:
 
 ```bash
 cp scripts/com.airchivist.refresh.plist ~/Library/LaunchAgents/
+```
+
+4. Edit **the copy** — `~/Library/LaunchAgents/com.airchivist.refresh.plist`, not the
+   one in the repo — replacing both `/REPLACE/` paths and the log path. launchd does
+   no shell expansion: a `~` is a literal directory name, and a relative command is
+   never found. (Editing the repo's template instead leaves your home-directory paths
+   in `git status`.)
+5. Load it:
+
+```bash
 launchctl load ~/Library/LaunchAgents/com.airchivist.refresh.plist
 ```
 
 Check that launchd knows about it with `launchctl list | grep airchivist`, and read
 the log to see what a run did — each run ends with one line like
 `refreshed 200 of 2958 (196 ok, 3 deleted, 1 private) in 5m12s`.
+
+If the log file is empty *and* `launchctl list` shows a non-zero status for the job,
+the command path is wrong. launchd's spawn failure goes to the system log and it
+never opens the job's own log file, so an empty log is a symptom of the job never
+starting, not of a silent run — check the `ProgramArguments` path with `which`.
 
 To stop it: `launchctl unload ~/Library/LaunchAgents/com.airchivist.refresh.plist`.
 

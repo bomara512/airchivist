@@ -188,9 +188,9 @@ Rate limiting: the crawler processes videos sequentially with a configurable `--
 
 **Backfill (`--backfill-channels` / `get_channel_ids_for_backfill`).** Selects channels needing a (re)fetch: video channels with no row or an incomplete row (`description IS NULL OR thumbnail_url IS NULL`), UNIONed with any `channels` row that is itself incomplete. The UNION is what lets backfill reach **bookmark-only** channels (no saved videos), which the video-join half cannot see. Each is re-fetched by constructing `https://www.youtube.com/channel/<id>` and upserting by `channel_id`.
 
-### Optional: YouTube Data API v3
+### Optional: YouTube Data API v3 — NOT IMPLEMENTED
 
-When `--api-key` is supplied, the crawler uses `google-api-python-client` to call `videos.list` with `part=snippet,statistics`. Supports batch requests of up to 50 video IDs per call — significantly faster than `yt-dlp`. `statistics.viewCount` maps to `yt_view_count`.
+`--api-key` is parsed on the top-level and `ingest` parsers and then **ignored**: nothing under `crawler/` reads `args.api_key`, and `fetch_metadata_batch` does not exist. Everything goes through `yt-dlp`. The design below is what it *would* do — when supplied, call `videos.list` with `part=snippet,statistics` via `google-api-python-client`, batching up to 50 video IDs per call (significantly faster than `yt-dlp`), mapping `statistics.viewCount` to `yt_view_count`. Until that lands, the flag is accepted for backward compatibility only and its help text says so; it was dropped from the `refresh` subparser on 2026-09-26 rather than adding a third unimplemented copy.
 
 ### Error Handling for Metadata
 
@@ -306,10 +306,12 @@ Usage: airchivist-crawler [OPTIONS] [-i FILE -o FILE]          # implicit ingest
        airchivist-crawler refresh [OPTIONS] --db FILE
 
 Common options (all three forms):
-  --api-key KEY          YouTube Data API v3 key (enables faster batch mode)
   --delay SECONDS        Seconds between yt-dlp requests (default: 1.5)
   --log-level LEVEL      DEBUG | INFO | WARNING | ERROR (default: INFO)
   -h, --help             Show this message and exit
+
+Top-level and `ingest` only:
+  --api-key KEY          YouTube Data API v3 key — NOT IMPLEMENTED, ignored
 
 Ingest-only options (top-level and `ingest`):
   -i, --input FILE       Path to Firefox bookmarks file (.json or .html)
@@ -348,6 +350,26 @@ fetched) — there is no separate input file to name. Its own `--limit` means
 ("only process the first N bookmarks"); they are defined once each, on their
 own subparser, and never share a definition despite the same flag name.
 
+**A flag given before the subcommand survives it** (fixed 2026-09-26; it was
+silently discarded before). argparse parses a subcommand into its own
+namespace and then copies every key that namespace holds over the top-level
+one — including keys present only because of a default — so a subparser's
+copy of a shared flag overwrote a value already parsed:
+`airchivist-crawler --delay 0 refresh --db X` ran at `delay=1.5`, turning a
+spot check into a five-minute run with nothing in the output explaining why,
+and `--force-refresh ingest ...` lost its `True` the same way. Every flag
+defined on both a subparser and the top-level parser now gets
+`default=argparse.SUPPRESS` on the *subparser* copy (via the `sub=True`
+argument to `_add_common_args`/`_add_ingest_args`, and the `_default` helper
+they share), which leaves the key out of the sub-namespace entirely unless
+the flag was actually given. The top-level copy keeps the real default, so
+the key always exists on the merged namespace, a pre-subcommand flag
+survives, and a post-subcommand flag still wins. One consequence:
+`refresh --limit` can carry no default of its own, so the 200 default lives
+in `_run_refresh` (`DEFAULT_LIMIT if args.limit is None else args.limit`)
+rather than in `add_argument`. Covered by
+`tests/crawler/test_cli.py::TestFlagsBeforeTheSubcommand`, in both orders.
+
 Example invocations:
 
 ```bash
@@ -358,7 +380,7 @@ airchivist-crawler -i ~/Downloads/bookmarks.json -o ~/airchivist.db
 airchivist-crawler ingest -i ~/Downloads/bookmarks.json -o ~/airchivist.db
 
 # HTML export with API key
-airchivist-crawler -i ~/Downloads/bookmarks.html -o ~/airchivist.db --api-key AIza...
+airchivist-crawler -i ~/Downloads/bookmarks.html -o ~/airchivist.db --api-key AIza...   # --api-key is ignored (unimplemented)
 
 # Dry-run: first 10 videos only
 airchivist-crawler -i ~/Downloads/bookmarks.json -o /tmp/test.db --limit 10
@@ -608,7 +630,7 @@ Key decisions:
 - `fetch_metadata(video_id, delay=1.5)`: constructs canonical URL, calls `YoutubeDL.extract_info()`, maps fields (yt-dlp `view_count` → `yt_view_count`, `categories` → `yt_categories`, `tags` → `yt_tags`). Uses `or []` guard so `None` values from yt-dlp become empty lists. Calls `time.sleep(delay)`.
 - `upload_date` (yt-dlp YYYYMMDD string) → `datetime.strptime(val, '%Y%m%d')`.
 - On `DownloadError`: inspect message for "Private video" → `'private'`, "has been removed" → `'deleted'`, otherwise `'error'`.
-- `fetch_metadata_batch(video_ids, api_key)`: maps `statistics.viewCount` → `yt_view_count`; active only when `--api-key` is supplied.
+- `fetch_metadata_batch(video_ids, api_key)`: **not implemented — this function does not exist.** It would map `statistics.viewCount` → `yt_view_count` and be active only when `--api-key` is supplied; `--api-key` is currently parsed and ignored.
 
 Run `pytest tests/crawler/test_metadata_fetcher.py` — all pass.
 

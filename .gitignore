@@ -9,7 +9,7 @@ airchivist.db
 .claude/settings.local.json
 .claude/worktrees/
 airchivist*.db*
-demo.db
+demo.db*
 proposals*.json
 approved*.json
 bookmarks*.html*

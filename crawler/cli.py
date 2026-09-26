@@ -11,26 +11,54 @@ from crawler.refresh import DEFAULT_LIMIT, run_refresh
 logger = logging.getLogger(__name__)
 
 
-def _add_common_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--api-key", default=None, metavar="KEY",
-                        help="YouTube Data API v3 key (enables faster batch mode)")
-    parser.add_argument("--delay", type=float, default=1.5, metavar="SECONDS",
+def _default(value, *, sub: bool):
+    """A flag's default, or SUPPRESS when the flag is a subparser's copy of one.
+
+    argparse parses a subcommand into its own namespace and then copies every key
+    it holds over the top-level namespace — including keys that are there only
+    because of a default. So a subparser copy of a shared flag silently overwrote
+    a value the user had already given *before* the subcommand:
+    `airchivist-crawler --delay 0 refresh --db X` ran at 1.5s, turning a spot check
+    into a five-minute run with nothing explaining why.
+
+    `argparse.SUPPRESS` leaves the key out of the sub-namespace entirely unless the
+    flag was actually given, so a pre-subcommand value survives and a
+    post-subcommand one still wins. Every flag defined on both a subparser and the
+    top-level parser needs this; the top-level copy keeps the real default, so the
+    key always exists on the merged namespace.
+    """
+    return argparse.SUPPRESS if sub else value
+
+
+def _add_common_args(parser: argparse.ArgumentParser, *, sub: bool = False,
+                     api_key: bool = True) -> None:
+    if api_key:
+        # Accepted but NOT IMPLEMENTED: nothing under crawler/ reads args.api_key,
+        # and `fetch_metadata_batch` does not exist. Kept on the ingest paths only
+        # because it has been documented there for a long time.
+        parser.add_argument("--api-key", default=_default(None, sub=sub), metavar="KEY",
+                            help="YouTube Data API v3 key (NOT IMPLEMENTED — ignored)")
+    parser.add_argument("--delay", type=float, default=_default(1.5, sub=sub),
+                        metavar="SECONDS",
                         help="Seconds between yt-dlp requests (default: 1.5)")
-    parser.add_argument("--log-level", default="INFO",
+    parser.add_argument("--log-level", default=_default("INFO", sub=sub),
                         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
                         help="Logging level (default: INFO)")
 
 
-def _add_ingest_args(parser: argparse.ArgumentParser, *, required: bool = True) -> None:
+def _add_ingest_args(parser: argparse.ArgumentParser, *, required: bool = True,
+                     sub: bool = False) -> None:
     parser.add_argument("-i", "--input", required=required, type=Path, metavar="FILE",
                         help="Path to Firefox bookmarks file (.json or .html)")
     parser.add_argument("-o", "--output", required=required, type=Path, metavar="FILE",
                         help="Path to output SQLite database file")
-    parser.add_argument("--limit", type=int, default=None, metavar="N",
+    parser.add_argument("--limit", type=int, default=_default(None, sub=sub), metavar="N",
                         help="Only process the first N YouTube video bookmarks")
     parser.add_argument("--force-refresh", action="store_true",
+                        default=_default(False, sub=sub),
                         help="Re-fetch metadata even for already-stored videos")
     parser.add_argument("--backfill-channels", action="store_true",
+                        default=_default(False, sub=sub),
                         help="Fetch full metadata for channels that only have stub records")
 
 
@@ -42,16 +70,19 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command")
 
     ingest = subparsers.add_parser("ingest", help="Ingest bookmarks and fetch metadata")
-    _add_common_args(ingest)
-    _add_ingest_args(ingest)
+    _add_common_args(ingest, sub=True)
+    _add_ingest_args(ingest, sub=True)
 
     refresh = subparsers.add_parser(
         "refresh", help="Re-fetch metadata for videos already in the database"
     )
-    _add_common_args(refresh)
+    _add_common_args(refresh, sub=True, api_key=False)
     refresh.add_argument("--db", required=True, type=Path, metavar="FILE",
                         help="Path to the existing SQLite database")
-    refresh.add_argument("--limit", type=int, default=DEFAULT_LIMIT, metavar="N",
+    # No default of its own: the top-level `--limit` (ingest's, defaulting to None)
+    # is the one that always lands on the namespace, so `_run_refresh` supplies
+    # DEFAULT_LIMIT when the flag was given in neither position.
+    refresh.add_argument("--limit", type=int, default=argparse.SUPPRESS, metavar="N",
                         help=f"How many of the stalest videos to refresh (default: {DEFAULT_LIMIT})")
     return parser
 
@@ -146,8 +177,9 @@ def _run_refresh(args) -> None:
     if not args.db.exists():
         print(f"Error: database not found: {args.db}", file=sys.stderr)
         sys.exit(1)
+    limit = DEFAULT_LIMIT if args.limit is None else args.limit
     with Datastore(args.db) as ds:
-        summary = run_refresh(ds, limit=args.limit, delay=args.delay)
+        summary = run_refresh(ds, limit=limit, delay=args.delay)
     print(summary.line())
 
 
