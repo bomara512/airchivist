@@ -202,6 +202,55 @@ When `--api-key` is supplied, the crawler uses `google-api-python-client` to cal
 
 ---
 
+## Metadata Refresh (Nightly)
+
+**Goal:** keep already-stored videos' YouTube-owned fields (view count,
+title, thumbnail, etc.) from going stale forever, without a second full
+crawl of the bookmarks file.
+
+`crawler.refresh.run_refresh(ds, limit, delay, fetch=fetch_metadata)` is the
+run loop: it asks `Datastore.get_stale_video_ids(limit)` for the least
+recently refreshed video IDs (never-fetched rows first), calls `fetch` for
+each one, and hands the result to `Datastore.refresh_video`, which applies
+the update-or-preserve behavior described under Phase 3 above. It takes no
+bookmarks file and no `Bookmark` — every video it touches is already in the
+library, so there is nothing new to record about when it was added.
+
+`fetch` is a keyword parameter defaulting to the real `fetch_metadata`
+specifically so tests can inject a stub without patching a module global —
+the run loop's own logic (selection, exception containment, tallying) is
+what needs testing, not yt-dlp or the network.
+
+**One video's failure never aborts the run.** `fetch_metadata` already
+converts yt-dlp's own errors into a `fetch_status` (`private`, `deleted`,
+`error`), but a bare network or OS error propagates as a real exception.
+`run_refresh` catches broad `Exception` around each `fetch` call, logs it,
+tallies it under a `"failed"` key (not a `FetchStatus` member — nothing is
+written to that video's row), and moves to the next video. This is a
+deliberate trade-off for a job that runs unattended at 3am: a narrower
+`except` would be more precise about what it catches, but the failure mode
+of catching too little — one transient error stopping the library being
+maintained at all, discoverable only by reading a log nobody reads — is far
+worse than the failure mode of catching too much. The untouched row means
+`last_fetched_at` stays old, so the next run retries it for free with no
+separate retry logic.
+
+The run produces a `RefreshSummary` (`attempted`, `library_total`, `counts`
+keyed by `fetch_status` string values plus `"failed"`, `elapsed_seconds`).
+Its `line()` method is the entire user interface of this feature — for a
+launchd job (Task 6), one line in a log file is all anyone will ever see:
+
+```
+refreshed 200 of 2958 (196 ok, 3 deleted, 1 private) in 5m12s
+```
+
+Elapsed time reads as plain seconds under a minute (`4s`) and as
+zero-padded `MmSSs` at a minute or more (`5m12s`), so both a quick spot
+check and an overnight run render as one glance-able token instead of a
+raw float.
+
+---
+
 ## CLI Interface Design
 
 ```

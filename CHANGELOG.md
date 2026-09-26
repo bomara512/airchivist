@@ -6,6 +6,35 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-26
 
+### feat: add the refresh run loop
+
+Added `crawler.refresh.run_refresh` and `RefreshSummary`, the run loop that
+ties together the previous two entries: it selects the stalest videos via
+`Datastore.get_stale_video_ids`, re-fetches each with an injectable `fetch`
+(defaulting to the real `crawler.metadata_fetcher.fetch_metadata`), writes
+the result with `Datastore.refresh_video`, and tallies outcomes by
+`fetch_status` into one summary line, e.g.
+`refreshed 200 of 2958 (196 ok, 3 deleted, 1 private) in 5m12s`.
+
+A single video's unexpected failure (a bare network or OS error that
+`fetch_metadata` didn't already convert into a `fetch_status`) is caught,
+logged, and tallied under `"failed"` rather than aborting the run — the row
+is left untouched so the next run retries it. `fetch` is a keyword
+parameter precisely so tests drive the loop with a stub instead of
+patching a module global or touching the network.
+
+- **Pro:** a single bad video (deleted mid-run, transient DNS failure,
+  whatever) can no longer take down an unattended nightly job; the
+  one-line summary is deliberately terse enough to be the entire log
+  output someone glances at.
+- **Con:** the broad `except Exception` is intentionally imprecise — it
+  will also swallow a genuine bug in the fetch path (e.g. a
+  `TypeError` from a code change) as just another `"failed"` count rather
+  than surfacing it loudly. That's an accepted trade-off for this task;
+  the log line still records the increased failure count, and Task 5's
+  CLI is expected to be watched via its exit behavior, not to crash
+  loudly on one bad row.
+
 ### feat: add staleness selection to Datastore
 
 Added `Datastore.get_stale_video_ids(limit)` and `Datastore.count_videos()`
