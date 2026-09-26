@@ -48,7 +48,7 @@
 ## Metadata / Quality of life
 
 - [ ] Find duplicates — detect and surface videos that appear more than once in the library
-- [ ] Detect and flag dead videos (deleted/private) with a badge rather than silently hiding them
+- ~~Detect and flag dead videos (deleted/private) with a badge rather than silently hiding them~~
 - ~~Rating system for videos — favorite toggle (★) on video cards with filter~~
 - [ ] Import from YouTube Watch Later playlist or a public playlist URL
 - ~~Fix font consistency — audit typography across pages/components and unify to a single consistent font system~~

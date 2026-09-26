@@ -6,6 +6,52 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-26
 
+### feat: badge videos whose YouTube source is gone
+
+`_video_card.html` now renders a `.status-badge` in the thumbnail's
+bottom-left corner whenever the card's own `fetch_status` is set and is
+not `'ok'`: "Deleted", "Private", or "Unavailable" for anything else.
+This closes the loop the whole nightly-refresh plan exists for — the
+refresh discovers a video is gone (earlier entries today), the
+`?fetch_status=` filter lists them, and the badge finally makes it
+visible on the card. Added `TestUnavailableBadge` (5 tests) to
+`tests/webapp/test_routes.py`; the suite is 717.
+
+The badge reads the **row's** `fetch_status`, not the active filter
+value, so a dead video is recognizable wherever it turns up — mixed into
+a grouped or sorted view, or on the Archived page (which deliberately
+applies no status filter) — not just when the toolbar is filtered to
+dead videos alone. The `{% else %}Unavailable{% endif %}` branch catches
+`error` *and* any status the crawler might add later, so a new value
+degrades to a generic badge rather than silently no badge.
+
+The three background/foreground pairs in `style.css` are literal hex
+values rather than design tokens, with a comment saying why. This is the
+explicit "status badge's own background+foreground pair" exception in
+`CLAUDE.md`'s design-token rule: a "Deleted" badge has to read as a
+warning in *both* the dark and light themes, so these colors are
+intentionally theme-invariant — routing them through `:root` variables
+with per-theme overrides would let them flip and defeat the point. Font
+size and weight still use `var(--font-size-xs)` /
+`var(--font-weight-semibold)` like every other thumbnail overlay.
+
+Bottom-left was the one free thumbnail corner (`.duration-overlay` is
+bottom-right, `.queue-position-badge` top-left), so nothing overlaps;
+`pointer-events: none` keeps the badge from swallowing a click meant for
+the thumbnail link underneath.
+
+- **Pro:** the failure mode this plan set out to fix is now visible
+  without any deliberate action from the user. Rendered against a copy
+  of the real library, the badge appears on exactly 98 cards (53
+  deleted, 37 private, 8 error) and on zero cards in the default view.
+- **Con:** the badge is purely informational — there's still no action
+  attached to it (no "archive all dead videos", no "try re-fetching
+  this one"), so a user who sees 98 badges has no faster remedy than
+  archiving them one at a time. And because the colors are deliberately
+  literal, a future theme that changes the card background enough could
+  make one of the three badges read poorly, and no token sweep will
+  catch it — only someone looking at the page will.
+
 ### feat: add a fetch_status filter to the video queries
 
 `webapp/db/videos.py`'s `_build_where` (shared by `get_all_videos` and

@@ -336,6 +336,37 @@ class TestFetchStatusRouteFilter:
         assert "selected" in option_line
 
 
+class TestUnavailableBadge:
+    def _seed(self, client, status, video_id="dead0000001"):
+        with closing(sqlite3.connect(client.application.config["DATABASE"])) as conn:
+            conn.execute(
+                "INSERT INTO videos (video_id, url, title, channel_name, date_added, fetch_status) "
+                "VALUES (?, 'u', 'Dead Video', 'C', '2024-01-01', ?)",
+                (video_id, status),
+            )
+            conn.commit()
+
+    @pytest.mark.parametrize("status,label", [
+        ("deleted", "Deleted"),
+        ("private", "Private"),
+        ("error", "Unavailable"),
+    ])
+    def test_shows_the_right_label_per_status(self, client, status, label):
+        self._seed(client, status)
+        body = client.get(f"/?fetch_status={status}", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "status-badge" in body
+        assert label in body
+
+    def test_an_ok_video_has_no_badge(self, client):
+        body = client.get("/", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "status-badge" not in body
+
+    def test_the_badge_carries_the_status_as_a_class(self, client):
+        self._seed(client, "deleted")
+        body = client.get("/?fetch_status=deleted", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "status-badge--deleted" in body
+
+
 class TestApiStatus:
     def test_not_found(self, client):
         resp = client.get("/api/status?url=https://www.youtube.com/watch?v=XXXXXXXXXXX")

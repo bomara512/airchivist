@@ -551,6 +551,26 @@ h1 { margin-top: 0; }
   pointer-events: none;
 }
 
+/* Availability badge on a video whose YouTube source is gone. The three
+   background/foreground pairs are literal rather than tokens on purpose: a
+   "deleted" badge must read as a warning in both themes, so these are
+   intentionally theme-invariant — see the design-token rule in CLAUDE.md.
+   Bottom-left is the free thumbnail corner: .duration-overlay sits
+   bottom-right and .queue-position-badge top-left. */
+.status-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 1px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+.status-badge--deleted { background: #7f1d1d; color: #fff; }
+.status-badge--private { background: #78350f; color: #fff; }
+.status-badge--error   { background: #374151; color: #fff; }
+
 .shelf-footer {
   border-top: 1px solid var(--border);
   padding-top: 0.5rem;

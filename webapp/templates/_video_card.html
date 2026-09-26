@@ -14,6 +14,13 @@
       {% if ctx == "watch_later" and position is defined %}
       <span class="queue-position-badge">{{ position }}</span>
       {% endif %}
+      {% if video.fetch_status and video.fetch_status != 'ok' %}
+      <span class="status-badge status-badge--{{ video.fetch_status }}">
+        {% if video.fetch_status == 'deleted' %}Deleted
+        {% elif video.fetch_status == 'private' %}Private
+        {% else %}Unavailable{% endif %}
+      </span>
+      {% endif %}
     </a>
     <div class="thumb-actions-right">
       {% if ctx == "watch_later" %}
