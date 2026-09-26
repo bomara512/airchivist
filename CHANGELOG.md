@@ -6,6 +6,40 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-25
 
+### refactor: remove the dead `tag_keywords` table
+
+`tag_keywords` held extra search terms per tag. Its editing UI (`tag_detail.html`)
+was deleted, which left `set_tag_keywords` with no callers — so from that point
+nothing in the app could write a row. Verified before removing: **0 rows in both
+`airchivist.db` and `airchivist-test.db`**, and the only two `INSERT`s were
+`set_tag_keywords` itself (callerless) and the tag-merge path's `INSERT…SELECT`,
+which can only copy rows that already exist. The table was structurally unfillable.
+
+Removed: `get_tag_keywords`, `set_tag_keywords`, `get_tags_with_keywords`, the
+fourth branch of `_build_where`'s search clause, `delete_tag`'s no-op cleanup, the
+merge's `INSERT…SELECT`, the `CREATE TABLE`, and the test fixture's seed rows.
+
+- **Pro:** search now has three sources instead of four, and the one that was
+  removed could never match — so the query does less work for identical results.
+  The third loose end from the tag-distillation era is closed (the other two were
+  `keyword_matcher` and `tag_suggester`, both deleted 2026-09-24), and `TODO.md`'s
+  "do not leave it in this half state a third time" is honored.
+- **Con:** if the keyword idea ever comes back it starts from scratch. That is the
+  right trade — the table sat unfillable through at least two passes that each
+  decided to keep it "just in case", and the aliases + LLM suggestion system now
+  covers the "several spellings mean one tag" job keywords were reaching for.
+- **The one-time `DROP TABLE` in `init_webapp_tables` is guarded on the table being
+  empty.** Nothing in the app can produce such a row, so if one exists it predates
+  the removal, and a startup the user didn't ask for is no place to destroy data —
+  a non-empty table is left alone and unread. Four tests cover the drop, the guard,
+  a fresh DB, and a second startup.
+- Verified against a copy of the real 2,958-video / 27,237-tag database: the table
+  is dropped, no other table is touched, row counts are unchanged, and a second run
+  is a no-op.
+- One search test went from asserting keyword matching to asserting its absence —
+  it only ever passed because the test fixture seeded keyword rows that production
+  could not have.
+
 ### fix: review pass on tasks 6–14 — three 500s, two incomplete sweeps
 
 A fresh-context reviewer audited the nine commits from Task 6 to Task 14. All five

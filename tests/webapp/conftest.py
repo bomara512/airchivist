@@ -31,10 +31,6 @@ INSERT INTO tags (id, name) VALUES (1, 'guitar'), (2, 'thai food');
 INSERT INTO video_tags (video_id_fk, tag_id_fk)
 VALUES (1, 1), (3, 1), (2, 2), (4, 2);
 
-INSERT INTO tag_keywords (tag_id, keyword)
-VALUES (1, 'guitar'), (1, 'chord'), (1, 'lesson'),
-       (2, 'thai'), (2, 'recipe'), (2, 'pad thai');
-
 UPDATE videos SET is_watched = 1 WHERE personal_view_count > 0;
 """
 

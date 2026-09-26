@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 
 import pytest
 
@@ -29,9 +30,7 @@ from webapp.db import (
     get_llm_suggestions,
     get_stats,
     get_tag_id_by_name,
-    get_tag_keywords,
     get_tags_for_video,
-    get_tags_with_keywords,
     get_unclassified_tags,
     get_video_by_id,
     get_video_channel_names,
@@ -42,7 +41,6 @@ from webapp.db import (
     remove_video_tag,
     retroactive_apply,
     save_llm_suggestions,
-    set_tag_keywords,
     set_watched,
     upsert_channel,
 )
@@ -86,7 +84,7 @@ class TestGetAllVideos:
         assert "Advanced Chords" in titles
 
     def test_filters_by_search_term_in_title(self, db_conn):
-        # "Tutorial" appears only in "Pad Thai Tutorial" title and no tag keywords
+        # "Tutorial" appears only in "Pad Thai Tutorial"'s title
         rows = get_all_videos(db_conn, search="Tutorial")
         assert len(rows) == 1
         assert rows[0]["title"] == "Pad Thai Tutorial"
@@ -102,12 +100,13 @@ class TestGetAllVideos:
         assert "Thai Food Recipe" in titles
         assert "Pad Thai Tutorial" in titles
 
-    def test_filters_by_tag_keyword(self, db_conn):
-        # "lesson" is a keyword of the "guitar" tag; Advanced Chords is tagged guitar
-        # but its title/description don't contain "lesson"
-        rows = get_all_videos(db_conn, search="lesson")
-        titles = {r["title"] for r in rows}
-        assert "Advanced Chords" in titles
+    def test_search_does_not_reach_beyond_title_description_and_tag_name(self, db_conn):
+        # "lesson" appears in "Guitar Lesson 1"'s title and in the guitar tag's former
+        # keywords. Now that tag_keywords is gone, only the title match remains —
+        # "Advanced Chords" is tagged guitar but says nothing about lessons.
+        titles = {r["title"] for r in get_all_videos(db_conn, search="lesson")}
+        assert "Guitar Lesson 1" in titles
+        assert "Advanced Chords" not in titles
 
     def test_search_matches_word_prefix(self, db_conn):
         # "Advanc" is a prefix of "Advanced" — should match
@@ -299,29 +298,6 @@ class TestGetAllTags:
         assert names == {"guitar", "thai food"}
 
 
-class TestGetTagsWithKeywords:
-    def test_returns_tags_with_keywords(self, db_conn):
-        result = get_tags_with_keywords(db_conn)
-        guitar = next(t for t in result if t["name"] == "guitar")
-        assert set(guitar["keywords"]) == {"guitar", "chord", "lesson"}
-
-    def test_tag_with_no_keywords_has_empty_list(self, db_conn):
-        db_conn.execute("INSERT INTO tags (name) VALUES ('empty-tag')")
-        result = get_tags_with_keywords(db_conn)
-        empty = next((t for t in result if t["name"] == "empty-tag"), None)
-        assert empty is not None
-        assert empty["keywords"] == []
-
-
-class TestGetTagKeywords:
-    def test_returns_keywords_for_tag(self, db_conn):
-        kws = get_tag_keywords(db_conn, 1)
-        assert set(kws) == {"guitar", "chord", "lesson"}
-
-    def test_returns_empty_for_unknown_tag(self, db_conn):
-        assert get_tag_keywords(db_conn, 9999) == []
-
-
 class TestGetTagsForVideo:
     def test_returns_tag_names(self, db_conn):
         tags = get_tags_for_video(db_conn, "aaaaaaaaaa1")
@@ -494,17 +470,6 @@ class TestCreateTag:
         id1 = create_tag(db_conn, "guitar")
         id2 = create_tag(db_conn, "guitar")
         assert id1 == id2
-
-
-class TestSetTagKeywords:
-    def test_replaces_keywords(self, db_conn):
-        set_tag_keywords(db_conn, 1, ["new", "keywords"])
-        kws = get_tag_keywords(db_conn, 1)
-        assert set(kws) == {"new", "keywords"}
-
-    def test_empty_list_clears_keywords(self, db_conn):
-        set_tag_keywords(db_conn, 1, [])
-        assert get_tag_keywords(db_conn, 1) == []
 
 
 class TestDeleteTag:
@@ -720,21 +685,73 @@ class TestConfirmSuggestion:
 
 
 class TestInitWebappTables:
-    def test_creates_tag_keywords_table(self, tmp_path):
-        db_path = str(tmp_path / "fresh.db")
-        conn = sqlite3.connect(db_path)
-        conn.executescript("""
-            CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE);
-        """)
-        conn.close()
+    def _tables(self, db_path):
+        with closing(sqlite3.connect(db_path)) as conn:
+            return {r[0] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()}
+
+    def _bare_db(self, tmp_path, name="fresh.db"):
+        db_path = str(tmp_path / name)
+        with closing(sqlite3.connect(db_path)) as conn:
+            conn.executescript(
+                "CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE);"
+            )
+        return db_path
+
+    def test_creates_the_webapp_tables(self, tmp_path):
+        db_path = self._bare_db(tmp_path)
         init_webapp_tables(db_path)
-        conn = sqlite3.connect(db_path)
-        tables = {r[0] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()}
-        conn.close()
-        assert "tag_keywords" in tables
-        assert "tag_aliases" in tables
+        assert "tag_aliases" in self._tables(db_path)
+
+    def test_does_not_create_tag_keywords(self, tmp_path):
+        """Removed 2026-09-25: nothing in the app could write a row (its only UI was
+        deleted, leaving `set_tag_keywords` callerless), so the table was permanently
+        empty and the search join against it could never match."""
+        db_path = self._bare_db(tmp_path)
+        init_webapp_tables(db_path)
+        assert "tag_keywords" not in self._tables(db_path)
+
+    def test_drops_an_existing_empty_tag_keywords_table(self, tmp_path):
+        db_path = self._bare_db(tmp_path)
+        with closing(sqlite3.connect(db_path)) as conn:
+            conn.executescript("""
+                CREATE TABLE tag_keywords (
+                    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+                    keyword TEXT NOT NULL,
+                    UNIQUE(tag_id, keyword)
+                );
+            """)
+        assert "tag_keywords" in self._tables(db_path)
+        init_webapp_tables(db_path)
+        assert "tag_keywords" not in self._tables(db_path)
+
+    def test_keeps_a_non_empty_tag_keywords_table(self, tmp_path):
+        """Nothing in the app can produce such a row, so if one exists it predates
+        the removal and is not ours to destroy on a startup the user didn't ask for.
+        The table is left alone, unread, for them to inspect and drop themselves."""
+        db_path = self._bare_db(tmp_path)
+        with closing(sqlite3.connect(db_path)) as conn:
+            conn.executescript("""
+                CREATE TABLE tag_keywords (
+                    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tag_id  INTEGER NOT NULL,
+                    keyword TEXT NOT NULL
+                );
+                INSERT INTO tags (id, name) VALUES (1, 'guitar');
+                INSERT INTO tag_keywords (tag_id, keyword) VALUES (1, 'chord');
+            """)
+        init_webapp_tables(db_path)
+        assert "tag_keywords" in self._tables(db_path)
+        with closing(sqlite3.connect(db_path)) as conn:
+            assert conn.execute("SELECT COUNT(*) FROM tag_keywords").fetchone()[0] == 1
+
+    def test_is_idempotent_when_the_table_was_never_there(self, tmp_path):
+        db_path = self._bare_db(tmp_path)
+        init_webapp_tables(db_path)
+        init_webapp_tables(db_path)  # must not raise on the second pass
+        assert "tag_keywords" not in self._tables(db_path)
 
     def test_adds_is_canonical_column(self, tmp_path):
         db_path = str(tmp_path / "fresh.db")

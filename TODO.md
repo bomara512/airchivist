@@ -35,7 +35,7 @@
 - ~~Manually add a tag to a single existing video — direct affordance (e.g. from the main list/card), for videos that arrived with thin/noise-only metadata and never got a canonical tag~~
 - ~~Archive button — hide videos from main view without deleting them (Hide does this)~~
 - ~~Tag distillation — consolidate many similar tags into a single canonical concept for cleaner search and grouping~~
-- [ ] Decide the fate of tag keywords — `tag_keywords` rows can only be written by `set_tag_keywords`, which has had no caller since `tag_detail.html` (its only UI) was deleted on 2026-09-25, so the table is permanently empty in production: the search join in `_build_where` can never match and `delete_tag`'s cleanup is a no-op. Either (a) build the keyword-editing UI the table was designed for, or (b) delete `get_tag_keywords` / `get_tags_with_keywords` / `set_tag_keywords`, the dead search join, and the table itself. Do not leave it in this half state a third time
+- ~~Decide the fate of tag keywords — resolved 2026-09-25 by removing it: the table was structurally unfillable (0 rows in both real databases, its only writer callerless since its UI was deleted), so the three accessors, the dead search join, `delete_tag`'s no-op cleanup and the table itself are gone, with a guarded one-time `DROP TABLE` for existing databases~~
 - [ ] Show ungrouped canonical tags on the /tags page — canonical tags not assigned to any tag group are currently invisible unless you use Auto-assign
 - [ ] Creator pages support — full support for bookmarking and tracking YouTube creator channels (not just videos)
   - [x] Crawler: extract and store channel URLs from Firefox bookmarks (Phase 1 complete)

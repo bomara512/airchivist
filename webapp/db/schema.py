@@ -19,12 +19,6 @@ def init_webapp_tables(db_path: str) -> None:
             pool         TEXT NOT NULL,
             video_ids    TEXT NOT NULL
         );
-        CREATE TABLE IF NOT EXISTS tag_keywords (
-            id      INTEGER PRIMARY KEY AUTOINCREMENT,
-            tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-            keyword TEXT NOT NULL,
-            UNIQUE(tag_id, keyword)
-        );
         CREATE TABLE IF NOT EXISTS video_tags (
             video_id_fk INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
             tag_id_fk   INTEGER NOT NULL REFERENCES tags(id)   ON DELETE CASCADE,
@@ -76,6 +70,24 @@ def init_webapp_tables(db_path: str) -> None:
             date_added       TEXT NOT NULL DEFAULT (date('now'))
         );
     """)
+    # One-time cleanup for pre-existing databases: drop tag_keywords.
+    #
+    # The table was designed to hold extra search terms per tag, but its only UI
+    # (`tag_detail.html`) was deleted, which left `set_tag_keywords` with no callers —
+    # so from then on nothing in the app could write a row, the table stayed
+    # permanently empty, and the search join against it could never match. Removed
+    # entirely on 2026-09-25 rather than left as an orphan table nothing reads.
+    #
+    # Guarded on emptiness: nothing in the app can produce such a row, so if one
+    # exists it predates the removal, and a startup the user didn't ask for is no
+    # place to destroy data. Such a table is left alone (and unread) for them.
+    try:
+        if conn.execute("SELECT COUNT(*) FROM tag_keywords").fetchone()[0] == 0:
+            conn.execute("DROP TABLE tag_keywords")
+            conn.commit()
+    except sqlite3.OperationalError:
+        pass  # already dropped, or a fresh DB that never had it
+
     # One-time rename for pre-existing databases: is_favourite -> is_favorite
     # (US spelling). Runs before the ADD COLUMN loop below so a freshly-renamed
     # column is correctly seen as "already exists" by that loop's is_favorite

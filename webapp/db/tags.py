@@ -25,28 +25,10 @@ def get_all_tags(conn: sqlite3.Connection) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def get_tags_with_keywords(conn: sqlite3.Connection) -> list[dict]:
-    tags = conn.execute("SELECT id, name FROM tags").fetchall()
-    result = []
-    for tag in tags:
-        kws = conn.execute(
-            "SELECT keyword FROM tag_keywords WHERE tag_id = ?", (tag["id"],)
-        ).fetchall()
-        result.append({"id": tag["id"], "name": tag["name"], "keywords": [r[0] for r in kws]})
-    return result
-
-
 def get_tag_id_by_name(conn: sqlite3.Connection, name: str) -> int | None:
     """The `tags.id` for an exact tag name, or None if no such tag exists."""
     row = conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()
     return row[0] if row else None
-
-
-def get_tag_keywords(conn: sqlite3.Connection, tag_id: int) -> list[str]:
-    rows = conn.execute(
-        "SELECT keyword FROM tag_keywords WHERE tag_id = ?", (tag_id,)
-    ).fetchall()
-    return [r[0] for r in rows]
 
 
 def get_tags_for_video(conn: sqlite3.Connection, video_id: str) -> list[str]:
@@ -81,18 +63,8 @@ def create_tag(conn: sqlite3.Connection, name: str) -> int:
     return _inserted_id(cursor)
 
 
-def set_tag_keywords(conn: sqlite3.Connection, tag_id: int, keywords: list[str]) -> None:
-    conn.execute("DELETE FROM tag_keywords WHERE tag_id = ?", (tag_id,))
-    for kw in keywords:
-        conn.execute(
-            "INSERT INTO tag_keywords (tag_id, keyword) VALUES (?, ?)", (tag_id, kw)
-        )
-    conn.commit()
-
-
 def delete_tag(conn: sqlite3.Connection, tag_id: int) -> None:
     conn.execute("DELETE FROM video_tags WHERE tag_id_fk = ?", (tag_id,))
-    conn.execute("DELETE FROM tag_keywords WHERE tag_id = ?", (tag_id,))
     conn.execute("DELETE FROM tags WHERE id = ?", (tag_id,))
     conn.commit()
 
@@ -319,10 +291,6 @@ def collapse_case_variants(conn: sqlite3.Connection) -> int:
             conn.execute("""
                 INSERT OR IGNORE INTO video_tags (video_id_fk, tag_id_fk)
                 SELECT video_id_fk, ? FROM video_tags WHERE tag_id_fk = ?
-            """, (winner_id, loser_id))
-            conn.execute("""
-                INSERT OR IGNORE INTO tag_keywords (tag_id, keyword)
-                SELECT ?, keyword FROM tag_keywords WHERE tag_id = ?
             """, (winner_id, loser_id))
             conn.execute("""
                 UPDATE OR IGNORE tag_aliases SET canonical_tag_id = ?

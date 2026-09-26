@@ -106,10 +106,6 @@ def get_canonical_tags_for_filter(conn) -> list[str] # canonical tag names that 
 
 def get_all_tags(conn) -> list[dict]           # id, name, video_count
 
-def get_tag_keywords(conn, tag_id: int) -> list[str]
-
-def get_tags_with_keywords(conn) -> list[dict]
-
 def get_tags_for_video(conn, video_id: str) -> list[str]
 
 def get_stats(conn) -> dict                    # total_videos, total_channels, fetch_errors, hidden_count
@@ -121,8 +117,6 @@ def set_watched(conn, video_id: str, value: bool) -> None  # sets is_watched onl
 def create_tag(conn, name: str) -> int
 
 def get_tag_id_by_name(conn, name: str) -> int | None   # exact match, not prefix/contains
-
-def set_tag_keywords(conn, tag_id: int, keywords: list[str]) -> None
 
 def delete_tag(conn, tag_id: int) -> None
 
@@ -177,13 +171,12 @@ Both allow-lists live next to `_build_where` in `webapp/db/videos.py`. As with `
 
 `unwatched_first: bool` (on `get_all_videos` only, not `_build_where`) is not a filter — it doesn't exclude any videos. It's an ORDER BY modifier: when set, `v.is_watched ASC` is prepended to the ORDER BY, ahead of whichever `sort_by`/`sort_dir` is active, so all unwatched videos surface before watched ones while the chosen sort still governs order within each group. Same composition pattern as `group == "channel"` prepending `channel_name ASC` (see Grouping below) — both stack as ORDER BY prefixes rather than replacing the base sort.
 
-The `search` filter matches against four sources, all using word-prefix regex (`\bterm`, case-insensitive):
+The `search` filter matches against three sources, all using word-prefix regex (`\bterm`, case-insensitive):
 1. `v.title`
 2. `v.description`
 3. Tag names associated with the video (via `video_tags` → `tags`)
-4. Tag keywords associated with the video (via `video_tags` → `tag_keywords`)
 
-So searching "lesson" surfaces videos tagged "guitar" (which has "lesson" as a keyword) even if the word doesn't appear in their title or description. Matching is word-prefix — "prik" will not match "pa**prik**a" (mid-word) but will match "prikling". This requires a Python `regexp` function registered on each SQLite connection via `conn.create_function("regexp", 2, _regexp)` in `app.py`'s `before_request` and in the test fixture's `_make_db`.
+So searching a tag name surfaces every video carrying that tag even if the word appears in no title or description. A fourth source — per-tag keywords, via a `tag_keywords` table — was removed on 2026-09-25: the table's only UI had been deleted, so nothing could write a row and the join could never match. Matching is word-prefix — "prik" will not match "pa**prik**a" (mid-word) but will match "prikling". This requires a Python `regexp` function registered on each SQLite connection via `conn.create_function("regexp", 2, _regexp)` in `app.py`'s `before_request` and in the test fixture's `_make_db`.
 
 ```python
 ALLOWED_SORT_COLUMNS = frozenset({
@@ -290,30 +283,29 @@ This is transparent to the user — the click feels like a direct link — while
 
 ### How It Works
 
-1. **Tag definitions**: A tag has a name (e.g., "guitar tutorials") and associated keywords (e.g., `["guitar", "tutorial", "lesson", "chord"]`). Tags are stored in the `tags` table shared with the crawler.
+1. **Tag definitions**: A tag has a name (e.g., "guitar tutorials") and a canonical/alias relationship to other tag names. Tags are stored in the `tags` table shared with the crawler.
 
-2. **Keyword matching**: keywords feed **search**, not grouping. `_build_where`'s `search` clause matches a term against `tags.name` and `tag_keywords.keyword` (alongside title and description) with a word-prefix regex, so a keyword on a canonical tag makes every video carrying that tag findable by it. A standalone `keyword_matcher` module that grouped videos this way was deleted on 2026-09-24 — it had no callers, having been superseded by the alias system plus LLM suggestions.
+2. **Matching by name**: `_build_where`'s `search` clause matches a term against `tags.name` (alongside title and description) with a word-prefix regex, so a tag's name makes every video carrying it findable. Two earlier attempts at a richer keyword layer are both gone: a standalone `keyword_matcher` module that *grouped* videos by keyword (deleted 2026-09-24, no callers, superseded by aliases + LLM suggestions), and a `tag_keywords` table that fed *search* (deleted 2026-09-25 — its editing UI had been removed, leaving no way to write a row, so the search join could never match). Aliases now carry the "several spellings mean one tag" job those were reaching for.
 
 3. **Manual override**: The `video_tags` table stores manually confirmed tag associations. The UI offers a "Tag this video" button that opens a modal listing all defined tags.
 
 ### Tag Management UI Flow
 
-- **Define tags**: `/tags` page lets the user create tag names with comma-separated keywords.
+- **Define tags**: `/tags` page lets the user promote a tag name to canonical and attach alias patterns to it.
 - **Grouped views**: the main list's `?group=channel` and `?group=tag` partition the current page in Python (see "Main View" above). Tag grouping keys off each video's canonical tags, not keyword matching; videos with no canonical tag land in an "Untagged" group.
 - **Manual tagging**: POST `/videos/<video_id>/tags/add` with form field `tag_name` (creates the canonical tag if needed); POST `/videos/<video_id>/tags/remove` with `tag_name`.
 
-### `tag_keywords` Table
+### Removed: `tag_keywords`
 
-```sql
-CREATE TABLE IF NOT EXISTS tag_keywords (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-    keyword TEXT    NOT NULL,
-    UNIQUE(tag_id, keyword)
-);
-```
+A `tag_keywords` table held extra search terms per tag. Its editing UI
+(`tag_detail.html`) was deleted, which left `set_tag_keywords` with no callers — so
+nothing in the app could write a row, the table stayed permanently empty, and the
+search join against it could never match. Table and accessors removed 2026-09-25.
 
-This table is created by the web app on first launch (`init_webapp_tables()`), extending the crawler's schema non-destructively.
+`init_webapp_tables` carries a one-time `DROP TABLE` for databases that still have
+it, **guarded on the table being empty**: nothing in the app can produce such a
+row, so if one exists it predates the removal, and a startup the user did not ask
+for is no place to destroy data. A non-empty table is left alone and unread.
 
 ---
 
@@ -681,7 +673,7 @@ python -m webapp.cli --db ~/airchivist.db --port 8080 --debug
 `main()` flow:
 1. Parse args.
 2. Check `--db` path exists; exit 1 with message if not.
-3. Call `init_webapp_tables(db_path)` to add `tag_keywords` if missing.
+3. Call `init_webapp_tables(db_path)` to create any missing webapp tables and apply column migrations.
 4. Call `create_app(db_path)`.
 5. Print `Airchivist running at http://<host>:<port>`.
 6. Call `app.run(host, port, debug)`.
@@ -1098,6 +1090,13 @@ Manual verification checklist:
 
 ## `conftest.py` Design
 
+The snippet below shows the *shape* of the fixture, not its current text: the real
+`tests/webapp/conftest.py` no longer carries a schema literal at all. It builds the
+base tables from `crawler.datastore._SCHEMA` and then calls `init_webapp_tables`,
+so the fixture and production can never disagree about the schema. It also exposes
+an `app` fixture that `client` is built from, so a test needing a request context
+does not construct its own app.
+
 ```python
 import pytest
 import sqlite3
@@ -1131,12 +1130,6 @@ SCHEMA_SQL = """
         video_id_fk INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
         tag_id_fk   INTEGER NOT NULL REFERENCES tags(id)   ON DELETE CASCADE,
         PRIMARY KEY (video_id_fk, tag_id_fk)
-    );
-    CREATE TABLE tag_keywords (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-        keyword TEXT NOT NULL,
-        UNIQUE(tag_id, keyword)
     );
 """
 
