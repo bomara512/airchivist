@@ -39,9 +39,46 @@ others) fail against it.
   hidden are kept as separate axes.
 - **Con:** this is DB-layer only — no route or template wiring yet, so
   there is no way for a person using the app today to actually apply this
-  filter. Tasks 8 (route + `<select>`) and 9 (card badge) still need to
-  land before a refreshed-away video is visible to anyone but a
-  developer calling `get_all_videos` directly.
+  filter. (Route + `<select>` wiring landed the same day, below; the card
+  badge is still open.)
+
+### feat: expose the fetch_status filter on the main list
+
+Task 7 added the `fetch_status` keyword to `get_all_videos`/`count_videos`
+but left nothing to reach it. `webapp/video_filters.py` gained
+`FetchStatusFilter` (a `StrEnum` kept in sync with `_FETCH_STATUS_CLAUSES`
+in `webapp/db/videos.py` via a cross-reference comment on each side) and
+a `VideoListFilters.fetch_status: str | None` field, folded into
+`from_args`, `active_count`, and `db_kwargs()` (now 8 keys, up from 7).
+`webapp/routes.py`'s `index()` needed one new line
+(`current_fetch_status=filters.fetch_status`) since `db_kwargs()` already
+flows into both DB calls and the route's existing
+`try/except ValueError: abort(400)` already turns an unrecognized value
+into a 400. `webapp/templates/index.html` gained a
+`<select name="fetch_status">` ("Available" / "Unavailable (any)" /
+"Deleted" / "Private" / "Fetch error") placed after the `added_within`
+select, matching its bare style (no class, no HTMX attributes — the
+enclosing form owns auto-submit). Added `TestFetchStatusFilterField` (5
+tests) to `tests/webapp/test_video_filters.py` and
+`TestFetchStatusRouteFilter` (4 tests) to `tests/webapp/test_routes.py`.
+
+Updating `db_kwargs()`'s key set broke the pre-existing
+`TestDbKwargs.test_maps_watch_status_onto_unwatched_only`, which asserted
+the exact 7-key set; updated its expected set to include `fetch_status`
+rather than leave a test asserting a key set that no longer matches
+reality — the alternative (special-casing `db_kwargs()` to omit
+`fetch_status` when unset) would have broken the very feature this task
+adds, since the route needs the key present (even if `None`) to pass
+through uniformly.
+
+- **Pro:** a person can now actually pull up videos the nightly refresh
+  found dead, matching this plan's stated purpose for `fetch_status`
+  server-side. The default view is unaffected — still only `fetch_status
+  = 'ok'` videos — so nothing changes for someone who never touches the
+  new select.
+- **Con:** still no visual indicator on a video card that it's dead when
+  viewed via a filter other than "Unavailable" itself (e.g. mixed into an
+  unfiltered grouped view) — that's Task 9's card badge, not done here.
 
 ### feat: add a launchd template for the nightly refresh
 

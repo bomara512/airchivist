@@ -82,6 +82,15 @@
         <option value="365" {% if current_added_within == 365 %}selected{% endif %}>Last year</option>
       </select>
 
+      {# Keep options in sync with _FETCH_STATUS_CLAUSES in webapp/db/videos.py #}
+      <select name="fetch_status">
+        <option value="" {% if not current_fetch_status %}selected{% endif %}>Available</option>
+        <option value="dead"    {% if current_fetch_status == 'dead'    %}selected{% endif %}>Unavailable (any)</option>
+        <option value="deleted" {% if current_fetch_status == 'deleted' %}selected{% endif %}>Deleted</option>
+        <option value="private" {% if current_fetch_status == 'private' %}selected{% endif %}>Private</option>
+        <option value="error"   {% if current_fetch_status == 'error'   %}selected{% endif %}>Fetch error</option>
+      </select>
+
       <select name="watch_status">
         <option value=""                {% if not watch_status %}selected{% endif %}>Include watched</option>
         <option value="unwatched"        {% if watch_status == 'unwatched' %}selected{% endif %}>Unwatched only</option>

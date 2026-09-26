@@ -307,6 +307,35 @@ class TestHiddenPage:
         assert b"Archived" not in resp.data
 
 
+class TestFetchStatusRouteFilter:
+    def _seed_dead(self, client):
+        with closing(sqlite3.connect(client.application.config["DATABASE"])) as conn:
+            conn.executescript("""
+                INSERT INTO videos (video_id, url, title, channel_name, date_added, fetch_status)
+                VALUES ('dead0000001', 'u', 'Deleted Video', 'C', '2024-01-01', 'deleted');
+            """)
+            conn.commit()
+
+    def test_dead_filter_lists_videos_the_default_view_hides(self, client):
+        self._seed_dead(client)
+        body = client.get("/?fetch_status=dead", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "Deleted Video" in body
+        assert "Guitar Lesson 1" not in body
+
+    def test_default_view_still_hides_them(self, client):
+        self._seed_dead(client)
+        body = client.get("/", headers={"HX-Request": "true"}).get_data(as_text=True)
+        assert "Deleted Video" not in body
+
+    def test_an_unrecognized_status_is_a_400(self, client):
+        assert client.get("/?fetch_status=bogus").status_code == 400
+
+    def test_the_select_reflects_the_current_choice(self, client):
+        body = client.get("/?fetch_status=dead").get_data(as_text=True)
+        option_line = next(l for l in body.splitlines() if 'value="dead"' in l)
+        assert "selected" in option_line
+
+
 class TestApiStatus:
     def test_not_found(self, client):
         resp = client.get("/api/status?url=https://www.youtube.com/watch?v=XXXXXXXXXXX")

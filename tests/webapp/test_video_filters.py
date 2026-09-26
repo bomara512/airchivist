@@ -68,7 +68,29 @@ class TestDbKwargs:
         assert "unwatched_first" not in kwargs   # get_all_videos takes that separately
         assert set(kwargs) == {
             "channel", "tag", "search", "favorites_only",
-            "unwatched_only", "duration", "added_within",
+            "unwatched_only", "duration", "added_within", "fetch_status",
+        }
+
+
+class TestFetchStatusFilterField:
+    def test_absent_by_default(self):
+        assert VideoListFilters.from_args({}).fetch_status is None
+
+    def test_empty_string_normalizes_to_none(self):
+        assert VideoListFilters.from_args({"fetch_status": ""}).fetch_status is None
+
+    def test_parsed_from_the_query_string(self):
+        assert VideoListFilters.from_args({"fetch_status": "dead"}).fetch_status == "dead"
+
+    def test_counts_toward_the_active_filter_badge(self):
+        assert VideoListFilters.from_args({"fetch_status": "dead"}).active_count == 1
+
+    def test_reaches_the_db_layer(self):
+        kwargs = VideoListFilters.from_args({"fetch_status": "dead"}).db_kwargs()
+        assert kwargs["fetch_status"] == "dead"
+        assert set(kwargs) == {
+            "channel", "tag", "search", "favorites_only",
+            "unwatched_only", "duration", "added_within", "fetch_status",
         }
 
 

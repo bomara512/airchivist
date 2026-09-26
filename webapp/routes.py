@@ -65,6 +65,7 @@ def index():
         watch_status=filters.watch_status,
         current_duration=filters.duration,
         current_added_within=filters.added_within,
+        current_fetch_status=filters.fetch_status,
         active_filter_count=filters.active_count,
         **pagination_context("main.index", requested_page=page, total=total, page_size=PAGE_SIZE),
     )

@@ -19,6 +19,19 @@ class GroupBy(StrEnum):
     TAG = "tag"
 
 
+class FetchStatusFilter(StrEnum):
+    """Values of the toolbar's availability select. Empty string = only watchable.
+
+    Keep in sync with _FETCH_STATUS_CLAUSES in webapp/db/videos.py.
+    """
+
+    DEAD = "dead"
+    DELETED = "deleted"
+    PRIVATE = "private"
+    ERROR = "error"
+    OK = "ok"
+
+
 @dataclass(frozen=True)
 class VideoListFilters:
     """The main video list's filter/sort state, parsed from the query string."""
@@ -33,6 +46,7 @@ class VideoListFilters:
     watch_status: str = ""
     duration: str | None = None
     added_within: int | None = None
+    fetch_status: str | None = None
 
     @classmethod
     def from_args(cls, args: Mapping[str, Any]) -> "VideoListFilters":
@@ -51,6 +65,7 @@ class VideoListFilters:
             watch_status=args.get("watch_status", ""),
             duration=args.get("duration") or None,
             added_within=added_within,
+            fetch_status=args.get("fetch_status") or None,
         )
 
     @property
@@ -78,6 +93,7 @@ class VideoListFilters:
             bool(self.watch_status),
             bool(self.duration),
             self.added_within is not None,
+            self.fetch_status is not None,
         ))
 
     def db_kwargs(self) -> dict[str, Any]:
@@ -90,6 +106,7 @@ class VideoListFilters:
             "unwatched_only": self.unwatched_only,
             "duration": self.duration,
             "added_within": self.added_within,
+            "fetch_status": self.fetch_status,
         }
 
 
