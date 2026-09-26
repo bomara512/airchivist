@@ -22,6 +22,14 @@
 - **Every `Datastore`/`sqlite3.connect` in a test uses `with` or `closing()`** — an unclosed handle surfaces as a `ResourceWarning` attributed to an unrelated test.
 - **Update `plan-crawler.md` and/or `plan-webapp.md` plus `CHANGELOG.md` in the same commit as each task**, and `docs/feature-sheet.html` for the two tasks that ship user-facing behavior (Tasks 6 and 9).
 - Baseline before Task 1: **652 backend tests, 123 extension tests**, ruff clean, mypy clean, empty warnings summary.
+- **Never open `airchivist.db` from a verification step.** `webapp.app.create_app`
+  calls `init_webapp_tables(db_path)`, and `Datastore.__init__` runs its schema
+  script — so merely constructing either against the real database **writes to it**
+  (applying WAL, and running the `tag_keywords` DROP added on 2026-09-25). Every
+  hand-verification step in this plan copies the database to the scratch directory
+  first and works on the copy. A verified backup taken before this plan started is at
+  `airchivist.db.backup-2026-09-26-pre-refresh-plan` (2,959 videos, 27,244 tags,
+  `integrity_check` ok), made with SQLite's backup API rather than `cp`.
 
 ## Review Focus
 
@@ -139,21 +147,27 @@ Expected: ruff clean, mypy `Success`, **655 passed**, warnings summary empty.
 
 Run, to confirm the real database converts and nothing is lost:
 
+Use SQLite's backup API rather than `cp` — a plain copy of a database something
+else has open can capture a torn page:
+
 ```bash
-cp airchivist.db /tmp/wal-check.db
 python3 -c "
-import sys; sys.path.insert(0, '.')
+import sqlite3, sys; sys.path.insert(0, '.')
+src, dst = sqlite3.connect('airchivist.db'), sqlite3.connect('/tmp/wal-check.db')
+with dst: src.backup(dst)
+dst.close(); src.close()
 from webapp.db import init_webapp_tables
-import sqlite3
 init_webapp_tables('/tmp/wal-check.db')
 c = sqlite3.connect('/tmp/wal-check.db')
 print('journal_mode:', c.execute('PRAGMA journal_mode').fetchone()[0])
+print('integrity:', c.execute('PRAGMA integrity_check').fetchone()[0])
 print('videos:', c.execute('SELECT COUNT(*) FROM videos').fetchone()[0])
 c.close()"
 rm -f /tmp/wal-check.db /tmp/wal-check.db-wal /tmp/wal-check.db-shm
 ```
 
-Expected: `journal_mode: wal` and `videos: 2958`.
+Expected: `journal_mode: wal`, `integrity: ok`, and a video count matching the live
+database (about 2,959).
 
 - [ ] **Step 6: Document and commit**
 
@@ -1672,17 +1686,24 @@ Expected: PASS (5 tests).
 
 Per the `feedback-sandbox-localhost-port-unreliable` memory, do **not** verify with `curl` against a locally started server here — use the test client:
 
+`create_app` calls `init_webapp_tables`, so pointing it at `airchivist.db` would
+**write** to it. Work on a copy:
+
 ```bash
 python3 -c "
-import sys; sys.path.insert(0, '.')
+import sqlite3, sys; sys.path.insert(0, '.')
+src, dst = sqlite3.connect('airchivist.db'), sqlite3.connect('/tmp/badge-check.db')
+with dst: src.backup(dst)
+dst.close(); src.close()
 from webapp.app import create_app
-c = create_app('airchivist.db').test_client()
-body = c.get('/?fetch_status=dead').get_data(as_text=True)
+body = create_app('/tmp/badge-check.db').test_client().get('/?fetch_status=dead').get_data(as_text=True)
 print('badges rendered:', body.count('status-badge'))
 "
+rm -f /tmp/badge-check.db /tmp/badge-check.db-wal /tmp/badge-check.db-shm
 ```
 
-Expected: a non-zero count — the real database already holds 53 deleted, 37 private and 8 error videos.
+Expected: a non-zero count — the library already holds roughly 53 deleted, 37 private
+and 8 error videos.
 
 - [ ] **Step 7: Verify everything and commit**
 
