@@ -73,7 +73,8 @@ Items identified in the 2026-06-07 architectural review. Completed items are str
 
 ### Medium (next)
 
-- [ ] Add JS test framework (e.g. Jest) for the browser extension — `background.js` and `content.js` are still untested; `popup.js` has Jest coverage for `doAdd`/`initWatchLaterToggle`/`initFavoriteToggle` only (`doAddChannel`, `doHide`, `doRestore`, `doDelete`, `renderState`, `renderChannelState`, `run` remain untested)
+- ~~Add JS test framework (Jest) for the browser extension — done 2026-09-25: `background.js` and `content.js` made requireable with the same `typeof module` guard `popup.js` used, then covered; `popup.js`'s remaining seven public functions covered too. 26 → 123 tests, ~97% of lines in `extension/`. The only uncovered lines are the three extension-runtime branches `require` cannot reach.~~
+- [ ] Add a linter for extension JS — `ruff` and `mypy` cover only Python, so nothing checks `extension/*.js` (this is how a stray unused variable or a dropped `f`-prefix-equivalent typo would get through). ESLint with a flat config, wired into `npm test` and pre-commit alongside the existing hooks
 - ~~Code quality remediation — all 14 tasks done (ruff + mypy + pre-commit gates; two dead modules deleted; `webapp/api.py` decorators for all 12 API routes; zero raw SQL in `routes.py`; uniform 404 contract; shared pagination helper with the `append=1` leak fixed; `VideoListFilters` + `group_videos`; `db/videos.py` fragments deduped; shelf copy in `filters.py`; LLM error hierarchy with no exception text in URLs; PEP 604 typing; `initToggle` in the extension popup). `routes.py` 885→595 lines, 585→654 backend tests, 24→26 extension tests. Fresh-context review found three 500s (Anthropic API failures, a tz-naive shelf expiry, and an overflowing `?page=`) and two incomplete sweeps; all fixed. Spec: `docs/superpowers/specs/2026-09-24-code-quality-audit.md`. Plan: `docs/superpowers/plans/2026-09-24-code-quality-remediation.md`~~
 
 ### Larger lifts

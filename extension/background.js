@@ -6,7 +6,19 @@ async function getAirchivistUrl() {
   return s[URL_KEY] || DEFAULT_URL;
 }
 
-browser.runtime.onMessage.addListener((msg) => {
+/**
+ * Answer one message from the content script.
+ *
+ * Returns a Promise for a recognized action and `undefined` for anything else —
+ * returning undefined is what tells the browser this listener isn't handling the
+ * message, so another listener still could.
+ *
+ * Every branch swallows fetch failures into a benign shape rather than rejecting:
+ * the content script's job is to tint a title, and an unreachable Airchivist should
+ * leave the page alone, not surface an error on YouTube. Note the batch case falls
+ * back to `{}` rather than `{status: 'error'}` — its result is indexed by video id.
+ */
+function handleMessage(msg) {
   if (msg.action === 'fetchStatus') {
     return getAirchivistUrl().then(vtUrl =>
       fetch(`${vtUrl}/api/status?url=${encodeURIComponent(msg.url)}`)
@@ -32,4 +44,12 @@ browser.runtime.onMessage.addListener((msg) => {
         .catch(() => ({ status: 'error' }))
     );
   }
-});
+}
+
+// Same guard as popup.js: register the listener when loaded as an extension
+// script, export the pieces when required by a test.
+if (typeof module === 'undefined') {
+  browser.runtime.onMessage.addListener(handleMessage);
+} else {
+  module.exports = { handleMessage, getAirchivistUrl, URL_KEY, DEFAULT_URL };
+}

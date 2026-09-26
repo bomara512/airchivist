@@ -2,19 +2,14 @@ const { makeBrowserStub, jsonResponse, mockFetchRouter, flushPromises } = requir
 
 let popup;
 
+// Fake timers live in tests/extension/jest.setup.js, shared by every suite.
 beforeEach(() => {
-  jest.useFakeTimers();
   jest.resetModules();
   document.body.innerHTML = '<div id="root"></div>';
   global.browser = makeBrowserStub();
   global.fetch = jest.fn();
   global.window.close = jest.fn();
   popup = require('../../extension/popup/popup.js');
-});
-
-afterEach(() => {
-  jest.clearAllTimers();
-  jest.useRealTimers();
 });
 
 describe('module exports', () => {
@@ -491,5 +486,422 @@ describe('initToggle', () => {
     expect(chk.checked).toBe(false);
     expect(chk.disabled).toBe(false);
     expect(document.getElementById('generic-error').textContent).toContain('Thing update failed');
+  });
+});
+
+
+describe('doAddChannel', () => {
+  const airchivistUrl = 'http://localhost:8080';
+  const channelUrl = 'https://www.youtube.com/@someone';
+
+  test('bookmarks and adds, reporting the channel name the server returned', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/channel/add', () => jsonResponse({ status: 'added', channel_name: 'Some Channel' })],
+    ]);
+    await popup.doAddChannel(airchivistUrl, channelUrl, 'Tab Title');
+    const body = document.getElementById('root').innerHTML;
+    expect(body).toContain('Some Channel');
+    expect(global.browser.bookmarks.create).toHaveBeenCalledWith(
+      expect.objectContaining({ url: channelUrl, title: 'Tab Title' })
+    );
+  });
+
+  test('falls back to the tab title when the server sends no channel name', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/channel/add', () => jsonResponse({ status: 'added' })],
+    ]);
+    await popup.doAddChannel(airchivistUrl, channelUrl, 'Tab Title');
+    expect(document.getElementById('root').innerHTML).toContain('Tab Title');
+  });
+
+  test('treats an already-tracked channel as success', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/channel/add', () => jsonResponse({ status: 'exists', channel_name: 'Some Channel' })],
+    ]);
+    await popup.doAddChannel(airchivistUrl, channelUrl, 'Tab Title');
+    expect(document.getElementById('root').innerHTML).toContain('status success');
+  });
+
+  test('an unreachable server still leaves the browser bookmark created', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('Failed to fetch'));
+    await popup.doAddChannel(airchivistUrl, channelUrl, 'Tab Title');
+    expect(global.browser.bookmarks.create).toHaveBeenCalled();
+    expect(document.getElementById('root').innerHTML).toContain('Airchivist');
+  });
+
+  test('escapes a channel name containing markup', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/channel/add', () => jsonResponse({ status: 'added', channel_name: '<img src=x>' })],
+    ]);
+    await popup.doAddChannel(airchivistUrl, channelUrl, 'Tab Title');
+    const body = document.getElementById('root').innerHTML;
+    expect(body).not.toContain('<img src=x>');
+    expect(body).toContain('&lt;img');
+  });
+});
+
+describe('doHide', () => {
+  const airchivistUrl = 'http://localhost:8080';
+  const tabUrl = 'https://www.youtube.com/watch?v=abc123';
+
+  test('reports the archived title on success', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/hide', () => jsonResponse({ status: 'hidden', title: 'Some Video' })],
+    ]);
+    await popup.doHide(airchivistUrl, tabUrl, false);
+    expect(document.getElementById('root').innerHTML).toContain('Some Video');
+  });
+
+  test('leaves browser bookmarks alone when the checkbox is unticked', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/hide', () => jsonResponse({ status: 'hidden', title: 'Some Video' })],
+    ]);
+    await popup.doHide(airchivistUrl, tabUrl, false);
+    expect(global.browser.bookmarks.remove).not.toHaveBeenCalled();
+  });
+
+  test('removes every matching bookmark when the checkbox is ticked', async () => {
+    global.browser.bookmarks.search.mockResolvedValue([{ id: 'b1' }, { id: 'b2' }]);
+    global.fetch = mockFetchRouter([
+      ['/api/hide', () => jsonResponse({ status: 'hidden', title: 'Some Video' })],
+    ]);
+    await popup.doHide(airchivistUrl, tabUrl, true);
+    expect(global.browser.bookmarks.remove).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not touch bookmarks when the archive itself failed', async () => {
+    // Removing the bookmark for a video that is still in the library would lose
+    // the only pointer the user has to it.
+    global.browser.bookmarks.search.mockResolvedValue([{ id: 'b1' }]);
+    global.fetch = mockFetchRouter([
+      ['/api/hide', () => jsonResponse({ status: 'error', error: 'Video not found' })],
+    ]);
+    await popup.doHide(airchivistUrl, tabUrl, true);
+    expect(global.browser.bookmarks.remove).not.toHaveBeenCalled();
+    expect(document.getElementById('root').innerHTML).toContain('Video not found');
+  });
+
+  test('an unreachable server reports it and touches nothing', async () => {
+    global.browser.bookmarks.search.mockResolvedValue([{ id: 'b1' }]);
+    global.fetch = jest.fn().mockRejectedValue(new Error('Failed to fetch'));
+    await popup.doHide(airchivistUrl, tabUrl, true);
+    expect(global.browser.bookmarks.remove).not.toHaveBeenCalled();
+    expect(document.getElementById('root').innerHTML).toContain('unreachable');
+  });
+});
+
+describe('doRestore and doDelete', () => {
+  const airchivistUrl = 'http://localhost:8080';
+
+  test('restore posts to the unhide route and closes the popup', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ json: () => Promise.resolve({}) });
+    await popup.doRestore(airchivistUrl, 'abc123');
+    expect(global.fetch).toHaveBeenCalledWith(
+      `${airchivistUrl}/videos/abc123/unhide`, { method: 'POST' }
+    );
+    expect(document.getElementById('root').innerHTML).toContain('Restored');
+    jest.advanceTimersByTime(1500);
+    expect(global.window.close).toHaveBeenCalled();
+  });
+
+  test('delete posts to the delete route and closes the popup', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ json: () => Promise.resolve({}) });
+    await popup.doDelete(airchivistUrl, 'abc123');
+    expect(global.fetch).toHaveBeenCalledWith(
+      `${airchivistUrl}/videos/abc123/delete`, { method: 'POST' }
+    );
+    expect(document.getElementById('root').innerHTML).toContain('Deleted');
+    jest.advanceTimersByTime(1500);
+    expect(global.window.close).toHaveBeenCalled();
+  });
+
+  test('the popup does not close before the delay elapses', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ json: () => Promise.resolve({}) });
+    await popup.doDelete(airchivistUrl, 'abc123');
+    jest.advanceTimersByTime(1499);
+    expect(global.window.close).not.toHaveBeenCalled();
+  });
+});
+
+describe('renderState', () => {
+  const airchivistUrl = 'http://localhost:8080';
+  const tabUrl = 'https://www.youtube.com/watch?v=abc123';
+  let root;
+
+  beforeEach(() => {
+    root = document.getElementById('root');
+  });
+
+  test('not_found offers an add button and two opt-in checkboxes', () => {
+    popup.renderState(root, airchivistUrl, tabUrl, 'T', { status: 'not_found' });
+    expect(document.getElementById('btn-add')).toBeTruthy();
+    expect(document.getElementById('chk-watch-later').checked).toBe(false);
+    expect(document.getElementById('chk-favorite').checked).toBe(false);
+  });
+
+  test('clicking add passes both checkbox states through', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/add', () => jsonResponse({ status: 'added', title: 'T' })],
+      ['/api/watch-later/add', () => jsonResponse({ status: 'added' })],
+      ['/api/favorite/add', () => jsonResponse({ status: 'added' })],
+    ]);
+    popup.renderState(root, airchivistUrl, tabUrl, 'T', { status: 'not_found' });
+    document.getElementById('chk-watch-later').checked = true;
+    document.getElementById('chk-favorite').checked = true;
+    document.getElementById('btn-add').click();
+    await flushPromises();
+    const called = global.fetch.mock.calls.map(c => c[0]);
+    expect(called.some(u => u.includes('/api/watch-later/add'))).toBe(true);
+    expect(called.some(u => u.includes('/api/favorite/add'))).toBe(true);
+  });
+
+  test('exists shows the title, an Archive button, and three checkboxes', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/watch-later/status', () => jsonResponse({ in_queue: false })],
+      ['/api/favorite/status', () => jsonResponse({ is_favorite: false })],
+    ]);
+    popup.renderState(root, airchivistUrl, tabUrl, 'T', { status: 'exists', title: 'Some Video' });
+    await flushPromises();
+    expect(root.innerHTML).toContain('Some Video');
+    expect(document.getElementById('btn-hide')).toBeTruthy();
+    expect(document.getElementById('chk-unbookmark')).toBeTruthy();
+    // Both toggles resolved their status, so both are now interactive.
+    expect(document.getElementById('chk-watch-later').disabled).toBe(false);
+    expect(document.getElementById('chk-favorite').disabled).toBe(false);
+  });
+
+  test('exists reflects a video already queued and favorited', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/watch-later/status', () => jsonResponse({ in_queue: true })],
+      ['/api/favorite/status', () => jsonResponse({ is_favorite: true })],
+    ]);
+    popup.renderState(root, airchivistUrl, tabUrl, 'T', { status: 'exists', title: 'V' });
+    await flushPromises();
+    expect(document.getElementById('chk-watch-later').checked).toBe(true);
+    expect(document.getElementById('chk-favorite').checked).toBe(true);
+  });
+
+  test('clicking Archive passes the unbookmark checkbox through', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/watch-later/status', () => jsonResponse({ in_queue: false })],
+      ['/api/favorite/status', () => jsonResponse({ is_favorite: false })],
+      ['/api/hide', () => jsonResponse({ status: 'hidden', title: 'V' })],
+    ]);
+    global.browser.bookmarks.search.mockResolvedValue([{ id: 'b1' }]);
+    popup.renderState(root, airchivistUrl, tabUrl, 'T', { status: 'exists', title: 'V' });
+    await flushPromises();
+    document.getElementById('chk-unbookmark').checked = true;
+    document.getElementById('btn-hide').click();
+    await flushPromises();
+    expect(global.browser.bookmarks.remove).toHaveBeenCalledWith('b1');
+  });
+
+  test('hidden offers Restore and Delete wired to the video id', () => {
+    popup.renderState(root, airchivistUrl, tabUrl, 'T', {
+      status: 'hidden', title: 'V', video_id: 'abc123',
+    });
+    expect(root.innerHTML).toContain('Archived');
+    expect(document.getElementById('btn-restore')).toBeTruthy();
+    expect(document.getElementById('btn-delete')).toBeTruthy();
+  });
+
+  test('an unrecognized status shows the error the server sent', () => {
+    popup.renderState(root, airchivistUrl, tabUrl, 'T', {
+      status: 'error', error: 'Not a YouTube URL',
+    });
+    expect(root.innerHTML).toContain('Not a YouTube URL');
+  });
+
+  test('an unrecognized status with no error message still says something', () => {
+    popup.renderState(root, airchivistUrl, tabUrl, 'T', { status: 'weird' });
+    expect(root.innerHTML).toContain('Unknown error');
+  });
+
+  test('escapes a title containing markup', () => {
+    popup.renderState(root, airchivistUrl, tabUrl, 'T', {
+      status: 'hidden', title: '<script>x</script>', video_id: 'abc123',
+    });
+    expect(root.innerHTML).not.toContain('<script>');
+  });
+});
+
+describe('renderChannelState', () => {
+  const airchivistUrl = 'http://localhost:8080';
+  const channelUrl = 'https://www.youtube.com/@someone';
+  let root;
+
+  beforeEach(() => {
+    root = document.getElementById('root');
+  });
+
+  test('exists reports the tracked channel name', () => {
+    popup.renderChannelState(root, airchivistUrl, channelUrl, 'T', {
+      status: 'exists', channel_name: 'Some Channel',
+    });
+    expect(root.innerHTML).toContain('Some Channel');
+    expect(document.getElementById('btn-add-channel')).toBeNull();
+  });
+
+  test('not_found offers an add button', () => {
+    popup.renderChannelState(root, airchivistUrl, channelUrl, 'T', { status: 'not_found' });
+    expect(document.getElementById('btn-add-channel')).toBeTruthy();
+  });
+
+  test('clicking add posts the channel URL', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/channel/add', () => jsonResponse({ status: 'added', channel_name: 'C' })],
+    ]);
+    popup.renderChannelState(root, airchivistUrl, channelUrl, 'T', { status: 'not_found' });
+    document.getElementById('btn-add-channel').click();
+    await flushPromises();
+    expect(global.fetch.mock.calls[0][0]).toContain('/api/channel/add');
+  });
+
+  test('an error status shows the message', () => {
+    popup.renderChannelState(root, airchivistUrl, channelUrl, 'T', {
+      status: 'error', error: 'Not a channel URL',
+    });
+    expect(root.innerHTML).toContain('Not a channel URL');
+  });
+
+  test('escapes a channel name containing markup', () => {
+    popup.renderChannelState(root, airchivistUrl, channelUrl, 'T', {
+      status: 'exists', channel_name: '<img src=x>',
+    });
+    expect(root.innerHTML).not.toContain('<img src=x>');
+  });
+});
+
+describe('run', () => {
+  const airchivistUrl = 'http://localhost:8080';
+  // A real 11-character id: run() is the only function that checks YT_ID_RE, so a
+  // short placeholder here reads as "not a YouTube video" rather than exercising
+  // the video path.
+
+  function onTab(url, title = 'Tab Title') {
+    global.browser.tabs.query.mockResolvedValue([{ url, title }]);
+  }
+
+  test('a video tab renders the video state', async () => {
+    onTab('https://www.youtube.com/watch?v=aaaaaaaaaa1');
+    global.fetch = mockFetchRouter([
+      ['/api/status', () => jsonResponse({ status: 'not_found' })],
+    ]);
+    await popup.run();
+    expect(document.getElementById('btn-add')).toBeTruthy();
+  });
+
+  test('a channel tab renders the channel state', async () => {
+    onTab('https://www.youtube.com/@someone');
+    global.fetch = mockFetchRouter([
+      ['/api/channel/status', () => jsonResponse({ status: 'not_found' })],
+    ]);
+    await popup.run();
+    expect(document.getElementById('btn-add-channel')).toBeTruthy();
+  });
+
+  test('a non-YouTube tab says so without calling the server', async () => {
+    onTab('https://example.com/');
+    global.fetch = jest.fn();
+    await popup.run();
+    expect(document.getElementById('root').innerHTML).toContain('Not a YouTube video or channel');
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test('a tab with no URL is treated as unsupported rather than crashing', async () => {
+    global.browser.tabs.query.mockResolvedValue([{}]);
+    global.fetch = jest.fn();
+    await expect(popup.run()).resolves.toBeUndefined();
+    expect(document.getElementById('root').innerHTML).toContain('Not a YouTube');
+  });
+
+  test('uses the configured Airchivist URL over the default', async () => {
+    onTab('https://www.youtube.com/watch?v=aaaaaaaaaa1');
+    global.browser.storage.local.get.mockResolvedValue({ airchivistUrl: 'http://host.test:9999' });
+    global.fetch = mockFetchRouter([
+      ['host.test:9999', () => jsonResponse({ status: 'not_found' })],
+    ]);
+    await popup.run();
+    expect(global.fetch.mock.calls[0][0]).toContain('host.test:9999');
+  });
+
+  test('an unreachable server on a video tab names the URL it tried', async () => {
+    onTab('https://www.youtube.com/watch?v=aaaaaaaaaa1');
+    global.fetch = jest.fn().mockRejectedValue(new Error('Failed to fetch'));
+    await popup.run();
+    const body = document.getElementById('root').innerHTML;
+    expect(body).toContain('unreachable');
+    expect(body).toContain(airchivistUrl);
+  });
+
+  test('an unreachable server on a channel tab reports it too', async () => {
+    onTab('https://www.youtube.com/@someone');
+    global.fetch = jest.fn().mockRejectedValue(new Error('Failed to fetch'));
+    await popup.run();
+    expect(document.getElementById('root').innerHTML).toContain('unreachable');
+  });
+});
+
+describe('doAddChannel partial failures', () => {
+  const airchivistUrl = 'http://localhost:8080';
+  const channelUrl = 'https://www.youtube.com/@someone';
+
+  test('bookmark failed but Airchivist succeeded reads as partial', async () => {
+    global.browser.bookmarks.create.mockRejectedValue(new Error('quota reached'));
+    global.fetch = mockFetchRouter([
+      ['/api/channel/add', () => jsonResponse({ status: 'added', channel_name: 'C' })],
+    ]);
+    await popup.doAddChannel(airchivistUrl, channelUrl, 'T');
+    const body = document.getElementById('root').innerHTML;
+    expect(body).toContain('status partial');
+    expect(body).toContain('quota reached');
+    expect(body).toContain('Added to Airchivist');
+  });
+
+  test('Airchivist returned an error, surfaced verbatim', async () => {
+    global.fetch = mockFetchRouter([
+      ['/api/channel/add', () => jsonResponse({ status: 'error', error: 'Not a channel URL' })],
+    ]);
+    await popup.doAddChannel(airchivistUrl, channelUrl, 'T');
+    const body = document.getElementById('root').innerHTML;
+    expect(body).toContain('Not a channel URL');
+    expect(body).toContain('Bookmarked in Firefox');  // the bookmark still worked
+  });
+
+  test('both failed reads as error, not partial', async () => {
+    global.browser.bookmarks.create.mockRejectedValue(new Error('quota reached'));
+    global.fetch = jest.fn().mockRejectedValue(new Error('Failed to fetch'));
+    await popup.doAddChannel(airchivistUrl, channelUrl, 'T');
+    const body = document.getElementById('root').innerHTML;
+    expect(body).toContain('status error');
+    expect(body).not.toContain('status partial');
+  });
+});
+
+describe('getOrCreateFolder', () => {
+  test('reuses a cached folder id when it still exists', async () => {
+    global.browser.storage.local.get.mockResolvedValue({ bookmarkFolderId: 'cached1' });
+    global.browser.bookmarks.get.mockResolvedValue([{ id: 'cached1' }]);
+    expect(await popup.getOrCreateFolder()).toBe('cached1');
+    expect(global.browser.bookmarks.create).not.toHaveBeenCalled();
+  });
+
+  test('recreates the folder when the cached id was deleted', async () => {
+    global.browser.storage.local.get.mockResolvedValue({ bookmarkFolderId: 'stale1' });
+    global.browser.bookmarks.get.mockRejectedValue(new Error('not found'));
+    global.browser.bookmarks.search.mockResolvedValue([]);
+    global.browser.bookmarks.create.mockResolvedValue({ id: 'new1' });
+    expect(await popup.getOrCreateFolder()).toBe('new1');
+  });
+
+  test('adopts an existing folder of the right name over creating a second', async () => {
+    global.browser.storage.local.get.mockResolvedValue({});
+    global.browser.bookmarks.search.mockResolvedValue([
+      { id: 'bookmarkNotFolder', url: 'https://example.com' },  // has a url — not a folder
+      { id: 'folder1' },
+    ]);
+    expect(await popup.getOrCreateFolder()).toBe('folder1');
+    expect(global.browser.bookmarks.create).not.toHaveBeenCalled();
+    expect(global.browser.storage.local.set).toHaveBeenCalledWith({ bookmarkFolderId: 'folder1' });
   });
 });

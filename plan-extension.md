@@ -233,6 +233,47 @@ The content script now also injects on channel pages, not just `/watch*` — `co
 
 ---
 
+## Testing
+
+Jest + jsdom, run with `npm test` from the project root (`npm install` first —
+Jest is a devDependency, not part of `pip install -e ".[dev]"`). 123 tests across
+three suites, ~97% line coverage of `extension/`.
+
+All three scripts end with the same guard:
+
+```js
+if (typeof module === 'undefined') {
+  // extension runtime: register listeners, run
+} else {
+  module.exports = { ... };
+}
+```
+
+This is what makes them testable at all. Without it, `require`-ing `content.js`
+would call `run()` at import time — before the test has set up the page — and leave
+navigation listeners on the shared jsdom document; `background.js` would register a
+message listener on a stub that is about to be replaced. The uncovered lines in the
+coverage report are exactly these three extension-runtime branches, which `require`
+cannot reach by design.
+
+- `tests/extension/jest.setup.js` is registered via `setupFilesAfterEnv` and owns
+  all test-lifecycle state: fake timers and the `setImmediate` polyfill. Nothing
+  sets those up inline — see CLAUDE.md for why.
+- Its `afterEach` **runs pending timers before clearing them**. `waitFor` in
+  `content.js` disconnects its `MutationObserver` from inside a `setTimeout`, so a
+  test that starts an async lookup without awaiting it (any test calling `run()` on
+  a page with no related-videos sidebar) would otherwise strand a live observer on
+  the shared document — which then fires into a later test's DOM and drives the
+  previous module instance. That leak made `watchRelated`'s tests pass in isolation
+  and fail in suite.
+- `tests/extension/setup.js` holds the helpers tests import by hand:
+  `makeBrowserStub`, `jsonResponse`, `mockFetchRouter`, `flushPromises`.
+- jsdom's `location` is not writable, so `content.test.js` replaces
+  `window.location` with a `new URL(...)` per test rather than trying to assign to
+  it.
+
+Not covered: there is no linter for extension JS (ruff and mypy cover only Python).
+
 ## Development Workflow
 
 ```bash

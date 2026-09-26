@@ -390,6 +390,6 @@ if (typeof module === 'undefined') {
   module.exports = {
     doAdd, doAddChannel, doHide, doRestore, doDelete,
     initToggle, initWatchLaterToggle, initFavoriteToggle, renderState, renderChannelState,
-    checkStatus, channelUrlFrom, esc, getOrCreateFolder, postJson,
+    run, checkStatus, channelUrlFrom, esc, getOrCreateFolder, postJson,
   };
 }

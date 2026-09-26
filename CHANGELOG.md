@@ -6,6 +6,58 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-25
 
+### test: make background.js and content.js testable, 26 → 123 extension tests
+
+`background.js` and `content.js` had **no tests at all**, and the reason was
+structural, not neglect: neither had a `module.exports`, so neither could be
+`require`d. Both now end with the same `typeof module === 'undefined'` guard
+`popup.js` already used — listeners and `run()` in the extension runtime, exports
+under a test. `popup.js` also gained `run` to its exports; its other six public
+functions were exported but untested.
+
+Coverage of `extension/` went from popup-only-and-partial to **~97% of lines**. The
+only uncovered lines are the three extension-runtime branches of those guards, which
+`require` cannot reach by design.
+
+- **background.js (12 tests):** all three message actions, the stored-vs-default
+  URL, and each failure fallback. The batch action falls back to `{}` where the other
+  two use `{status: 'error'}` — its result is indexed by video id, so the shapes are
+  deliberately different and now pinned.
+- **content.js (45 tests):** `extractId`, `channelUrlFrom`, `waitFor`'s three
+  outcomes, video and channel title tinting including the SPA-navigated-away race,
+  `scanRelated`'s batching and already-checked marking, and `watchRelated`'s
+  debounce (a burst of five mutations must coalesce into one request).
+- **popup.js (+40 tests):** `doAddChannel` with its partial-failure matrix, `doHide`
+  including that a failed archive must not remove the bookmark, `doRestore`/`doDelete`
+  with the close delay, `renderState` and `renderChannelState` across every status
+  branch plus HTML escaping, `getOrCreateFolder`'s cache/stale/adopt paths, and `run`'s
+  routing.
+- **Fixed a real test-isolation leak.** `watchRelated`'s tests passed alone and failed
+  in suite. Cause: `content.js`'s `waitFor` disconnects its `MutationObserver` from
+  inside a `setTimeout`, so a test that started an async lookup without awaiting it
+  left the observer connected — and `clearAllTimers()` in teardown destroyed the very
+  timer that would have disconnected it. It then fired into a later test's DOM and
+  drove the *previous* module instance. The shared `afterEach` now runs pending timers
+  before clearing them.
+- **Pro:** two scripts that talk to YouTube's DOM and to the extension messaging API
+  — the two things most likely to break on a YouTube redesign — now fail loudly
+  instead of silently doing nothing. Test-lifecycle state is in one shared setup file,
+  as CLAUDE.md requires, instead of duplicated in `popup.test.js`.
+- **Con:** three tests encode YouTube's current DOM selectors (`yt-lockup-view-model`,
+  `#above-the-fold`, the channel-title list). When YouTube changes those, the tests go
+  red along with the feature — which is the point, but it does mean the suite tracks
+  someone else's markup.
+- Two of my own test bugs, worth recording because both would have read as product
+  bugs: a 6-character video id in the `run` tests (only `run` validates the 11-char
+  regex, so the video path was never entered), and the wrong `storage.local` key
+  (`airchivistFolderId` vs the real `bookmarkFolderId`).
+- **A third test asserted behavior no implementation has:** I expected `extractId` to
+  reject a 12-character `v=`. All three ID regexes in this project — `content.js`,
+  `popup.js`, and `crawler/models.py` — leave the 11-character group unanchored, so
+  all three return the first 11 characters. Verified against the backend rather than
+  "fixing" one of them into silent divergence; the test now pins the shared behavior
+  and says why.
+
 ### refactor: remove the dead `tag_keywords` table
 
 `tag_keywords` held extra search terms per tag. Its editing UI (`tag_detail.html`)

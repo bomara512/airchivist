@@ -156,10 +156,22 @@ function run() {
   }
 }
 
-document.addEventListener('yt-navigate-finish', run);
+// Same guard as popup.js and background.js: bind navigation handlers and run when
+// loaded as a content script, export the pieces when required by a test. Without
+// this, requiring the module would call run() at import time — before the test has
+// set up the page — and leave listeners on a shared document.
+if (typeof module === 'undefined') {
+  document.addEventListener('yt-navigate-finish', run);
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', run);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
+  }
 } else {
-  run();
+  module.exports = {
+    extractId, channelUrlFrom, waitFor,
+    checkCurrentVideo, checkCurrentChannel, scanRelated, watchRelated, run,
+    YT_ID_RE, YT_CHANNEL_RE, TITLE_COLOR, CHANNEL_TITLE_SELECTOR,
+  };
 }

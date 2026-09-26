@@ -10,6 +10,11 @@
   },
   "jest": {
     "testEnvironment": "jsdom",
-    "testMatch": ["<rootDir>/tests/extension/**/*.test.js"]
+    "testMatch": [
+      "<rootDir>/tests/extension/**/*.test.js"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/extension/jest.setup.js"
+    ]
   }
 }
