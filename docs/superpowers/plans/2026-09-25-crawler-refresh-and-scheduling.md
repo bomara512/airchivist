@@ -483,7 +483,7 @@ Expected: all PASS, including the file's pre-existing `upsert_video` tests — t
 - [ ] **Step 6: Verify the suite**
 
 Run: `ruff check . && mypy && python -m pytest -q`
-Expected: **665 passed**, warnings summary empty.
+Expected: **664 passed**, warnings summary empty.
 
 - [ ] **Step 7: Document and commit**
 
@@ -627,7 +627,7 @@ Expected: PASS (8 tests).
 - [ ] **Step 5: Verify the suite**
 
 Run: `ruff check . && mypy && python -m pytest -q`
-Expected: **673 passed**, warnings summary empty.
+Expected: **672 passed**, warnings summary empty.
 
 - [ ] **Step 6: Document and commit**
 
@@ -889,7 +889,7 @@ Expected: PASS (10 tests).
 - [ ] **Step 5: Verify the suite**
 
 Run: `ruff check . && mypy && python -m pytest -q`
-Expected: **683 passed**, warnings summary empty.
+Expected: **682 passed**, warnings summary empty.
 
 - [ ] **Step 6: Document and commit**
 
@@ -1106,7 +1106,7 @@ Expected: the top-level help lists `ingest` and `refresh` as commands and still 
 - [ ] **Step 6: Verify the suite**
 
 Run: `ruff check . && mypy && python -m pytest -q`
-Expected: **690 passed**, warnings summary empty.
+Expected: **689 passed**, warnings summary empty.
 
 - [ ] **Step 7: Document and commit**
 
@@ -1283,7 +1283,7 @@ In `docs/feature-sheet.html`, add a bullet to the collection/library area descri
 - [ ] **Step 6: Verify the suite and commit**
 
 Run: `ruff check . && mypy && python -m pytest -q`
-Expected: **696 passed**, warnings summary empty.
+Expected: **695 passed**, warnings summary empty.
 
 Add a `CHANGELOG.md` entry noting that scheduling is opt-in (the plist is a template the user installs, not something the app does on its own) and that `RunAtLoad` is false on purpose.
 
@@ -1426,7 +1426,7 @@ Expected: all PASS — the pre-existing `TestGetAllVideos` and `TestCountVideos`
 - [ ] **Step 5: Verify the suite**
 
 Run: `ruff check . && mypy && python -m pytest -q`
-Expected: **704 passed**, warnings summary empty.
+Expected: **703 passed**, warnings summary empty.
 
 - [ ] **Step 6: Document and commit**
 
@@ -1572,7 +1572,7 @@ Expected: all PASS.
 - [ ] **Step 6: Verify the suite**
 
 Run: `ruff check . && mypy && python -m pytest -q`
-Expected: **713 passed**, warnings summary empty.
+Expected: **712 passed**, warnings summary empty.
 
 - [ ] **Step 7: Document and commit**
 
@@ -1708,7 +1708,7 @@ and 8 error videos.
 - [ ] **Step 7: Verify everything and commit**
 
 Run: `ruff check . && mypy && python -m pytest -q && npm test`
-Expected: **718 passed** and **123 passed**, warnings summary empty.
+Expected: **717 passed** and **123 passed**, warnings summary empty.
 
 In `docs/feature-sheet.html`, add the badge to the browsing/library area in plain language and update the stat line counts. In `plan-webapp.md`, document the badge, its three labels, and why its colors are literal rather than tokens. Add a `CHANGELOG.md` entry. In `TODO.md`, strike through all three items this plan closes.
 
@@ -1727,5 +1727,5 @@ Say explicitly in the response that this change needs a **server restart** (Pyth
 
 - **Spec coverage:** Intent → T2/T4/T9. Measured starting state → used in T3's ordering and T9's Step 6 verification. What already exists → T3 (`last_fetched_at`), T4 (`_classify_error` byproduct). The hazard → **T2**. Design §1 Selection → T3. §2 Write path → T2. §3 CLI → T5. §4 Scheduling → T6. §5 Surfacing → T7 (filter), T8 (wiring), T9 (badge). §6 WAL → T1. Testing §1–8 → T2 (1, 2, 3), T3 (4), T5 (5), T4 (6), T7 (7), T9 (8). Out-of-scope items are not implemented. No gaps.
 - **Type consistency:** `refresh_video(metadata)` defined in T2, consumed in T4. `get_stale_video_ids(limit)` / `count_videos()` defined in T3, consumed in T4. `run_refresh(ds, limit, delay, fetch=)` and `RefreshSummary.line()` defined in T4, consumed in T5. `DEFAULT_LIMIT` defined in T4, consumed in T5. The `fetch_status` keyword defined in T7, consumed in T8. `FetchStatusFilter`'s members match `_FETCH_STATUS_CLAUSES`' keys exactly. Note `Datastore.count_videos()` (T3) and `webapp.db.count_videos(conn, ...)` (T7) are different functions in different layers that share a name — that mirrors the existing `get_video_by_id` duplication the spec leaves out of scope.
-- **Test-count chain:** 652 → 655 (T1) → 665 (T2) → 673 (T3) → 683 (T4) → 690 (T5) → 696 (T6) → 704 (T7) → 713 (T8) → 718 (T9). Extension stays 123 throughout.
+- **Test-count chain:** 652 → 655 (T1) → 664 (T2) → 672 (T3) → 682 (T4) → 689 (T5) → 695 (T6) → 703 (T7) → 712 (T8) → 717 (T9). (Corrected 2026-09-26: Task 2 adds 9 tests, not the 10 originally counted.) Extension stays 123 throughout.
 - **Review Focus placement:** #1 → T3 Step 1 (`test_a_non_positive_limit_selects_nothing`). #2 → T4 (`test_an_unexpected_exception_does_not_abort_the_run`). #3 → T2 (`test_a_video_coming_back_to_life_clears_the_stale_error`). #4 → T7 (`test_filtering_to_ok_matches_the_default`). #5 → T4 (`test_an_empty_library_is_a_clean_zero_run`).
