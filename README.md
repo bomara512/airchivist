@@ -91,6 +91,12 @@ airchivist-web --db airchivist.db --port 8080
 Open http://localhost:8080. The database schema (tags, watch-later, favorites, etc.) is
 created and migrated automatically on first run.
 
+The database runs in SQLite's WAL mode, so a background metadata refresh never
+blocks a page load. SQLite keeps two sidecar files next to it,
+`airchivist.db-wal` and `airchivist.db-shm`. A file-copy backup should include
+them, or run `sqlite3 airchivist.db 'PRAGMA wal_checkpoint(TRUNCATE);'` first so
+everything committed is inside the main file.
+
 ## Browser extension (optional)
 
 1. In Firefox, go to `about:debugging#/runtime/this-firefox`

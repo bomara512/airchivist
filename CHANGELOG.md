@@ -4,6 +4,27 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ---
 
+## 2026-09-26
+
+### perf: switch SQLite to WAL so a refresh never blocks page loads
+
+Both the webapp and crawler now set `PRAGMA journal_mode = WAL` on the first
+connection they open to the database. WAL (Write-Ahead Logging) lets a
+background refresh writer and foreground page reader operate without blocking
+each other — long fetches for metadata no longer stall page loads. The setting
+is persistent, so applying it in both `webapp/db/schema.py` and
+`crawler/datastore.py` ensures the database is converted whether the webapp or
+a standalone refresh runs first.
+
+- **Pro:** page responsiveness during background work; unblocked reads while a
+  long-running write is in flight.
+- **Con:** SQLite keeps two sidecar files, `airchivist.db-wal` and
+  `airchivist.db-shm`, next to the main database file. File-copy backups must
+  include them or run `PRAGMA wal_checkpoint(TRUNCATE)` first to consolidate
+  all committed state into the main file.
+
+---
+
 ## 2026-09-25
 
 ### test: make background.js and content.js testable, 26 → 123 extension tests

@@ -74,6 +74,8 @@ the `dev` extras; `tests/webapp/test_api.py::TestToolingPinsAgree` fails if a
 pair drifts. The mypy hook runs with `pass_filenames: false` so its scope comes
 from `pyproject.toml` rather than from whichever files happen to be staged.
 
+Both connection paths set `journal_mode = WAL` (persistent; applied in `webapp/db/schema.py` and `crawler/datastore.py` so whichever opens a database first converts it).
+
 ## Data Model / SQLite Schema
 
 ### Table: `videos`

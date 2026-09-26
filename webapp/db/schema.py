@@ -4,6 +4,11 @@ import sqlite3
 def init_webapp_tables(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON")
+    # WAL so a background crawler refresh never blocks a page load. Persistent —
+    # one successful application converts the file for good. Applied here AND in
+    # crawler/datastore.py because either may be the first to open a given
+    # database; the second call is a no-op.
+    conn.execute("PRAGMA journal_mode = WAL")
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS watch_later (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,

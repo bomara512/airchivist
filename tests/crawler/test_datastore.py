@@ -1,3 +1,5 @@
+import sqlite3
+from contextlib import closing
 from datetime import datetime
 
 from crawler.datastore import Datastore
@@ -451,3 +453,16 @@ class TestGetChannelIdsForBackfill:
             ds.upsert_channel(_make_channel_meta(channel_id="UConly", thumbnail_url=None))
             ids = ds.get_channel_ids_for_backfill()
         assert "UConly" in ids
+
+
+class TestWalMode:
+    """The crawler may be the only thing that ever opens a given database — a
+    scheduled refresh on a machine where the webapp was never started — so it
+    cannot rely on init_webapp_tables having set the journal mode."""
+
+    def test_datastore_switches_the_database_to_wal(self, tmp_path):
+        db_path = tmp_path / "wal.db"
+        with Datastore(db_path):
+            pass
+        with closing(sqlite3.connect(str(db_path))) as conn:
+            assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"

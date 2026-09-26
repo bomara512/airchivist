@@ -772,6 +772,19 @@ class TestInitWebappTables:
         init_webapp_tables(db_path)
         init_webapp_tables(db_path)  # must not raise
 
+    def test_switches_the_database_to_wal(self, tmp_path):
+        db_path = self._bare_db(tmp_path)
+        init_webapp_tables(db_path)
+        with closing(sqlite3.connect(db_path)) as conn:
+            assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+    def test_wal_survives_a_second_init(self, tmp_path):
+        db_path = self._bare_db(tmp_path)
+        init_webapp_tables(db_path)
+        init_webapp_tables(db_path)
+        with closing(sqlite3.connect(db_path)) as conn:
+            assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
 
 class TestIsWatchedMigration:
     def _fresh_db(self, tmp_path):

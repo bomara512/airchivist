@@ -111,6 +111,9 @@ class Datastore:
         self._conn: sqlite3.Connection = sqlite3.connect(str(db_path))
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
+        # See webapp/db/schema.py: WAL keeps readers from blocking on this
+        # writer. Persistent, so applying it in both places is harmless.
+        self._conn.execute("PRAGMA journal_mode = WAL")
         self._init_db()
 
     def _init_db(self) -> None:
