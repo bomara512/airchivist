@@ -253,37 +253,82 @@ raw float.
 
 ## CLI Interface Design
 
-```
-Usage: python -m crawler.cli [OPTIONS]
+`crawler/cli.py` has two subcommands, `ingest` and `refresh`, plus a
+backward-compatibility shim so the bare form documented since before
+subcommands existed keeps working verbatim: `-i`/`-o` (and the other ingest
+flags) also live on the *top-level* parser, and a command line with no
+subcommand token dispatches to `_run_ingest`. `main()` only parses and
+dispatches; `_run_ingest(args)` and `_run_refresh(args)` hold the actual work,
+extracted so the top-level parser, the `ingest` subparser, and the `refresh`
+subparser can each be built from shared `_add_common_args`/`_add_ingest_args`
+helpers without duplicating flag definitions.
 
-Options:
-  -i, --input FILE       Path to Firefox bookmarks file (.json or .html) [required]
-  -o, --output FILE      Path to output SQLite database file [required]
+```
+Usage: airchivist-crawler [OPTIONS] [-i FILE -o FILE]          # implicit ingest
+       airchivist-crawler ingest [OPTIONS] -i FILE -o FILE     # explicit ingest
+       airchivist-crawler refresh [OPTIONS] --db FILE
+
+Common options (all three forms):
   --api-key KEY          YouTube Data API v3 key (enables faster batch mode)
   --delay SECONDS        Seconds between yt-dlp requests (default: 1.5)
-  --limit N              Only process the first N YouTube bookmarks
-  --force-refresh        Re-fetch metadata even for already-stored videos
   --log-level LEVEL      DEBUG | INFO | WARNING | ERROR (default: INFO)
   -h, --help             Show this message and exit
 
+Ingest-only options (top-level and `ingest`):
+  -i, --input FILE       Path to Firefox bookmarks file (.json or .html)
+  -o, --output FILE      Path to output SQLite database file
+  --limit N              Only process the first N YouTube bookmarks
+  --force-refresh        Re-fetch metadata even for already-stored videos
+  --backfill-channels    Fetch full metadata for channels that only have stub records
+
+Refresh-only options:
+  --db FILE              Path to the existing SQLite database [required]
+  --limit N              How many of the stalest videos to refresh (default: 200)
+
 Exit codes:
   0   Success
-  1   Input file not found or unreadable
-  2   Input file format unrecognized
-  3   Database error
+  1   Input file not found (ingest) / database not found (refresh)
+  2   Input file format unrecognized, or (top-level form only) -i/-o missing
+  3   Database error (ingest)
 ```
+
+`-i`/`-o` are `required=False` at the top level so a bare
+`airchivist-crawler` with neither flag reaches `_run_ingest` instead of
+argparse's own usage error; `_run_ingest` checks for both and exits 2 with
+`Error: -i/--input and -o/--output are required for ingest` — the same exit
+code argparse itself would have used, so the observable behavior for a typo
+is unchanged. The `ingest` and `refresh` subparsers keep their own
+`required=True` where it applies (both ingest flags; `--db` for refresh),
+so `airchivist-crawler ingest` (or `refresh`) with a flag missing still gets
+argparse's own error message and exit 2.
+
+`refresh` takes `--db` rather than `-i`/`-o` because it has one database it
+both reads (to pick the stalest videos) and writes (to store what it
+fetched) — there is no separate input file to name. Its own `--limit` means
+"how many stalest videos to refresh" and is unrelated to ingest's `--limit`
+("only process the first N bookmarks"); they are defined once each, on their
+own subparser, and never share a definition despite the same flag name.
 
 Example invocations:
 
 ```bash
-# Firefox JSON export, no API key
-python -m crawler.cli -i ~/Downloads/bookmarks.json -o ~/airchivist.db
+# Firefox JSON export, no API key — implicit ingest, unchanged since before subcommands
+airchivist-crawler -i ~/Downloads/bookmarks.json -o ~/airchivist.db
+
+# Same, explicit
+airchivist-crawler ingest -i ~/Downloads/bookmarks.json -o ~/airchivist.db
 
 # HTML export with API key
-python -m crawler.cli -i ~/Downloads/bookmarks.html -o ~/airchivist.db --api-key AIza...
+airchivist-crawler -i ~/Downloads/bookmarks.html -o ~/airchivist.db --api-key AIza...
 
 # Dry-run: first 10 videos only
-python -m crawler.cli -i ~/Downloads/bookmarks.json -o /tmp/test.db --limit 10
+airchivist-crawler -i ~/Downloads/bookmarks.json -o /tmp/test.db --limit 10
+
+# Refresh the 200 stalest videos already in the database
+airchivist-crawler refresh --db ~/airchivist.db
+
+# Refresh only the 5 stalest, with no inter-request delay (e.g. in a test)
+airchivist-crawler refresh --db ~/airchivist.db --limit 5 --delay 0
 ```
 
 ---

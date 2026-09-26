@@ -82,6 +82,26 @@ between requests) and safe to re-run — already-fetched videos are skipped unle
 `--force-refresh`. Run `airchivist-crawler --help` for all options, including `--api-key` to
 use the YouTube Data API v3 for faster batch fetching instead.
 
+The bare `-i`/`-o` form above is unchanged and keeps working exactly as shown. It's shorthand
+for the explicit `ingest` subcommand, which takes the same flags:
+
+```bash
+airchivist-crawler ingest -i path/to/bookmarks.json -o airchivist.db
+```
+
+## Refresh existing videos
+
+Once a library is ingested, re-fetch metadata for the videos most overdue for a check
+(view counts drift, videos get deleted or go private) without re-parsing a bookmarks file:
+
+```bash
+airchivist-crawler refresh --db airchivist.db
+```
+
+This refreshes the 200 stalest videos by default (`--limit` to change that) and prints a
+one-line summary, e.g. `refreshed 200 of 2958 (196 ok, 3 deleted, 1 private) in 5m12s`. Run
+`airchivist-crawler refresh --help` for all options.
+
 ## Run the app
 
 ```bash

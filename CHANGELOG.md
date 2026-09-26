@@ -6,6 +6,37 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-26
 
+### feat: add the refresh subcommand to airchivist-crawler
+
+Restructured `crawler/cli.py` into `ingest` and `refresh` subcommands so
+`crawler.refresh.run_refresh` (the previous entry) is reachable from the
+command line: `airchivist-crawler refresh --db airchivist.db` refreshes the
+200 stalest videos by default (`--limit` to change that) and prints the
+one-line summary. `main()` now only parses and dispatches; the former body
+moved into `_run_ingest(args)`, alongside a new `_run_refresh(args)`.
+
+The documented bare form, `airchivist-crawler -i bookmarks.json -o
+airchivist.db`, keeps working unchanged: `-i`/`-o` and the other ingest
+flags also live on the top-level parser (now `required=False`), and a
+command line with no subcommand token dispatches to `_run_ingest`. Losing
+argparse's own required-argument error for that top-level form meant
+`_run_ingest` now checks `-i`/`-o` itself and exits 2 — the same code
+argparse would have used — with `Error: -i/--input and -o/--output are
+required for ingest`.
+
+- **Pro:** the nightly refresh job (Task 6, launchd) has a real entry
+  point, and existing muscle memory / scripts / cron-like invocations of
+  the bare `-i`/`-o` form are untouched — the compatibility tests added in
+  the same response run the exact form from the README.
+- **Con:** `-i`/`-o`/`--limit`/`--force-refresh`/`--backfill-channels` are
+  now defined in two places (top-level parser and `ingest` subparser) via
+  shared helpers rather than once — an unavoidable cost of supporting both
+  an implicit and an explicit ingest invocation from the same parser tree.
+  `--limit` also means two different things depending on which subparser
+  supplied it (ingest: first N bookmarks; refresh: N stalest videos) —
+  they never share a definition, but the name collision is a minor
+  readability wart worth calling out.
+
 ### feat: add the refresh run loop
 
 Added `crawler.refresh.run_refresh` and `RefreshSummary`, the run loop that

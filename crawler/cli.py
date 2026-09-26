@@ -6,35 +6,63 @@ from pathlib import Path
 from crawler.bookmark_parser import parse
 from crawler.datastore import Datastore
 from crawler.metadata_fetcher import fetch_channel_metadata, fetch_metadata
+from crawler.refresh import DEFAULT_LIMIT, run_refresh
 
 logger = logging.getLogger(__name__)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Airchivist Bookmark Crawler")
-    parser.add_argument("-i", "--input", required=True, type=Path, metavar="FILE",
-                        help="Path to Firefox bookmarks file (.json or .html)")
-    parser.add_argument("-o", "--output", required=True, type=Path, metavar="FILE",
-                        help="Path to output SQLite database file")
+def _add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--api-key", default=None, metavar="KEY",
                         help="YouTube Data API v3 key (enables faster batch mode)")
     parser.add_argument("--delay", type=float, default=1.5, metavar="SECONDS",
                         help="Seconds between yt-dlp requests (default: 1.5)")
+    parser.add_argument("--log-level", default="INFO",
+                        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                        help="Logging level (default: INFO)")
+
+
+def _add_ingest_args(parser: argparse.ArgumentParser, *, required: bool = True) -> None:
+    parser.add_argument("-i", "--input", required=required, type=Path, metavar="FILE",
+                        help="Path to Firefox bookmarks file (.json or .html)")
+    parser.add_argument("-o", "--output", required=required, type=Path, metavar="FILE",
+                        help="Path to output SQLite database file")
     parser.add_argument("--limit", type=int, default=None, metavar="N",
                         help="Only process the first N YouTube video bookmarks")
     parser.add_argument("--force-refresh", action="store_true",
                         help="Re-fetch metadata even for already-stored videos")
     parser.add_argument("--backfill-channels", action="store_true",
                         help="Fetch full metadata for channels that only have stub records")
-    parser.add_argument("--log-level", default="INFO",
-                        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-                        help="Logging level (default: INFO)")
-    args = parser.parse_args()
 
-    logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format="%(levelname)s %(name)s: %(message)s",
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Airchivist Bookmark Crawler")
+    _add_common_args(parser)
+    _add_ingest_args(parser, required=False)  # -i/-o remain on the top-level parser for compatibility
+
+    subparsers = parser.add_subparsers(dest="command")
+
+    ingest = subparsers.add_parser("ingest", help="Ingest bookmarks and fetch metadata")
+    _add_common_args(ingest)
+    _add_ingest_args(ingest)
+
+    refresh = subparsers.add_parser(
+        "refresh", help="Re-fetch metadata for videos already in the database"
     )
+    _add_common_args(refresh)
+    refresh.add_argument("--db", required=True, type=Path, metavar="FILE",
+                        help="Path to the existing SQLite database")
+    refresh.add_argument("--limit", type=int, default=DEFAULT_LIMIT, metavar="N",
+                        help=f"How many of the stalest videos to refresh (default: {DEFAULT_LIMIT})")
+    return parser
+
+
+def _run_ingest(args) -> None:
+    if args.input is None or args.output is None:
+        print(
+            "Error: -i/--input and -o/--output are required for ingest",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     if not args.input.exists():
         print(f"Error: input file not found: {args.input}", file=sys.stderr)
@@ -112,6 +140,32 @@ def main() -> None:
     except Exception as exc:
         logger.error("Database error: %s", exc)
         sys.exit(3)
+
+
+def _run_refresh(args) -> None:
+    if not args.db.exists():
+        print(f"Error: database not found: {args.db}", file=sys.stderr)
+        sys.exit(1)
+    with Datastore(args.db) as ds:
+        summary = run_refresh(ds, limit=args.limit, delay=args.delay)
+    print(summary.line())
+
+
+def main() -> None:
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(levelname)s %(name)s: %(message)s",
+    )
+
+    if args.command == "refresh":
+        _run_refresh(args)
+        return
+    # No subcommand means ingest, so the invocation the README documents —
+    # `airchivist-crawler -i bookmarks.json -o airchivist.db` — keeps working.
+    _run_ingest(args)
 
 
 if __name__ == "__main__":

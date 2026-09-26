@@ -3,7 +3,10 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from crawler import cli
+from crawler.datastore import Datastore
 from crawler.models import ChannelMetadata, VideoMetadata
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -335,3 +338,96 @@ class TestCliBackfillChannels:
                   )),
                   mock_channel_fetch=mock_ch)
         mock_ch.assert_not_called()
+
+
+class TestRefreshSubcommand:
+    def test_refresh_calls_run_refresh_with_the_parsed_options(self, tmp_path, monkeypatch):
+        db = tmp_path / "t.db"
+        with Datastore(db):
+            pass
+        captured = {}
+
+        def fake_run_refresh(ds, limit, delay, **kwargs):
+            captured["limit"] = limit
+            captured["delay"] = delay
+            from crawler.refresh import RefreshSummary
+            return RefreshSummary(attempted=0, library_total=0, counts={}, elapsed_seconds=0.0)
+
+        monkeypatch.setattr("crawler.cli.run_refresh", fake_run_refresh)
+        monkeypatch.setattr(
+            "sys.argv",
+            ["airchivist-crawler", "refresh", "--db", str(db), "--limit", "5", "--delay", "0"],
+        )
+        cli.main()
+        assert captured == {"limit": 5, "delay": 0.0}
+
+    def test_refresh_defaults_to_200(self, tmp_path, monkeypatch):
+        db = tmp_path / "t.db"
+        with Datastore(db):
+            pass
+        captured = {}
+
+        def fake_run_refresh(ds, limit, delay, **kwargs):
+            captured["limit"] = limit
+            from crawler.refresh import RefreshSummary
+            return RefreshSummary(attempted=0, library_total=0, counts={}, elapsed_seconds=0.0)
+
+        monkeypatch.setattr("crawler.cli.run_refresh", fake_run_refresh)
+        monkeypatch.setattr("sys.argv", ["airchivist-crawler", "refresh", "--db", str(db)])
+        cli.main()
+        assert captured["limit"] == 200
+
+    def test_refresh_prints_the_summary_line(self, tmp_path, monkeypatch, capsys):
+        db = tmp_path / "t.db"
+        with Datastore(db):
+            pass
+        monkeypatch.setattr("sys.argv", ["airchivist-crawler", "refresh", "--db", str(db)])
+        cli.main()
+        assert "refreshed 0 of 0" in capsys.readouterr().out
+
+    def test_refresh_exits_1_when_the_database_is_missing(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "sys.argv",
+            ["airchivist-crawler", "refresh", "--db", str(tmp_path / "nope.db")],
+        )
+        with pytest.raises(SystemExit) as exc:
+            cli.main()
+        assert exc.value.code == 1
+
+    def test_refresh_does_not_require_an_input_file(self, tmp_path, monkeypatch):
+        """The whole reason for subcommands: -i is meaningless for a refresh."""
+        db = tmp_path / "t.db"
+        with Datastore(db):
+            pass
+        monkeypatch.setattr("sys.argv", ["airchivist-crawler", "refresh", "--db", str(db)])
+        cli.main()  # must not raise SystemExit(2) for a missing -i
+
+
+class TestIngestStaysBackwardCompatible:
+    def test_a_bare_input_output_invocation_still_ingests(self, tmp_path, monkeypatch):
+        """The README documents this exact form; it must keep working verbatim."""
+        bookmarks = tmp_path / "bm.json"
+        bookmarks.write_text("[]")
+        called = {}
+
+        def fake_parse(path):
+            called["parsed"] = path
+            return []
+
+        monkeypatch.setattr("crawler.cli.parse", fake_parse)
+        monkeypatch.setattr(
+            "sys.argv",
+            ["airchivist-crawler", "-i", str(bookmarks), "-o", str(tmp_path / "out.db")],
+        )
+        cli.main()
+        assert called["parsed"] == bookmarks
+
+    def test_an_explicit_ingest_subcommand_also_works(self, tmp_path, monkeypatch):
+        bookmarks = tmp_path / "bm.json"
+        bookmarks.write_text("[]")
+        monkeypatch.setattr("crawler.cli.parse", lambda path: [])
+        monkeypatch.setattr(
+            "sys.argv",
+            ["airchivist-crawler", "ingest", "-i", str(bookmarks), "-o", str(tmp_path / "out.db")],
+        )
+        cli.main()  # must not raise
