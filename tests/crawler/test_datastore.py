@@ -782,6 +782,31 @@ class TestUpsertVideoPreservesOnFailure:
         assert row["fetch_status"] == "deleted"
 
 
+class TestMarkFetchAttempted:
+    def test_moves_only_last_fetched_at(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            ds.upsert_video(
+                VideoMetadata(video_id="aaaaaaaaaa1", url="u", title="Original Title",
+                              fetch_status=FetchStatus.OK),
+                Bookmark(url="u", title="T"),
+            )
+            ds.set_fetch_status("aaaaaaaaaa1", FetchStatus.DELETED, "Video unavailable")
+            ds._conn.execute("UPDATE videos SET last_fetched_at = '2020-01-01T00:00:00+00:00'")
+            ds._conn.commit()
+
+            ds.mark_fetch_attempted("aaaaaaaaaa1")
+            row = ds.get_video_by_id("aaaaaaaaaa1")
+        assert row["last_fetched_at"] > "2020-01-01T00:00:00+00:00"
+        assert row["fetch_status"] == "deleted"
+        assert row["fetch_error"] == "Video unavailable"
+        assert row["title"] == "Original Title"
+
+    def test_an_unknown_video_id_is_a_no_op(self, tmp_path):
+        with Datastore(tmp_path / "t.db") as ds:
+            ds.mark_fetch_attempted("zzzzzzzzzz9")
+            assert ds.get_video_by_id("zzzzzzzzzz9") is None
+
+
 class TestGetStaleVideoIds:
     def _seed(self, ds, rows):
         """rows: list of (video_id, last_fetched_at or None)."""

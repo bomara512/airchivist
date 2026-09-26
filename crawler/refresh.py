@@ -13,8 +13,8 @@ DEFAULT_LIMIT = 200
 
 # Tally key for a video whose fetch raised something `fetch_metadata` does not
 # convert into a FetchStatus — a bare network error, say. Not a FetchStatus member
-# because nothing is written to the row: the video keeps its old status so the next
-# run retries it.
+# because no status is written to the row: the video keeps the last status that was
+# actually determined. Only `last_fetched_at` moves; see `mark_fetch_attempted`.
 FAILED = "failed"
 
 
@@ -54,7 +54,8 @@ def run_refresh(
     One video's unexpected failure never aborts the run: a nightly job that gave up
     on the first transient network error would silently stop maintaining the library,
     and the failure would only be visible to someone reading the log. Such a video is
-    counted under FAILED and left untouched, so the next run picks it up again.
+    counted under FAILED, keeps its stored status and error, and has only its
+    `last_fetched_at` bumped so it goes to the back of the rotation.
     """
     started = time.monotonic()
     video_ids = ds.get_stale_video_ids(limit)
@@ -66,6 +67,10 @@ def run_refresh(
         except Exception as exc:
             logger.error("Unexpected error refreshing %s: %s", video_id, exc)
             counts[FAILED] = counts.get(FAILED, 0) + 1
+            # Status and error stay as they were — a bare network error says nothing
+            # about the video — but last_fetched_at moves, so a repeatably failing
+            # video rotates to the back instead of blocking the queue head forever.
+            ds.mark_fetch_attempted(video_id)
             continue
         ds.refresh_video(metadata)
         counts[metadata.fetch_status] = counts.get(metadata.fetch_status, 0) + 1

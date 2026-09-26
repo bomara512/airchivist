@@ -225,15 +225,30 @@ what needs testing, not yt-dlp or the network.
 converts yt-dlp's own errors into a `fetch_status` (`private`, `deleted`,
 `error`), but a bare network or OS error propagates as a real exception.
 `run_refresh` catches broad `Exception` around each `fetch` call, logs it,
-tallies it under a `"failed"` key (not a `FetchStatus` member — nothing is
-written to that video's row), and moves to the next video. This is a
+tallies it under a `"failed"` key (not a `FetchStatus` member — no *status*
+is written to that video's row), and moves to the next video. This is a
 deliberate trade-off for a job that runs unattended at 3am: a narrower
 `except` would be more precise about what it catches, but the failure mode
 of catching too little — one transient error stopping the library being
 maintained at all, discoverable only by reading a log nobody reads — is far
-worse than the failure mode of catching too much. The untouched row means
-`last_fetched_at` stays old, so the next run retries it for free with no
-separate retry logic.
+worse than the failure mode of catching too much.
+
+The failed row is not left completely untouched: `run_refresh` calls
+`Datastore.mark_fetch_attempted(video_id)`, which bumps `last_fetched_at`
+and deliberately writes neither `fetch_status` nor `fetch_error` (a bare
+network error says nothing about the video, so the last status that *was*
+determined stays put). Changed 2026-09-26; previously the row was untouched
+entirely. `last_fetched_at` is also the selection cursor for
+`get_stale_video_ids`, so not bumping it parked a deterministically failing
+video — a URL yt-dlp chokes on, a permanent 403 — at the head of the queue
+on every run forever. At `limit` such videos the rotation stops completely
+and nothing else is ever refreshed again, with the only symptom a summary
+line reading `refreshed 200 of 2959 (200 failed)`. The trade-off was ruled
+explicitly: not bumping risks unbounded harm (a stalled rotation), bumping
+risks a bounded, self-correcting one (an outage spanning one run pushes up
+to `limit` videos to the back of a ~15-day rotation, losing no data and
+misreporting nothing). There is still no separate retry logic — a failed
+video is simply re-examined when its turn comes round again.
 
 The run produces a `RefreshSummary` (`attempted`, `library_total`, `counts`
 keyed by `fetch_status` string values plus `"failed"`, `elapsed_seconds`).
@@ -547,6 +562,7 @@ Key decisions:
 - All `datetime` values stored as ISO-8601 strings.
 - Implements `__enter__`/`__exit__` for context manager usage.
 - `get_stale_video_ids(limit)`: the read side of the nightly refresh — the `limit` least-recently-refreshed video IDs, stalest first, ordered by `last_fetched_at ASC`. Never-fetched rows (`last_fetched_at IS NULL`) sort first for free, because SQLite orders `NULL` before any value in an ascending sort — no `NULLS FIRST` needed, and adding it would be redundant with the default. Includes hidden videos and videos already marked `deleted`/`private`: an archived video that gets deleted upstream is exactly the case where keeping the last-known title matters, and a private video can become public again, so nothing is excluded from consideration. A non-positive `limit` returns `[]` before the query runs at all — not defensive boilerplate: SQLite reads `LIMIT -1` as *no limit whatsoever*, so a typo'd or miscomputed negative limit would otherwise refresh the entire library (thousands of videos) in one run instead of nothing.
+- `mark_fetch_attempted(video_id)`: writes `last_fetched_at` and deliberately nothing else — not `fetch_status`, not `fetch_error`. Used only by `run_refresh`'s unexpected-exception path, where a bare network or OS error says nothing about the video itself, so the last status that *was* determined must stay put; but `last_fetched_at` is the selection cursor, so it has to move or a repeatably failing video blocks the queue head forever. No-op if the row is absent.
 - `count_videos()`: total row count in `videos`, used as the denominator for the refresh run's summary (e.g. "responded to 40 of 2,959").
 
 Run `pytest tests/crawler/test_datastore.py` — all pass.

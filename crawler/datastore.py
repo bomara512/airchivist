@@ -315,6 +315,27 @@ class Datastore:
         )
         self._conn.commit()
 
+    def mark_fetch_attempted(self, video_id: str) -> None:
+        """Record that a fetch was tried, without recording an outcome.
+
+        Writes `last_fetched_at` and **deliberately nothing else** — not
+        `fetch_status`, not `fetch_error`. It exists for the nightly refresh's
+        unexpected-exception path, where a bare network or OS error says nothing
+        about the video itself, so the last status that did know must stay put.
+
+        `last_fetched_at` doubles as the selection cursor for
+        `get_stale_video_ids`, so leaving it alone would park a deterministically
+        failing video at the head of the queue forever; at `limit` such videos the
+        rotation stops entirely. Bumping it costs at most one missed cycle for a
+        video caught by a transient outage — bounded and self-correcting, unlike a
+        stalled rotation. No-op if the row is absent.
+        """
+        self._conn.execute(
+            "UPDATE videos SET last_fetched_at = ? WHERE video_id = ?",
+            (datetime.now(UTC).isoformat(), video_id),
+        )
+        self._conn.commit()
+
     def count_videos(self) -> int:
         return self._conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
 

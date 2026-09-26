@@ -70,6 +70,55 @@ class TestRunRefresh:
         assert summary.counts["ok"] == 2
         assert summary.counts["failed"] == 1
 
+    def test_a_failure_advances_last_fetched_at_but_writes_nothing_else(self, tmp_path):
+        """Leaving the row completely untouched was right for a transient error and
+        wrong for a repeatable one: `last_fetched_at` is the selection cursor, so a
+        deterministically-failing video sat at the head of the queue forever."""
+        def fake_fetch(video_id, delay=0):
+            raise OSError("network unreachable")
+
+        with Datastore(tmp_path / "t.db") as ds:
+            _seed(ds, "aaaaaaaaaa1")
+            ds.set_fetch_status("aaaaaaaaaa1", FetchStatus.PRIVATE, "Private video")
+            ds._conn.execute("UPDATE videos SET last_fetched_at = '2020-01-01T00:00:00+00:00'")
+            ds._conn.commit()
+
+            run_refresh(ds, limit=10, delay=0, fetch=fake_fetch)
+            row = ds.get_video_by_id("aaaaaaaaaa1")
+
+        assert row["last_fetched_at"] > "2020-01-01T00:00:00+00:00"
+        # A bare network error says nothing about the video itself, so the last
+        # thing that did know stays put.
+        assert row["fetch_status"] == "private"
+        assert row["fetch_error"] == "Private video"
+        assert row["title"] == "Title aaaaaaaaaa1"
+
+    def test_a_failing_video_does_not_monopolize_the_next_selection(self, tmp_path):
+        """At 200 permanently-failing videos the rotation would stop entirely, with
+        the only symptom a summary line reading `refreshed 200 of N (200 failed)`."""
+        selected = []
+
+        def fake_fetch(video_id, delay=0):
+            selected.append(video_id)
+            raise OSError("network unreachable")
+
+        with Datastore(tmp_path / "t.db") as ds:
+            _seed(ds, "aaaaaaaaaa1", "aaaaaaaaaa2")
+            ds._conn.execute(
+                "UPDATE videos SET last_fetched_at = '2020-01-01T00:00:00+00:00' "
+                "WHERE video_id = 'aaaaaaaaaa1'"
+            )
+            ds._conn.execute(
+                "UPDATE videos SET last_fetched_at = '2021-01-01T00:00:00+00:00' "
+                "WHERE video_id = 'aaaaaaaaaa2'"
+            )
+            ds._conn.commit()
+
+            run_refresh(ds, limit=1, delay=0, fetch=fake_fetch)
+            run_refresh(ds, limit=1, delay=0, fetch=fake_fetch)
+
+        assert selected == ["aaaaaaaaaa1", "aaaaaaaaaa2"]
+
     def test_an_empty_library_is_a_clean_zero_run(self, tmp_path):
         """Review Focus #5."""
         def fake_fetch(video_id, delay=0):
