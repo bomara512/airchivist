@@ -102,6 +102,31 @@ This refreshes the 200 stalest videos by default (`--limit` to change that) and 
 one-line summary, e.g. `refreshed 200 of 2958 (196 ok, 3 deleted, 1 private) in 5m12s`. Run
 `airchivist-crawler refresh --help` for all options.
 
+## Scheduling the refresh
+
+`airchivist-crawler refresh` re-fetches the 200 least-recently-updated videos, so
+running it nightly cycles a 3,000-video library about every two weeks. A `launchd`
+template is in `scripts/com.airchivist.refresh.plist`.
+
+1. Find the absolute path to the installed command: `which airchivist-crawler`
+2. Edit the copy of the plist, replacing both `/REPLACE/` paths and the log path.
+   launchd does no shell expansion — a `~` is a literal directory name, and a
+   relative command is never found.
+3. Run it by hand once first, so a misconfiguration surfaces where you can see it:
+   `airchivist-crawler refresh --db airchivist.db --limit 5`
+4. Install and load it:
+
+```bash
+cp scripts/com.airchivist.refresh.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.airchivist.refresh.plist
+```
+
+Check that launchd knows about it with `launchctl list | grep airchivist`, and read
+the log to see what a run did — each run ends with one line like
+`refreshed 200 of 2958 (196 ok, 3 deleted, 1 private) in 5m12s`.
+
+To stop it: `launchctl unload ~/Library/LaunchAgents/com.airchivist.refresh.plist`.
+
 ## Run the app
 
 ```bash

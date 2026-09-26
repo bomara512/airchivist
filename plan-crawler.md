@@ -237,8 +237,8 @@ separate retry logic.
 
 The run produces a `RefreshSummary` (`attempted`, `library_total`, `counts`
 keyed by `fetch_status` string values plus `"failed"`, `elapsed_seconds`).
-Its `line()` method is the entire user interface of this feature — for a
-launchd job (Task 6), one line in a log file is all anyone will ever see:
+Its `line()` method is the entire user interface of this feature — for the
+launchd job below, one line in a log file is all anyone will ever see:
 
 ```
 refreshed 200 of 2958 (196 ok, 3 deleted, 1 private) in 5m12s
@@ -248,6 +248,28 @@ Elapsed time reads as plain seconds under a minute (`4s`) and as
 zero-padded `MmSSs` at a minute or more (`5m12s`), so both a quick spot
 check and an overnight run render as one glance-able token instead of a
 raw float.
+
+### Scheduling
+
+`scripts/com.airchivist.refresh.plist` is a `launchd` template that runs
+`airchivist-crawler refresh --db <path>` daily at 3am. It is opt-in: the
+file ships with the repo but is never installed or loaded automatically —
+a user copies it to `~/Library/LaunchAgents/`, replaces the two `/REPLACE/`
+placeholders (the absolute path to the installed `airchivist-crawler` and
+to their database) and the log path, then loads it with `launchctl load`.
+`RunAtLoad` is `false` on purpose, so installing the job doesn't
+immediately kick off a multi-minute run. `StandardOutPath` and
+`StandardErrorPath` both point at the same log file, so `RefreshSummary.line()`
+is the entire log — one line per night, no logging framework needed.
+
+Absolute paths are mandatory and non-negotiable: launchd performs no shell
+expansion (`~` is a literal directory name) and a launchd job does not
+inherit an interactive `PATH` (so a bare `airchivist-crawler` is never
+found). Either mistake produces a job that loads without error and simply
+never runs. `tests/scripts/test_refresh_plist.py` parses the plist with
+`plistlib` and asserts every non-flag `ProgramArguments` entry starts with
+`/`, so a regression here is caught by `pytest` rather than by a silent
+missed night.
 
 ---
 
@@ -288,7 +310,9 @@ Refresh-only options:
 Exit codes:
   0   Success
   1   Input file not found (ingest) / database not found (refresh)
-  2   Input file format unrecognized, or (top-level form only) -i/-o missing
+  2   Input file format unrecognized, or -i/-o missing (top-level form: a
+      custom guard in `_run_ingest`; explicit `ingest` form: argparse's own
+      required-argument error) — same code, different mechanism
   3   Database error (ingest)
 ```
 

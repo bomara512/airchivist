@@ -6,6 +6,40 @@ Decisions are listed chronologically. Dates before 2026-05-28 are approximate �
 
 ## 2026-09-26
 
+### feat: add a launchd template for the nightly refresh
+
+Added `scripts/com.airchivist.refresh.plist`, a `launchd` template that runs
+`airchivist-crawler refresh --db <path>` daily at 3am, plus
+`tests/scripts/test_refresh_plist.py` (6 tests) that parses it with
+`plistlib` and pins its shape: the `refresh` subcommand and `--db` flag are
+present, it fires once a day at 03:00, `RunAtLoad` is `false`, both stdout
+and stderr are captured to one `airchivist-refresh.log`, and every
+non-flag `ProgramArguments` entry is an absolute path. README gained a
+"Scheduling the refresh" section walking through finding the installed
+binary's path, editing the two `/REPLACE/` placeholders, a dry run before
+installing, and the `launchctl load`/`unload` commands.
+
+Also corrected `plan-crawler.md`'s exit-code table: exit 2 for a missing
+`-i`/`-o` was described as "(top-level form only)", but an explicit
+`airchivist-crawler ingest` with no `-i`/`-o` also exits 2 — via argparse's
+own required-argument error rather than the custom guard `_run_ingest`
+added in the previous entry. Same code, different mechanism; both paths
+are now documented.
+
+- **Pro:** scheduling is opt-in and inert until a person deliberately
+  installs it — the plist is a template shipped in the repo, not something
+  the app loads or runs on its own, and `RunAtLoad` is `false` so even
+  installing it doesn't trigger an immediate multi-minute run. Absolute
+  paths are enforced by a test, not just a comment, so the one mistake
+  that would make the job silently never fire (a `~` or a bare command
+  name — launchd expands neither) is caught before it ships.
+- **Con:** the two `/REPLACE/` placeholders are a manual, per-machine edit
+  with no validation beyond the README's instructions and the user's own
+  care — a copy-pasted plist with a stale path from a different checkout
+  would still load and still fail silently, since `launchctl load` only
+  reports whether the plist itself is well-formed, not whether the paths
+  inside it resolve.
+
 ### feat: add the refresh subcommand to airchivist-crawler
 
 Restructured `crawler/cli.py` into `ingest` and `refresh` subcommands so

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Nightly Airchivist metadata refresh.
+
+  Replace the two /REPLACE/ paths below with absolute paths before loading:
+    1. the installed airchivist-crawler (`which airchivist-crawler`)
+    2. your database
+
+  Absolute paths are mandatory. launchd performs no shell expansion, so a `~` is a
+  literal directory name, and a launchd job does not inherit an interactive PATH, so
+  a bare `airchivist-crawler` is never found. Either mistake fails silently.
+
+  Install:  cp scripts/com.airchivist.refresh.plist ~/Library/LaunchAgents/
+            launchctl load ~/Library/LaunchAgents/com.airchivist.refresh.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.airchivist.refresh</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/REPLACE/with/path/to/airchivist-crawler</string>
+        <string>refresh</string>
+        <string>--db</string>
+        <string>/REPLACE/with/path/to/airchivist.db</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/airchivist-refresh.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/airchivist-refresh.log</string>
+</dict>
+</plist>
