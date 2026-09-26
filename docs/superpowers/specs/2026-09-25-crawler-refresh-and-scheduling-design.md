@@ -116,8 +116,15 @@ Two behaviors, chosen by `metadata.fetch_status`:
 
 - **`ok`** — update `url`, `title`, `description`, `channel_name`, `channel_id`,
   `yt_view_count`, `duration_seconds`, `thumbnail_url`, `date_published`,
-  `fetch_status`, `fetch_error` (to `NULL`), `last_fetched_at`. Also re-apply yt-tags
-  and aliases, as `upsert_video` does.
+  `fetch_status`, `fetch_error` (to `NULL`), `last_fetched_at`. **Do not re-apply
+  yt-tags or aliases.** (Corrected 2026-09-26. This spec originally said "Also
+  re-apply yt-tags and aliases, as `upsert_video` does," and that sentence was the
+  root cause of a Critical data-integrity bug. `upsert_video` runs once, when a
+  video enters the library; `refresh_video` runs unattended every ~15 days. Tag
+  application is `INSERT OR IGNORE` into `video_tags`, which is idempotent against
+  the database but not against the user: every link removed in the webapp came back
+  on the next nightly run. Update YouTube-owned scalar columns only; picking up
+  genuinely new upstream tags is a separate feature needing its own design.)
 - **anything else** — update **only** `fetch_status`, `fetch_error`, and
   `last_fetched_at`. Every descriptive column keeps its last successful value.
 

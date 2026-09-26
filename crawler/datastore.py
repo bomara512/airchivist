@@ -172,10 +172,21 @@ class Datastore:
     # Columns a successful fetch is allowed to overwrite. Deliberately excludes
     # date_added, personal_view_count, date_last_viewed, is_watched, is_favorite,
     # is_hidden and date_hidden — those are the user's own data, not YouTube's.
-    _REFRESHABLE_COLUMNS = (
-        "url", "title", "description", "channel_name", "channel_id",
-        "yt_view_count", "duration_seconds", "thumbnail_url", "date_published",
+    #
+    # Split by what an absent value means. For these, "absent" is never meaningful
+    # information — a video always has a URL, a channel and a publish date — so a
+    # None can only mean the fetch did not report it, and COALESCE keeps the stored
+    # value. `fetch_status = ok` only says `extract_info` did not raise: duration is
+    # None for a live stream or scheduled premiere, view count is None when the
+    # uploader hides it, and channel_name comes from `info.get("uploader")`, which
+    # yt-dlp has drifted on across versions and player clients.
+    _COALESCED_COLUMNS = (
+        "url", "channel_name", "channel_id", "yt_view_count",
+        "duration_seconds", "thumbnail_url", "date_published",
     )
+    # ...and for these two, "YouTube says it is empty now" is a real thing a
+    # successful fetch can report, so they are assigned through.
+    _CLEARABLE_COLUMNS = ("title", "description")
 
     def refresh_video(self, metadata: VideoMetadata) -> None:
         """Update an existing video from a re-fetch. No-op if the row is absent.
@@ -187,6 +198,20 @@ class Datastore:
         job that wrote them through would erase the record of what a since-deleted
         video was. That is the whole reason this method exists rather than reusing
         `upsert_video`.
+
+        Even on the OK branch most columns go through COALESCE, exactly as
+        `upsert_video` does — see `_COALESCED_COLUMNS`. The asymmetry with
+        `upsert_video` is therefore narrow: only `title` and `description` are
+        assigned through here, because those are the two fields a successful fetch
+        can legitimately report as now-empty, and this branch (unlike `upsert_video`)
+        has already checked the fetch's overall status before believing that.
+
+        Deliberately does NOT apply yt-tags or aliases, unlike `upsert_video`. Those
+        are one-time, at-ingest operations: `INSERT OR IGNORE` into `video_tags` is
+        idempotent against the database but not against the user, who can remove a
+        tag link in the webapp. Re-applying them on a ~15-day timer would silently
+        restore every link the user had deliberately removed. Picking up genuinely
+        new upstream tags is a separate feature and needs its own design.
         """
         now = datetime.now(UTC).isoformat()
         if metadata.fetch_status != FetchStatus.OK:
@@ -201,13 +226,23 @@ class Datastore:
             self._conn.commit()
             return
 
-        assignments = ", ".join(f"{col} = ?" for col in self._REFRESHABLE_COLUMNS)
-        values = [
-            metadata.url, metadata.title, metadata.description,
-            metadata.channel_name, metadata.channel_id, metadata.yt_view_count,
-            metadata.duration_seconds, metadata.thumbnail_url,
-            _dt(metadata.date_published),
-        ]
+        incoming = {
+            "url": metadata.url,
+            "title": metadata.title,
+            "description": metadata.description,
+            "channel_name": metadata.channel_name,
+            "channel_id": metadata.channel_id,
+            "yt_view_count": metadata.yt_view_count,
+            "duration_seconds": metadata.duration_seconds,
+            "thumbnail_url": metadata.thumbnail_url,
+            "date_published": _dt(metadata.date_published),
+        }
+        columns = (*self._COALESCED_COLUMNS, *self._CLEARABLE_COLUMNS)
+        assignments = ", ".join(
+            f"{col} = COALESCE(?, {col})" if col in self._COALESCED_COLUMNS else f"{col} = ?"
+            for col in columns
+        )
+        values = [incoming[col] for col in columns]
         self._conn.execute(
             f"""
             UPDATE videos
@@ -218,8 +253,6 @@ class Datastore:
             (*values, metadata.fetch_status, now, metadata.video_id),
         )
         self._conn.commit()
-        self._apply_yt_tags(metadata)
-        apply_aliases(self._conn, metadata.video_id)
 
     def _apply_yt_tags(self, metadata: VideoMetadata) -> None:
         all_names = [*metadata.yt_categories, *metadata.yt_tags]

@@ -2,8 +2,12 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime
 
-from crawler.datastore import Datastore
+import pytest
+
+from crawler.datastore import Datastore, apply_aliases
 from crawler.models import Bookmark, ChannelMetadata, FetchStatus, VideoMetadata
+from webapp.db import init_webapp_tables
+from webapp.db.tags import remove_video_tag
 
 
 def _make_metadata(video_id="abc12345678", **kwargs):
@@ -612,6 +616,135 @@ class TestRefreshVideo:
                 video_id="zzzzzzzzzz9", url="u", fetch_status=FetchStatus.OK, title="T",
             ))
             assert ds.get_video_by_id("zzzzzzzzzz9") is None
+
+
+class TestRefreshVideoDoesNotBlankAbsentFields:
+    """`fetch_status == ok` means `extract_info` did not raise — not that every
+    field came back populated.
+
+    Reachable with no upstream bug at all: `duration_seconds` is None for a live
+    stream or scheduled premiere, `yt_view_count` is None when the uploader hides
+    counts, and `channel_name` comes from `info.get("uploader")`, which yt-dlp has
+    drifted on across versions and player clients. `channel_name` is the dangerous
+    one — the channel select, /channels, group-by-channel and get_stats all key on
+    it, so a blanked value drops the row out of its channel silently.
+    """
+
+    _STORED = dict(
+        url="https://www.youtube.com/watch?v=aaaaaaaaaa1",
+        title="Original Title",
+        description="Original description",
+        channel_name="Original Channel",
+        channel_id="UCorig",
+        yt_view_count=1000,
+        duration_seconds=600,
+        thumbnail_url="https://example.test/thumb.jpg",
+        date_published=datetime(2024, 1, 2, 3, 4, 5),
+    )
+
+    def _seed(self, ds):
+        ds.upsert_video(
+            VideoMetadata(video_id="aaaaaaaaaa1", fetch_status=FetchStatus.OK, **self._STORED),
+            Bookmark(url=self._STORED["url"], title="T"),
+        )
+
+    @pytest.mark.parametrize("field,stored", [
+        ("url", "https://www.youtube.com/watch?v=aaaaaaaaaa1"),
+        ("channel_name", "Original Channel"),
+        ("channel_id", "UCorig"),
+        ("yt_view_count", 1000),
+        ("duration_seconds", 600),
+        ("thumbnail_url", "https://example.test/thumb.jpg"),
+        ("date_published", "2024-01-02T03:04:05"),
+    ])
+    def test_an_ok_fetch_missing_one_field_keeps_the_stored_value(self, tmp_path, field, stored):
+        incoming = {**self._STORED, field: None}
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed(ds)
+            ds.refresh_video(VideoMetadata(
+                video_id="aaaaaaaaaa1", fetch_status=FetchStatus.OK, **incoming,
+            ))
+            row = ds.get_video_by_id("aaaaaaaaaa1")
+        assert row[field] == stored
+
+    def test_title_and_description_are_still_clearable(self, tmp_path):
+        """The asymmetry is deliberate: for these two, "YouTube says it is empty
+        now" is a real thing a successful fetch can report."""
+        with Datastore(tmp_path / "t.db") as ds:
+            self._seed(ds)
+            ds.refresh_video(VideoMetadata(
+                video_id="aaaaaaaaaa1", url=self._STORED["url"],
+                title=None, description=None, fetch_status=FetchStatus.OK,
+            ))
+            row = ds.get_video_by_id("aaaaaaaaaa1")
+        assert row["title"] is None
+        assert row["description"] is None
+
+
+class TestRefreshDoesNotResurrectRemovedTags:
+    """A refresh must never undo the user's own tag curation.
+
+    Before the nightly job existed, `_apply_yt_tags` and `apply_aliases` ran once
+    per video, at ingest. On a timer they would re-add every link the user had
+    deliberately removed through the webapp, roughly every 15 days — silently
+    eroding hand-built editorial state.
+    """
+
+    def _seed(self, tmp_path):
+        """A video carrying a raw yt-tag plus an alias rule onto a canonical tag."""
+        db_path = tmp_path / "t.db"
+        ds = Datastore(db_path)
+        init_webapp_tables(str(db_path))  # tag_aliases lives in the webapp schema
+        ds.upsert_video(
+            VideoMetadata(
+                video_id="aaaaaaaaaa1",
+                url="https://www.youtube.com/watch?v=aaaaaaaaaa1",
+                title="Original Title",
+                fetch_status=FetchStatus.OK,
+                yt_tags=["guitar", "lesson"],
+            ),
+            Bookmark(url="https://www.youtube.com/watch?v=aaaaaaaaaa1", title="T"),
+        )
+        canonical_id = ds.add_tag("stringed instruments")
+        ds._conn.execute(
+            "UPDATE tags SET is_canonical = 1 WHERE id = ?", (canonical_id,)
+        )
+        ds._conn.execute(
+            "INSERT INTO tag_aliases (pattern, match_type, canonical_tag_id) "
+            "VALUES ('guitar', 'exact', ?)",
+            (canonical_id,),
+        )
+        ds._conn.commit()
+        apply_aliases(ds._conn, "aaaaaaaaaa1")
+        return ds, canonical_id
+
+    def _tag_id(self, ds, name):
+        return ds._conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()[0]
+
+    def test_a_removed_yt_tag_stays_removed(self, tmp_path):
+        ds, _ = self._seed(tmp_path)
+        with closing(ds):
+            remove_video_tag(ds._conn, "aaaaaaaaaa1", self._tag_id(ds, "lesson"))
+            assert "lesson" not in ds.get_tags_for_video("aaaaaaaaaa1")
+
+            ds.refresh_video(VideoMetadata(
+                video_id="aaaaaaaaaa1", url="u", title="Original Title",
+                fetch_status=FetchStatus.OK, yt_tags=["guitar", "lesson"],
+            ))
+            assert "lesson" not in ds.get_tags_for_video("aaaaaaaaaa1")
+
+    def test_a_removed_alias_derived_canonical_tag_stays_removed(self, tmp_path):
+        ds, canonical_id = self._seed(tmp_path)
+        with closing(ds):
+            assert "stringed instruments" in ds.get_tags_for_video("aaaaaaaaaa1")
+            remove_video_tag(ds._conn, "aaaaaaaaaa1", canonical_id)
+            assert "stringed instruments" not in ds.get_tags_for_video("aaaaaaaaaa1")
+
+            ds.refresh_video(VideoMetadata(
+                video_id="aaaaaaaaaa1", url="u", title="Original Title",
+                fetch_status=FetchStatus.OK, yt_tags=["guitar", "lesson"],
+            ))
+            assert "stringed instruments" not in ds.get_tags_for_video("aaaaaaaaaa1")
 
 
 class TestUpsertVideoPreservesOnFailure:
